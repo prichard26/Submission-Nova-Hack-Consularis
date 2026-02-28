@@ -26,11 +26,18 @@ if not GROQ_KEY:
 
 SYSTEM_PROMPT = """You are Aurelius, a process consul in the style of ancient Rome. You help users refine their pharmacy medication process graph. You speak formally but helpfully, using occasional Latin flourishes (e.g. "Salve", "the Senate shall note") and phrases like "we shall", "excellent", "as you wish".
 
+You have full powers over the graph. You may:
+- Update steps: name, actor, duration_min, description, inputs, outputs, risks (use update_node).
+- Add steps to a phase (add_node) or remove steps (delete_node). Removing a step also removes its edges.
+- Add links between steps (add_edge), remove links (delete_edge), or change a link's label/condition (update_edge).
+- Reconnect: to move a link from A→B to A→C, first delete_edge(A,B) then add_edge(A,C). Use get_edges or get_graph to see current connections.
+
 RULES:
-- You may ONLY modify the graph by using the tools provided. Never invent step IDs or edges; use only existing IDs from the graph.
-- If the user's request is ambiguous, or you cannot identify which step (e.g. P1.2) or which change they want, do NOT call any tool. Reply briefly: "I did not quite understand. Please repeat: which step do you mean (e.g. P1.2), and what would you like to change?" or similar.
-- If the user asks something unrelated to the pharmacy process graph (e.g. weather, other topics), reply politely: "I am here only to help you refine your pharmacy process graph. Which step or link would you like to change?"
-- After a successful tool call, confirm what you did in one short sentence.
+- You may ONLY modify the graph by using the tools provided. Never invent step IDs or edges; use only existing IDs from the graph (except when adding a new step, which gets an id from the phase).
+- If the user wants to remove multiple steps or edges, call the appropriate tool once per item (e.g. delete_node for each step, delete_edge for each link).
+- If the user's request is ambiguous, or you cannot identify which step (e.g. P1.2) or link they mean, do NOT call any tool. Ask briefly for clarification.
+- If the user asks something unrelated to the pharmacy process graph, reply politely that you are here only to help refine the graph.
+- After successful tool calls, confirm what you did in one short sentence.
 - Keep replies concise (one to three sentences) unless the user asks for more.
 - Never output function call syntax, tool names, or raw JSON in your reply. Reply only in natural language.
 """
@@ -87,7 +94,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "add_node",
-            "description": "Add a new step to a phase. phase_id is e.g. P1, P2, ... P7.",
+            "description": "Add a new step to a phase. Use when the user wants to add a step. phase_id is e.g. P1, P2, ... P7.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -110,7 +117,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "delete_node",
-            "description": "Remove a step and its edges. Use only if the user explicitly asks to remove a step.",
+            "description": "Remove a step and all its incoming/outgoing edges. Use when the user wants to remove one or more steps (call once per step).",
             "parameters": {
                 "type": "object",
                 "properties": {"node_id": {"type": "string"}},
@@ -150,14 +157,29 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "add_edge",
-            "description": "Add a link between two steps.",
+            "description": "Add a link between two steps. Use to connect steps or to reconnect (after removing an edge).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "source": {"type": "string"},
-                    "target": {"type": "string"},
+                    "source": {"type": "string", "description": "Source step id, e.g. P1.1"},
+                    "target": {"type": "string", "description": "Target step id, e.g. P1.2"},
                     "label": {"type": "string"},
                     "condition": {"type": "string"},
+                },
+                "required": ["source", "target"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_edge",
+            "description": "Remove a link between two steps. Use when the user wants to remove a connection, disconnect steps, or before reconnecting (remove old edge then add_edge for the new one).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string", "description": "Source step id of the edge to remove"},
+                    "target": {"type": "string", "description": "Target step id of the edge to remove"},
                 },
                 "required": ["source", "target"],
             },
@@ -188,10 +210,17 @@ def _sanitize_reply(text: str) -> str:
     return text.strip() or text
 
 
+def _edge_exists(graph: dict, source: str, target: str) -> bool:
+    for c in graph.get("flow_connections", []):
+        if c.get("from") == source and c.get("to") == target:
+            return True
+    return False
+
+
 def try_apply_message_update(session_id: str, user_message: str) -> bool:
     """
-    Fallback: if the LLM didn't use tool_calls, try to apply a duration/name/actor
-    update from the user message so the graph still updates. Returns True if we applied something.
+    Fallback: if the LLM didn't use tool_calls, try to apply updates from the user message
+    so the graph still updates. Returns True if we applied something.
     """
     if not user_message or not user_message.strip():
         return False
@@ -217,6 +246,69 @@ def try_apply_message_update(session_id: str, user_message: str) -> bool:
     if m and m.group(1) in step_ids:
         update_node(session_id, m.group(1), {"name": m.group(2).strip()})
         return True
+
+    # Remove edge: "remove link from P1.1 to P1.2", "delete edge P1.1 P1.2", "remove connection P1.1 to P1.2"
+    src, tgt = None, None
+    m = re.search(
+        r"(?:remove|delete|disconnect)\s+(?:link|edge|connection)\s+(?:from\s+)?(P\d+\.\d+)\s+(?:to|->|-)\s*(P\d+\.\d+)",
+        msg, re.IGNORECASE
+    )
+    if m:
+        src, tgt = m.group(1), m.group(2)
+    if not src:
+        m = re.search(r"(?:remove|delete)\s+(?:link|edge)\s+(P\d+\.\d+)\s+(?:and|to|->|-)\s*(P\d+\.\d+)", msg, re.IGNORECASE)
+        if m:
+            src, tgt = m.group(1), m.group(2)
+    if not src:
+        m = re.search(r"(P\d+\.\d+)\s*(?:and|to|->|-)\s*(P\d+\.\d+)\s*(?:link|edge|connection)\s*(?:remove|delete)", msg, re.IGNORECASE)
+        if m:
+            src, tgt = m.group(1), m.group(2)
+    if src and tgt and src in step_ids and tgt in step_ids and _edge_exists(graph, src, tgt):
+        delete_edge(session_id, src, tgt)
+        return True
+
+    # Reconnect: "reconnect P1.1 from P1.2 to P1.3", "change link P1.1-P1.2 to P1.1-P1.3"
+    m = re.search(
+        r"reconnect\s+(P\d+\.\d+)\s+from\s+(P\d+\.\d+)\s+to\s+(P\d+\.\d+)",
+        msg, re.IGNORECASE
+    )
+    if m:
+        src, old_tgt, new_tgt = m.group(1), m.group(2), m.group(3)
+        if src in step_ids and old_tgt in step_ids and new_tgt in step_ids and _edge_exists(graph, src, old_tgt):
+            delete_edge(session_id, src, old_tgt)
+            add_edge(session_id, src, new_tgt)
+            return True
+    m = re.search(r"(?:change|move)\s+link\s+(?:from\s+)?(P\d+\.\d+)[\s\-–—]+(P\d+\.\d+)\s+to\s+(P\d+\.\d+)[\s\-–—]*(P\d+\.\d+)?", msg, re.IGNORECASE)
+    if m:
+        a, b, c, d = m.group(1), m.group(2), m.group(3), m.group(4)
+        if d:  # "P1.1-P1.2 to P1.1-P1.3" -> (a,b) to (c,d)
+            if a == c and _edge_exists(graph, a, b) and d in step_ids:
+                delete_edge(session_id, a, b)
+                add_edge(session_id, a, d)
+                return True
+        elif _edge_exists(graph, a, b) and c in step_ids:  # "P1.1-P1.2 to P1.3" -> new target P1.3
+            delete_edge(session_id, a, b)
+            add_edge(session_id, a, c)
+            return True
+
+    # Remove one or more nodes: "remove step P1.1", "delete P1.1", "remove P1.1, P1.2 and P1.3"
+    # Only if they didn't say "link/edge/connection" (that was handled above)
+    if not re.search(r"(?:link|edge|connection)\s*(?:from|between)?", msg, re.IGNORECASE):
+        node_ids_to_remove = re.findall(r"(P\d+\.\d+)", msg)
+        remove_keywords = re.search(
+            r"(?:remove|delete)\s+(?:step|node)s?\s*(?:P\d+\.\d+|\s|,|and)*",
+            msg, re.IGNORECASE
+        ) or re.search(
+            r"(?:remove|delete)\s+(?:P\d+\.\d+(?:\s*,?\s*(?:and\s+)?)?)+",
+            msg, re.IGNORECASE
+        )
+        if remove_keywords and node_ids_to_remove:
+            removed = 0
+            for nid in node_ids_to_remove:
+                if nid in step_ids and delete_node(session_id, nid):
+                    removed += 1
+            if removed:
+                return True
 
     return False
 
@@ -258,6 +350,13 @@ def _run_tool(session_id: str, name: str, arguments: dict) -> str:
                 arguments.get("condition"),
             )
             return json.dumps(e) if e else json.dumps({"error": "Invalid source/target or edge exists"})
+        if name == "delete_edge":
+            ok = delete_edge(
+                session_id,
+                arguments["source"],
+                arguments["target"],
+            )
+            return json.dumps({"deleted": ok}) if ok else json.dumps({"error": "Edge not found"})
         if name == "validate_graph":
             out = validate_graph(session_id)
             return json.dumps(out)
