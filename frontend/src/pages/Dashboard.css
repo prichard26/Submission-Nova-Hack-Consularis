@@ -1,0 +1,149 @@
+.dashboard {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0d0a07;
+  overflow: hidden;
+}
+
+/* ── Top bar ── */
+.dashboard__topbar {
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid #2e2820;
+  background: #12100d;
+  z-index: 10;
+}
+
+.dashboard__topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.dashboard__logo {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fbf9f1;
+}
+.dashboard__logo-dot { color: #e85d04; }
+
+.dashboard__company {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #a09080;
+}
+
+.dashboard__badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  background: rgba(232, 93, 4, 0.12);
+  border: 1px solid rgba(232, 93, 4, 0.3);
+  color: #e85d04;
+}
+
+/* ── Phase tabs ── */
+.dashboard__phases {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 0.5rem;
+}
+.dashboard__phases::-webkit-scrollbar { display: none; }
+
+.phase-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #7a6f60;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.phase-tab:hover {
+  color: #c9bfb0;
+  background: #1e1914;
+}
+
+.phase-tab--active {
+  color: #e85d04;
+  background: rgba(232, 93, 4, 0.1);
+  border-color: rgba(232, 93, 4, 0.25);
+}
+
+.phase-tab__id {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: inherit;
+  opacity: 0.7;
+}
+
+/* ── Chat toggle ── */
+.dashboard__chat-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #2e2820;
+  background: #1e1914;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #a09080;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dashboard__chat-toggle:hover {
+  border-color: rgba(232, 93, 4, 0.4);
+  color: #e85d04;
+}
+
+.dashboard__chat-toggle--active {
+  border-color: rgba(232, 93, 4, 0.5);
+  background: rgba(232, 93, 4, 0.08);
+  color: #e85d04;
+}
+
+/* ── Canvas ── */
+.dashboard__canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Override React Flow defaults to match dark theme */
+.react-flow__controls button {
+  background: #1e1914 !important;
+  border-color: #2e2820 !important;
+  color: #a09080 !important;
+}
+.react-flow__controls button:hover {
+  background: #2a2218 !important;
+  color: #e85d04 !important;
+}
+.react-flow__controls svg { fill: currentColor !important; }

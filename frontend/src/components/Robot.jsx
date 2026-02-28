@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './Robot.css'
 
-export default function Robot({ speaking, message }) {
+export default function Robot({ speaking, message, size = 'normal' }) {
   const [displayedText, setDisplayedText] = useState('')
   const [blinking, setBlinking] = useState(false)
 
@@ -26,7 +26,7 @@ export default function Robot({ speaking, message }) {
   }, [message])
 
   return (
-    <div className="robot-container">
+    <div className={`robot-container robot-container--${size}`}>
       <div className={`robot ${speaking ? 'robot--speaking' : ''}`}>
         {/* Laurel crown */}
         <div className="robot__crown">

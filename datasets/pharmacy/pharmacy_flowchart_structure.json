@@ -1,0 +1,71 @@
+{
+  "title": "Pharmacy Medication Circuit – Flowchart Structure",
+  "description": "Structured graph representation of the pharmacy medication circuit for programmatic rendering (Mermaid, D3, React Flow, etc.)",
+
+  "nodes": [
+    { "id": "P1.1", "label": "Prescribe Medication", "phase": "Prescription", "actor": "Physician", "type": "task", "duration": "5-10 min", "x": 0, "y": 0 },
+    { "id": "P1.2", "label": "Verify Prescription", "phase": "Prescription", "actor": "Pharmacist", "type": "task", "duration": "5-10 min", "x": 0, "y": 1 },
+    { "id": "P1.3", "label": "Approve Prescription", "phase": "Prescription", "actor": "Pharmacist", "type": "task", "duration": "3-5 min", "x": 0, "y": 2 },
+
+    { "id": "P2.1", "label": "Select Medication", "phase": "Selection & Acquisition", "actor": "Pharmacist", "type": "decision", "duration": "15 min", "x": 0, "y": 3 },
+    { "id": "P2.2", "label": "Acquire Medication", "phase": "Selection & Acquisition", "actor": "Procurement", "type": "task", "duration": "1h-3d", "x": -1, "y": 4 },
+    { "id": "P2.3", "label": "Receive Shipment", "phase": "Selection & Acquisition", "actor": "Pharmacy Tech", "type": "task", "duration": "30 min", "x": -1, "y": 5 },
+    { "id": "P2.4", "label": "Verify Shipment", "phase": "Selection & Acquisition", "actor": "QA", "type": "task", "duration": "20 min", "x": -1, "y": 6 },
+
+    { "id": "P3.1", "label": "Classify & Shelve", "phase": "Storage", "actor": "Pharmacy Tech", "type": "task", "duration": "15-30 min", "x": -1, "y": 7 },
+    { "id": "P3.2", "label": "Monitor Conditions", "phase": "Storage", "actor": "System", "type": "task", "duration": "continuous", "x": -2, "y": 7 },
+    { "id": "P3.3", "label": "Inventory Management", "phase": "Storage", "actor": "Pharmacist", "type": "decision", "duration": "daily", "x": -1, "y": 8 },
+
+    { "id": "P4.1", "label": "Prepare Distribution", "phase": "Distribution", "actor": "Pharmacy Tech", "type": "task", "duration": "20-45 min", "x": 0, "y": 9 },
+    { "id": "P4.2", "label": "Transport to Unit", "phase": "Distribution", "actor": "Porter/AGV", "type": "task", "duration": "10-30 min", "x": 0, "y": 10 },
+    { "id": "P4.3", "label": "Stock Care Unit", "phase": "Distribution", "actor": "Nurse", "type": "task", "duration": "15-20 min", "x": 0, "y": 11 },
+
+    { "id": "P5.1", "label": "Compound / Prepare", "phase": "Dispensing", "actor": "Pharmacist", "type": "task", "duration": "5-60 min", "x": 1, "y": 4 },
+    { "id": "P5.2", "label": "Final Verification", "phase": "Dispensing", "actor": "Pharmacist", "type": "task", "duration": "3-5 min", "x": 1, "y": 5 },
+    { "id": "P5.3", "label": "Patient Counseling", "phase": "Dispensing", "actor": "Pharmacist", "type": "task", "duration": "3-10 min", "x": 2, "y": 6 },
+
+    { "id": "P6.1", "label": "Prepare for Administration", "phase": "Administration", "actor": "Nurse", "type": "task", "duration": "3-5 min", "x": 0, "y": 12 },
+    { "id": "P6.2", "label": "Administer to Patient", "phase": "Administration", "actor": "Nurse", "type": "task", "duration": "2-10 min", "x": 0, "y": 13 },
+    { "id": "P6.3", "label": "Document Administration", "phase": "Administration", "actor": "Nurse", "type": "task", "duration": "2-3 min", "x": 0, "y": 14 },
+
+    { "id": "P7.1", "label": "Monitor Patient Response", "phase": "Monitoring", "actor": "Nurse/Physician", "type": "task", "duration": "ongoing", "x": 0, "y": 15 },
+    { "id": "P7.2", "label": "Handle Returns/Expired", "phase": "Monitoring", "actor": "Pharmacy Tech", "type": "task", "duration": "varies", "x": -2, "y": 9 },
+    { "id": "P7.3", "label": "Regulatory Reporting", "phase": "Monitoring", "actor": "Pharmacist/QA", "type": "task", "duration": "periodic", "x": -2, "y": 10 }
+  ],
+
+  "edges": [
+    { "from": "P1.1", "to": "P1.2", "type": "sequence" },
+    { "from": "P1.2", "to": "P1.3", "type": "sequence" },
+    { "from": "P1.3", "to": "P2.1", "type": "sequence" },
+    { "from": "P2.1", "to": "P5.1", "type": "conditional", "condition": "In stock" },
+    { "from": "P2.1", "to": "P2.2", "type": "conditional", "condition": "Out of stock" },
+    { "from": "P2.2", "to": "P2.3", "type": "sequence" },
+    { "from": "P2.3", "to": "P2.4", "type": "sequence" },
+    { "from": "P2.4", "to": "P3.1", "type": "sequence" },
+    { "from": "P3.1", "to": "P3.3", "type": "sequence" },
+    { "from": "P3.3", "to": "P2.2", "type": "conditional", "condition": "Below reorder point" },
+    { "from": "P3.3", "to": "P4.1", "type": "conditional", "condition": "Ward order received" },
+    { "from": "P3.3", "to": "P7.2", "type": "conditional", "condition": "Expired stock detected" },
+    { "from": "P4.1", "to": "P4.2", "type": "sequence" },
+    { "from": "P4.2", "to": "P4.3", "type": "sequence" },
+    { "from": "P5.1", "to": "P5.2", "type": "sequence" },
+    { "from": "P5.2", "to": "P5.3", "type": "conditional", "condition": "Outpatient" },
+    { "from": "P5.2", "to": "P4.1", "type": "conditional", "condition": "Inpatient" },
+    { "from": "P4.3", "to": "P6.1", "type": "sequence" },
+    { "from": "P6.1", "to": "P6.2", "type": "sequence" },
+    { "from": "P6.2", "to": "P6.3", "type": "sequence" },
+    { "from": "P6.3", "to": "P7.1", "type": "sequence" },
+    { "from": "P7.1", "to": "P1.1", "type": "conditional", "condition": "Dose adjustment needed" },
+    { "from": "P7.2", "to": "P7.3", "type": "sequence" }
+  ],
+
+  "phase_colors": {
+    "Prescription": "#e85d04",
+    "Selection & Acquisition": "#ff7a2e",
+    "Storage": "#d54d02",
+    "Distribution": "#c44000",
+    "Dispensing": "#ff9a5c",
+    "Administration": "#e85d04",
+    "Monitoring": "#b33d00"
+  }
+}

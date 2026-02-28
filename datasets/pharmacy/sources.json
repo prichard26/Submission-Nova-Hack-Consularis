@@ -1,0 +1,42 @@
+{
+  "sources": [
+    {
+      "id": "tohm",
+      "name": "TOHM – The Open Healthcare Process Mapping Project",
+      "url": "https://tohm.io/docs/pharmacy-and-medication-circuit/",
+      "type": "open-source process mapping",
+      "notation": "BPMN",
+      "description": "Collaborative project mapping healthcare processes using BPMN notation. Pharmacy and Medication Circuit available in Level 1 and Level 2 detail.",
+      "pages_used": [
+        "https://tohm.io/docs/pharmacy-and-medication-circuit/",
+        "https://tohm.io/docs/2nd-level-process-pharmacy-and-medication-circuit/"
+      ]
+    },
+    {
+      "id": "biyout2018",
+      "name": "Drugs Circuit in the Hospital Pharmacy: Reorganization and Model Proposal",
+      "authors": ["Houda Biyout", "Abdelmajid Elouadi", "Hassan Mharzi"],
+      "year": 2018,
+      "journal": "Journal of Supply Chain and Customer Relationship Management",
+      "doi": "10.5171/2018.962304",
+      "url": "https://ibimapublishing.com/articles/JSCCRM/2018/962304/",
+      "license": "CC-BY 4.0",
+      "type": "academic paper",
+      "description": "BPM-based analysis and optimization proposal for hospital pharmacy drug circuit, covering procurement, storage, distribution. Includes SWOT analysis and value chain mapping."
+    },
+    {
+      "id": "ihe_hmw",
+      "name": "Hospital Medication Workflow – IHE Wiki",
+      "url": "https://wiki.ihe.net/index.php/Hospital_Medication_Workflow",
+      "type": "standard",
+      "description": "IHE (Integrating the Healthcare Enterprise) profile for hospital medication workflow integration."
+    },
+    {
+      "id": "fhir_supply",
+      "name": "IHE Pharmacy Supply – Use Case 1: Medication Order and Distribution",
+      "url": "https://build.fhir.org/ig/IHE/pharm-supply/usecase1.html",
+      "type": "standard / implementation guide",
+      "description": "FHIR-based implementation guide for pharmacy supply chain use cases, including medication ordering and floor stock distribution."
+    }
+  ]
+}

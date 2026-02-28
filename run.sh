@@ -42,7 +42,8 @@ if [[ ! -d .venv ]]; then
   python3 -m venv .venv
 fi
 source .venv/bin/activate
-pip install -q -r requirements.txt
+# Use PyPI explicitly to avoid broken index URLs (e.g. from pip config with bad extra-index-url)
+pip install -q -r requirements.txt --index-url https://pypi.org/simple
 cd "$REPO_ROOT"
 
 # --- Run backend in background ---

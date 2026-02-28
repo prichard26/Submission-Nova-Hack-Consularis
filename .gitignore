@@ -1,2 +1,5 @@
 # History (e.g. Cursor/local history)
 .history/
+
+# Backend secrets (Groq API key)
+backend/.env

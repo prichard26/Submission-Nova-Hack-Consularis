@@ -1,0 +1,207 @@
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.landing__bg-glow {
+  position: fixed;
+  width: 800px;
+  height: 800px;
+  border-radius: 50%;
+  background: var(--accent);
+  filter: blur(180px);
+  opacity: 0.05;
+  top: -300px;
+  right: -200px;
+  pointer-events: none;
+}
+
+.landing__header {
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.landing__logo {
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.landing__logo-dot { color: var(--accent); }
+
+.landing__tagline {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.landing__main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4rem;
+  padding: 3rem 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Robot area ── */
+.landing__robot-area {
+  flex-shrink: 0;
+}
+
+/* ── Form side ── */
+.landing__form-area {
+  flex: 1;
+  max-width: 440px;
+}
+
+.landing__title {
+  font-family: var(--font-sans);
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+.landing__subtitle {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+/* ── Sector tiles ── */
+.landing__sectors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+}
+
+.sector-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  position: relative;
+  transition: all 0.2s;
+}
+
+.sector-tile--active {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.sector-tile--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sector-tile__icon { font-size: 1.1rem; }
+
+.sector-tile__label {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sector-tile__badge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 20px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.sector-tile__check {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: white;
+  font-weight: 700;
+}
+
+/* ── Form ── */
+.landing__form {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.landing__input {
+  flex: 1;
+  padding: 0.8rem 1.1rem;
+  font-size: 0.95rem;
+  font-family: var(--font-body);
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.landing__input::placeholder { color: var(--text-muted); }
+.landing__input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.landing__input:disabled { opacity: 0.5; }
+
+.landing__btn {
+  padding: 0.8rem 1.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.landing__btn:hover:not(:disabled) {
+  background: var(--accent-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+.landing__btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Responsive ── */
+@media (max-width: 680px) {
+  .landing__main {
+    flex-direction: column;
+    gap: 2rem;
+    padding: 2rem 1.25rem;
+  }
+  .landing__form { flex-direction: column; }
+  .landing__sectors { grid-template-columns: 1fr 1fr; }
+}

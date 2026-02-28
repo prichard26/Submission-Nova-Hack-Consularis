@@ -1,0 +1,80 @@
+%%{ init: { 'theme': 'dark', 'themeVariables': { 'primaryColor': '#e85d04', 'primaryBorderColor': '#d54d02', 'lineColor': '#7a6f60' } } }%%
+
+flowchart TD
+    %% ─── PRESCRIPTION ───
+    subgraph P1["Phase 1: Prescription"]
+        P1_1["P1.1 Prescribe Medication\n👨‍⚕️ Physician · 5-10 min"]
+        P1_2["P1.2 Verify Prescription\n💊 Pharmacist · 5-10 min"]
+        P1_3["P1.3 Approve Prescription\n💊 Pharmacist · 3-5 min"]
+        P1_1 --> P1_2 --> P1_3
+    end
+
+    %% ─── SELECTION, ACQUISITION, RECEPTION ───
+    subgraph P2["Phase 2: Selection & Acquisition"]
+        P2_1{"P2.1 Select Medication\n💊 Pharmacist · 15 min"}
+        P2_2["P2.2 Acquire Medication\n📦 Procurement · 1h-3d"]
+        P2_3["P2.3 Receive Shipment\n🔧 Tech · 30 min"]
+        P2_4["P2.4 Verify Shipment\n✅ QA · 20 min"]
+        P2_1 -->|Out of stock| P2_2
+        P2_2 --> P2_3 --> P2_4
+    end
+
+    %% ─── STORAGE ───
+    subgraph P3["Phase 3: Storage & Inventory"]
+        P3_1["P3.1 Classify & Shelve\n🔧 Tech · 15-30 min"]
+        P3_2["P3.2 Monitor Conditions\n🌡️ System · continuous"]
+        P3_3{"P3.3 Inventory Management\n💊 Pharmacist · daily"}
+        P3_1 --> P3_2
+        P3_1 --> P3_3
+    end
+
+    %% ─── DISTRIBUTION ───
+    subgraph P4["Phase 4: Distribution"]
+        P4_1["P4.1 Prepare Distribution\n🔧 Tech · 20-45 min"]
+        P4_2["P4.2 Transport to Unit\n🚚 Porter/AGV · 10-30 min"]
+        P4_3["P4.3 Stock Care Unit\n👩‍⚕️ Nurse · 15-20 min"]
+        P4_1 --> P4_2 --> P4_3
+    end
+
+    %% ─── DISPENSING ───
+    subgraph P5["Phase 5: Dispensing & Preparation"]
+        P5_1["P5.1 Compound / Prepare\n💊 Pharmacist · 5-60 min"]
+        P5_2["P5.2 Final Verification\n💊 Pharmacist · 3-5 min"]
+        P5_3["P5.3 Patient Counseling\n💊 Pharmacist · 3-10 min"]
+        P5_1 --> P5_2
+        P5_2 -->|Outpatient| P5_3
+    end
+
+    %% ─── ADMINISTRATION ───
+    subgraph P6["Phase 6: Administration"]
+        P6_1["P6.1 Prepare for Admin\n👩‍⚕️ Nurse · 3-5 min"]
+        P6_2["P6.2 Administer to Patient\n👩‍⚕️ Nurse · 2-10 min"]
+        P6_3["P6.3 Document Admin\n👩‍⚕️ Nurse · 2-3 min"]
+        P6_1 --> P6_2 --> P6_3
+    end
+
+    %% ─── MONITORING & WASTE ───
+    subgraph P7["Phase 7: Monitoring & Waste"]
+        P7_1["P7.1 Monitor Patient\n👨‍⚕️ Nurse/Physician · ongoing"]
+        P7_2["P7.2 Handle Returns/Expired\n🔧 Tech"]
+        P7_3["P7.3 Regulatory Reporting\n💊 Pharmacist/QA"]
+        P7_1 -->|Dose adjustment| P1_1
+        P7_2 --> P7_3
+    end
+
+    %% ─── CROSS-PHASE CONNECTIONS ───
+    P1_3 --> P2_1
+    P2_1 -->|In stock| P5_1
+    P2_4 --> P3_1
+    P3_3 -->|Below reorder| P2_2
+    P3_3 -->|Ward order| P4_1
+    P3_3 -->|Expired detected| P7_2
+    P5_2 -->|Inpatient| P4_1
+    P4_3 --> P6_1
+    P6_3 --> P7_1
+
+    %% ─── STYLING ───
+    classDef phase fill:#1e1914,stroke:#e85d04,stroke-width:2px,color:#fbf9f1
+    classDef decision fill:#2a2218,stroke:#e85d04,stroke-width:2px,color:#fbf9f1
+    class P1_1,P1_2,P1_3,P2_2,P2_3,P2_4,P3_1,P3_2,P4_1,P4_2,P4_3,P5_1,P5_2,P5_3,P6_1,P6_2,P6_3,P7_1,P7_2,P7_3 phase
+    class P2_1,P3_3 decision

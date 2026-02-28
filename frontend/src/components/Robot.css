@@ -5,6 +5,11 @@
   gap: 2rem;
 }
 
+.robot-container--small {
+  transform: scale(0.72);
+  transform-origin: top center;
+}
+
 /* ── Robot body ── */
 .robot {
   position: relative;
