@@ -87,9 +87,11 @@ def api_chat(req: ChatRequest):
 
     _chat_history[session_id].append({"role": "user", "content": req.message})
 
-    message, _ = run_chat(session_id, _chat_history[session_id])
-    # Fallback: if the model didn't use tools, try to apply duration/name from user message
+    # Apply fallback first so the graph is updated even when the model doesn't call tools.
+    # Then run_chat can still reply nicely; we always return the graph after both.
     try_apply_message_update(session_id, req.message)
+    message, graph = run_chat(session_id, _chat_history[session_id])
+    try_apply_message_update(session_id, req.message)  # again in case fallback didn't match before
     graph = get_graph(session_id)
 
     _chat_history[session_id].append({"role": "assistant", "content": message})

@@ -34,6 +34,7 @@ You have full powers over the graph. You may:
 
 RULES:
 - You may ONLY modify the graph by using the tools provided. Never invent step IDs or edges; use only existing IDs from the graph (except when adding a new step, which gets an id from the phase).
+- When the user asks to change something (duration, name, remove a link, add/remove a step, reconnect), you MUST call the corresponding tool. Do not only reply with "I have updated..." without calling the tool — the change will not happen otherwise.
 - If the user wants to remove multiple steps or edges, call the appropriate tool once per item (e.g. delete_node for each step, delete_edge for each link).
 - If the user's request is ambiguous, or you cannot identify which step (e.g. P1.2) or link they mean, do NOT call any tool. Ask briefly for clarification.
 - If the user asks something unrelated to the pharmacy process graph, reply politely that you are here only to help refine the graph.
@@ -228,15 +229,30 @@ def try_apply_message_update(session_id: str, user_message: str) -> bool:
     step_ids = {s["id"] for phase in graph["phases"] for s in phase["steps"]}
     msg = user_message.strip()
 
-    # Duration: "P1.1 duration to 15", "change P2.3 to 10 min", "set P1.1 to 20 minutes"
+    # Duration: "P1.1 duration to 15", "change P2.3 to 10 min", "set P1.1 to 20 minutes", "make P1.1 take 15 min"
     node_id, dur = None, None
-    m = re.search(r"(P\d+\.\d+)\D*(?:duration\D*)?(?:to|:|=)?\s*(\d+)\s*(?:min|minutes?|minute)?", msg, re.IGNORECASE)
+    m = re.search(
+        r"(P\d+\.\d+)\D*(?:duration\D*)?(?:to|:|=)?\s*(\d+)\s*(?:min|minutes?|minute)?",
+        msg, re.IGNORECASE
+    )
     if m:
         node_id, dur = m.group(1), m.group(2)
     if not node_id:
-        m = re.search(r"(?:duration|durée)\s*(?:to|of|:|=)?\s*(\d+)\D*(P\d+\.\d+)", msg, re.IGNORECASE)
+        m = re.search(
+            r"(?:duration|durée)\s*(?:to|of|:|=)?\s*(\d+)\D*(P\d+\.\d+)",
+            msg, re.IGNORECASE
+        )
         if m:
             node_id, dur = m.group(2), m.group(1)
+    # "P1.1 15", "P1.1 = 15", "step P1.1 15 min" (number immediately after or nearby)
+    if not node_id:
+        m = re.search(r"(?:step\s+)?(P\d+\.\d+)\s*[=:]\s*(\d+)\s*(?:min|minutes?)?", msg, re.IGNORECASE)
+        if m:
+            node_id, dur = m.group(1), m.group(2)
+    if not node_id:
+        m = re.search(r"(P\d+\.\d+)\D{0,20}(\d+)\s*(?:min|minutes?|minute)\b", msg, re.IGNORECASE)
+        if m:
+            node_id, dur = m.group(1), m.group(2)
     if node_id and node_id in step_ids and dur:
         update_node(session_id, node_id, {"duration_min": str(dur)})
         return True
