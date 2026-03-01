@@ -38,3 +38,23 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.app-error {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  gap: 0.75rem;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.app-error button {
+  justify-self: center;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--text-primary);
+  font: inherit;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+}

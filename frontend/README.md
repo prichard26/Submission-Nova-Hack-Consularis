@@ -1,16 +1,90 @@
-# React + Vite
+# Consularis Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for process mapping and BPMN editing.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19
+- Vite 7
+- React Router
+- bpmn-js
+- React Flow (`@xyflow/react`)
+- ESLint
 
-## React Compiler
+## Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+From `frontend/`:
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+App runs on the Vite dev URL (typically `http://localhost:5173`).
+
+### Backend URL
+
+Frontend API calls use:
+
+- `VITE_API_BASE` when set
+- fallback: `http://localhost:8000`
+
+Example `.env` (frontend):
+
+```bash
+VITE_API_BASE=http://localhost:8000
+```
+
+## Scripts
+
+- `npm run dev` - start development server
+- `npm run build` - build production bundle
+- `npm run preview` - preview production build locally
+- `npm run lint` - run ESLint
+
+## Routes
+
+- `/` - Landing page (company input + sector tiles)
+- `/dashboard` - Graph workspace (process view, BPMN view, chat)
+
+Session is persisted in `sessionStorage` under `consularis_session`.
+
+## Project Structure
+
+```text
+frontend/
+  src/
+    components/
+      AppErrorBoundary.jsx     # Global runtime fallback UI
+      AureliusChat.jsx         # Chat assistant panel
+      BpmnViewer.jsx           # bpmn-js modeler wrapper
+      DataViewState.jsx        # Shared loading/error state UI
+      GraphCanvas.jsx          # Switches between process and BPMN viewers
+      ProcessGraphViewer.jsx   # React Flow renderer
+      Robot.jsx                # Landing mascot component
+    hooks/
+      useBpmnXml.js            # Fetch BPMN XML with fallback + cancellation
+      useGraphJson.js          # Fetch graph JSON + cancellation
+    pages/
+      Landing.jsx
+      Dashboard.jsx
+    services/
+      api.js                   # Shared API request helpers
+    App.jsx
+    main.jsx
+    index.css
+```
+
+## Data Flow
+
+1. User starts on `/` and submits a company name.
+2. Session is stored and user is routed to `/dashboard`.
+3. Dashboard toggles between:
+   - process graph (`ProcessGraphViewer`) using graph JSON
+   - BPMN editor (`BpmnViewer`) using BPMN XML
+4. Chat requests can trigger graph/BPMN refresh.
+
+## Notes
+
+- This frontend assumes the backend API is available.
+- Build currently emits a large chunk warning due to graph/modeling libraries; this is expected for now.

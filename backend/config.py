@@ -12,7 +12,7 @@ load_dotenv(_BACKEND_DIR / ".env")
 # API
 GROQ_KEY: str = os.getenv("GROQ_KEY", "")
 if not GROQ_KEY or GROQ_KEY.startswith("your_"):
-    GROQ_KEY = os.getenv("GROQ_KEY", "missing")
+    GROQ_KEY = "missing"
 
 # Paths
 _default_baseline = _BACKEND_DIR / "data" / "pharmacy_circuit.bpmn"
@@ -23,6 +23,8 @@ if not BASELINE_GRAPH_PATH.is_absolute():
 
 # Agent
 MAX_TOOL_ROUNDS: int = int(os.getenv("MAX_TOOL_ROUNDS", "10"))
+GROQ_TIMEOUT: float = float(os.getenv("GROQ_TIMEOUT", "60"))
+GROQ_MAX_RETRIES: int = int(os.getenv("GROQ_MAX_RETRIES", "2"))
 
 # CORS (comma-separated or default)
 _cors = os.getenv("ALLOWED_CORS_ORIGINS", "http://localhost:5173,http://localhost:5174")
@@ -30,7 +32,6 @@ ALLOWED_CORS_ORIGINS: list[str] = [o.strip() for o in _cors.split(",") if o.stri
 
 # Session validation
 SESSION_ID_MAX_LEN: int = 256
-SESSION_ID_ALLOWED_CHARS: str = ""
 
 # Storage: "memory" (default) or "file"
 STORAGE: str = os.getenv("STORAGE", "memory").strip().lower()

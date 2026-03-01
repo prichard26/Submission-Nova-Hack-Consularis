@@ -1,14 +1,17 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import AureliusChat from '../components/AureliusChat'
 import GraphCanvas from '../components/GraphCanvas'
 import './Dashboard.css'
 
-export default function Dashboard({ companyName }) {
+export default function Dashboard({ companyName, sector = 'pharmacy' }) {
   const [bpmnRefreshTrigger, setBpmnRefreshTrigger] = useState(0)
   const [chatOpen, setChatOpen] = useState(false)
   const [latestBpmnXml, setLatestBpmnXml] = useState('')
   const [graphViewMode, setGraphViewMode] = useState('custom')
-  const latestEditorXmlRef = useRef('')
+  const sectorLabel = useMemo(
+    () => `${sector.charAt(0).toUpperCase()}${sector.slice(1)}`,
+    [sector],
+  )
 
   const handleExternalGraphUpdate = useCallback((newBpmnXml) => {
     if (typeof newBpmnXml === 'string' && newBpmnXml.trim()) {
@@ -17,12 +20,16 @@ export default function Dashboard({ companyName }) {
     setBpmnRefreshTrigger((t) => t + 1)
   }, [])
 
-  const handleEditorXmlChange = useCallback((newBpmnXml) => {
-    // Keep a local copy without triggering viewer re-import on every edit.
-    if (typeof newBpmnXml === 'string' && newBpmnXml.trim()) {
-      latestEditorXmlRef.current = newBpmnXml
-    }
-  }, [])
+  const panelFooter = useMemo(() => {
+    if (graphViewMode !== 'bpmn') return null
+    return (
+      <AureliusChat
+        sessionId={companyName}
+        onGraphUpdate={handleExternalGraphUpdate}
+        onClose={() => setChatOpen(false)}
+      />
+    )
+  }, [graphViewMode, companyName, handleExternalGraphUpdate])
 
   return (
     <div className="dashboard">
@@ -33,7 +40,7 @@ export default function Dashboard({ companyName }) {
             Consularis<span className="dashboard__logo-dot">.</span>
           </span>
           <span className="dashboard__company">{companyName}</span>
-          <span className="dashboard__badge">Pharmacy</span>
+          <span className="dashboard__badge">{sectorLabel}</span>
           <div className="dashboard__view-toggle" role="tablist" aria-label="Graph view mode">
             <button
               className={`view-toggle-btn ${graphViewMode === 'custom' ? 'view-toggle-btn--active' : ''}`}
@@ -69,16 +76,7 @@ export default function Dashboard({ companyName }) {
           sessionId={companyName}
           refreshTrigger={bpmnRefreshTrigger}
           xmlOverride={latestBpmnXml}
-          onGraphUpdate={handleEditorXmlChange}
-          panelFooter={
-            graphViewMode === 'bpmn' ? (
-              <AureliusChat
-                sessionId={companyName}
-                onGraphUpdate={handleExternalGraphUpdate}
-                onClose={() => setChatOpen(false)}
-              />
-            ) : null
-          }
+          panelFooter={panelFooter}
         />
       </div>
 
@@ -88,6 +86,7 @@ export default function Dashboard({ companyName }) {
           sessionId={companyName}
           onGraphUpdate={handleExternalGraphUpdate}
           onClose={() => setChatOpen(false)}
+          isOverlay
         />
       )}
     </div>

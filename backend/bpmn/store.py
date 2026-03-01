@@ -9,18 +9,9 @@ from bpmn.model import (
     default_sequence_flow,
     default_task,
 )
+from bpmn.layout import GAP_X, GAP_Y, LANE_HEIGHT, layout_bounds, TASK_HEIGHT, TASK_WIDTH
 from bpmn.parser import parse_bpmn_xml
-from bpmn.serializer import (
-    GAP_X,
-    GAP_Y,
-    LANE_HEIGHT,
-    LANE_LABEL_WIDTH,
-    TASK_HEIGHT,
-    TASK_WIDTH,
-    EVENT_SIZE,
-    GATEWAY_SIZE,
-    serialize_bpmn_xml,
-)
+from bpmn.serializer import serialize_bpmn_xml
 
 _sessions: dict[str, BpmnModel] = {}
 _cached_baseline: BpmnModel | None = None
@@ -61,34 +52,11 @@ def get_bpmn_xml(session_id: str) -> str:
     return serialize_bpmn_xml(model)
 
 
-def _layout_bounds(model: BpmnModel) -> dict[str, tuple[int, int]]:
-    """Return node_id -> (x, y) using the same grid convention as BPMN serializer."""
-    bounds: dict[str, tuple[int, int]] = {}
-    y_offset = 0
-    for lane in model.lanes:
-        refs = lane.get("flow_node_refs", [])
-        x = LANE_LABEL_WIDTH
-        for node_id in refs:
-            kind = model.flow_node_type(node_id)
-            if kind == "task":
-                w, h = TASK_WIDTH, TASK_HEIGHT
-            elif kind in ("startEvent", "endEvent"):
-                w = h = EVENT_SIZE
-            elif kind == "exclusiveGateway":
-                w = h = GATEWAY_SIZE
-            else:
-                w, h = TASK_WIDTH, TASK_HEIGHT
-            dy = (LANE_HEIGHT - h) // 2
-            bounds[node_id] = (x, y_offset + max(0, dy))
-            x += w + GAP_X
-        y_offset += LANE_HEIGHT + GAP_Y
-    return bounds
-
-
 def get_graph_json(session_id: str) -> dict:
     """Return the session graph as JSON for custom frontend renderers."""
     model = get_or_create_session(session_id)
-    bounds = _layout_bounds(model)
+    full_bounds = layout_bounds(model)
+    bounds = {nid: (x, y) for nid, (x, y, _w, _h) in full_bounds.items()}
     task_by_id = {task["id"]: task for task in model.tasks}
 
     lanes = []

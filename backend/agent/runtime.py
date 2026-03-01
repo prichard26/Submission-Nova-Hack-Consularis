@@ -2,10 +2,11 @@
 import json
 import logging
 import re
+import time
 
 from groq import Groq
 
-from config import GROQ_KEY, MAX_TOOL_ROUNDS
+from config import GROQ_KEY, MAX_TOOL_ROUNDS, GROQ_TIMEOUT, GROQ_MAX_RETRIES
 from graph_store import get_bpmn_xml, get_graph_summary
 from agent.prompt import SYSTEM_PROMPT
 from agent.tools import TOOLS, run_tool
@@ -39,7 +40,7 @@ def run_chat(session_id: str, messages: list[dict], max_rounds: int | None = Non
             False,
         )
 
-    client = Groq(api_key=GROQ_KEY)
+    client = Groq(api_key=GROQ_KEY, timeout=GROQ_TIMEOUT)
     graph_context = "Current steps (use these IDs only): " + get_graph_summary(session_id)
 
     full_messages = [
@@ -49,14 +50,34 @@ def run_chat(session_id: str, messages: list[dict], max_rounds: int | None = Non
 
     final_message = ""
     for _ in range(max_rounds):
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=full_messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            temperature=0.3,
-            max_tokens=1024,
-        )
+        last_error = None
+        for attempt in range(GROQ_MAX_RETRIES + 1):
+            try:
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=full_messages,
+                    tools=TOOLS,
+                    tool_choice="auto",
+                    temperature=0.3,
+                    max_tokens=1024,
+                )
+                break
+            except Exception as e:
+                last_error = e
+                if attempt < GROQ_MAX_RETRIES:
+                    delay = 2 ** attempt
+                    logger.warning(
+                        "[AGENT] session_id=%s Groq call failed (attempt %d/%d), retrying in %ds: %s",
+                        session_id, attempt + 1, GROQ_MAX_RETRIES + 1, delay, e,
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.exception("[AGENT] session_id=%s Groq call failed after %d attempts", session_id, GROQ_MAX_RETRIES + 1)
+                    return (
+                        "The assistant is temporarily unavailable (API error or timeout). Please try again in a moment.",
+                        get_bpmn_xml(session_id),
+                        False,
+                    )
         choice = response.choices[0]
         if not choice.message.content and not getattr(choice.message, "tool_calls", None):
             break

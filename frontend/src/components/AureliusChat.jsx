@@ -4,7 +4,7 @@ import './AureliusChat.css'
 
 const WELCOME_MSG = "Salve! I am Aurelius, your process consul. Tell me which step you wish to change — use the step id (e.g. P1.2, P3.1) — and what to update. I shall refine your pharmacy graph. If I do not understand, I will ask you to repeat."
 
-export default function AureliusChat({ sessionId, onGraphUpdate, onClose }) {
+export default function AureliusChat({ sessionId, onGraphUpdate, onClose, isOverlay = false }) {
   const [messages, setMessages] = useState([
     { id: 1, role: 'assistant', text: WELCOME_MSG }
   ])
@@ -44,7 +44,12 @@ export default function AureliusChat({ sessionId, onGraphUpdate, onClose }) {
   }
 
   return (
-    <div className="chat-panel">
+    <div
+      className="chat-panel"
+      role={isOverlay ? 'dialog' : undefined}
+      aria-modal={isOverlay || undefined}
+      aria-label={isOverlay ? 'Aurelius assistant chat' : undefined}
+    >
       <div className="chat-panel__header">
         <div className="chat-panel__title-row">
           <div className="chat-panel__avatar">A</div>
@@ -53,7 +58,7 @@ export default function AureliusChat({ sessionId, onGraphUpdate, onClose }) {
             <div className="chat-panel__status">{loading ? 'Thinking…' : 'Process consul'}</div>
           </div>
         </div>
-        <button className="chat-panel__close" onClick={onClose}>✕</button>
+        <button className="chat-panel__close" onClick={onClose} aria-label="Close chat">✕</button>
       </div>
 
       <div className="chat-panel__messages">
@@ -81,7 +86,7 @@ export default function AureliusChat({ sessionId, onGraphUpdate, onClose }) {
           onChange={(e) => setInput(e.target.value)}
           disabled={loading}
         />
-        <button className="chat-panel__send" type="submit" disabled={!input.trim() || loading}>
+        <button className="chat-panel__send" type="submit" disabled={!input.trim() || loading} aria-label="Send message">
           ↑
         </button>
       </form>

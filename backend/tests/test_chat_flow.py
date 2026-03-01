@@ -1,15 +1,8 @@
 """Chat flow: run_chat returns (message, bpmn_xml, tools_used); API returns meta."""
 import os
 
-from fastapi.testclient import TestClient
-
 # Force no Groq key so run_chat returns without calling API
 os.environ["GROQ_KEY"] = "missing"
-
-from main import app
-
-# Tests use the app's global store via TestClient
-client = TestClient(app)
 
 
 def test_run_chat_returns_tools_used_flag():
@@ -27,7 +20,7 @@ def test_run_chat_returns_tools_used_flag():
     assert tools_used is False
 
 
-def test_api_chat_returns_meta():
+def test_api_chat_returns_meta(client):
     resp = client.post("/api/chat", json={"session_id": "meta-test-session", "message": "Hello"})
     assert resp.status_code == 200
     data = resp.json()
@@ -39,11 +32,11 @@ def test_api_chat_returns_meta():
     assert "fallback_used" in data["meta"]
 
 
-def test_api_chat_rejects_empty_session_id():
+def test_api_chat_rejects_empty_session_id(client):
     resp = client.post("/api/chat", json={"session_id": "", "message": "Hi"})
     assert resp.status_code == 422  # validation error
 
 
-def test_api_graph_endpoint_removed():
+def test_api_graph_endpoint_removed(client):
     resp = client.get("/api/graph", params={"session_id": "test-session"})
     assert resp.status_code == 404

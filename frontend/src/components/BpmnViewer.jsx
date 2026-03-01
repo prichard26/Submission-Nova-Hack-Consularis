@@ -1,10 +1,11 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
-import { getBpmnXml, getBaselineBpmnXml } from '../services/api'
+import { useBpmnXml } from '../hooks/useBpmnXml'
 import 'diagram-js/assets/diagram-js.css'
 import 'bpmn-js/dist/assets/bpmn-js.css'
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css'
 import './BpmnViewer.css'
+import DataViewState from './DataViewState'
 
 /**
  * Interactable BPMN 2.0 editor (like BA Copilot's AI BPMN Process Map Generator).
@@ -12,14 +13,15 @@ import './BpmnViewer.css'
  * Toolbar: zoom, fit, download PNG, export BPMN XML.
  * @see https://github.com/bpmn-io/bpmn-js
  */
-export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride = '', onXmlChange, panelFooter }) {
+export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride = '', panelFooter }) {
   const containerRef = useRef(null)
   const paletteContainerRef = useRef(null)
   const modelerRef = useRef(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [initializing, setInitializing] = useState(false)
+  const [viewerError, setViewerError] = useState(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const { xml, loading: xmlLoading, error: xmlError } = useBpmnXml(sessionId, refreshTrigger, xmlOverride)
 
   const getModeler = useCallback(() => modelerRef.current, [])
 
@@ -114,142 +116,132 @@ export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride 
   }, [getModeler])
 
   useEffect(() => {
-    if (!sessionId) {
-      setLoading(false)
-      setError('No session')
+    if (xmlLoading) return
+    if (xmlError) return
+    if (!xml?.trim()) return
+
+    let cancelled = false
+    const paletteContainer = paletteContainerRef.current
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setViewerError(null)
+        setInitializing(true)
+      }
+    })
+
+    const container = containerRef.current
+    if (!container) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setViewerError('Canvas not ready')
+          setInitializing(false)
+        }
+      })
       return
     }
 
-    let cancelled = false
-    setError(null)
-    setLoading(true)
+    const modeler = new BpmnModeler({
+      container,
+      width: '100%',
+      height: '100%',
+      position: 'relative',
+      bpmnRenderer: {
+        defaultFillColor: '#f5d4b8',
+        defaultStrokeColor: '#c97d3a',
+      },
+      textRenderer: {
+        defaultStyle: {
+          fontFamily: 'Helvetica, Arial, sans-serif',
+          fontSize: '14px',
+          fontWeight: '700',
+          fill: '#4a3020',
+        },
+      },
+    })
+    modelerRef.current = modeler
 
-    const loadXml = xmlOverride?.trim()
-      ? Promise.resolve(xmlOverride)
-      : getBpmnXml(sessionId).catch(() => getBaselineBpmnXml())
-
-    loadXml
-      .then((xml) => {
+    const onCommandStackChanged = () => {
+      // Defer so React state updates don't run while bpmn-js is mid-update (avoids crash)
+      queueMicrotask(() => {
         if (cancelled) return
-        if (!xml?.trim()) {
-          if (!cancelled) setError('Empty BPMN XML'), setLoading(false)
-          return
+        try {
+          const stack = modeler.get('commandStack')
+          setCanUndo(stack.canUndo())
+          setCanRedo(stack.canRedo())
+        } catch (err) {
+          void err
         }
-        const container = containerRef.current
-        if (!container) {
-          setError('Canvas not ready')
-          setLoading(false)
-          return
-        }
-        const modeler = new BpmnModeler({
-          container,
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-          bpmnRenderer: {
-            defaultFillColor: '#f5d4b8',
-            defaultStrokeColor: '#c97d3a',
-          },
-          textRenderer: {
-            defaultStyle: {
-              fontFamily: 'Helvetica, Arial, sans-serif',
-              fontSize: '14px',
-              fontWeight: '700',
-              fill: '#4a3020',
-            },
-          },
-        })
-        modelerRef.current = modeler
+      })
+    }
+    modeler._commandStackHandler = onCommandStackChanged
+    modeler.on('commandStack.changed', onCommandStackChanged)
 
-        const emitXmlChange = () => {
-          if (typeof onXmlChange !== 'function') return
-          modeler.saveXML({ format: true }).then(({ xml }) => onXmlChange(xml)).catch(() => {})
+    modeler
+      .importXML(xml)
+      .then((result) => {
+        if (cancelled) return
+        if (result?.warnings?.length) {
+          console.warn('[BpmnViewer] import warnings:', result.warnings)
         }
-        const onCommandStackChanged = () => {
-          // Defer so React state updates don't run while bpmn-js is mid-update (avoids crash)
-          queueMicrotask(() => {
-            if (cancelled) return
-            try {
-              const stack = modeler.get('commandStack')
-              setCanUndo(stack.canUndo())
-              setCanRedo(stack.canRedo())
-            } catch (_) {}
-            emitXmlChange()
-          })
-        }
-        modeler._commandStackHandler = onCommandStackChanged
-        modeler.on('commandStack.changed', onCommandStackChanged)
-
-        modeler
-          .importXML(xml)
-          .then((result) => {
-            if (cancelled) return
-            if (result?.warnings?.length) {
-              console.warn('[BpmnViewer] import warnings:', result.warnings)
-            }
-            setError(null)
-            // Ensure connection anchors are on shape borders, not centers
-            try {
-              const connectionDocking = modeler.get('connectionDocking', false)
-              const elementRegistry = modeler.get('elementRegistry')
-              const eventBus = modeler.get('eventBus')
-              const connections = []
-              if (connectionDocking && elementRegistry) {
-                elementRegistry.forEach((element) => {
-                  if (element.waypoints && element.source && element.target) {
-                    const cropped = connectionDocking.getCroppedWaypoints(element, element.source, element.target)
-                    if (cropped && cropped.length >= 2) {
-                      element.waypoints = cropped
-                      connections.push(element)
-                    }
-                  }
-                })
-                if (connections.length && eventBus) {
-                  eventBus.fire('elements.changed', { elements: connections })
+        setViewerError(null)
+        // Ensure connection anchors are on shape borders, not centers
+        try {
+          const connectionDocking = modeler.get('connectionDocking', false)
+          const elementRegistry = modeler.get('elementRegistry')
+          const eventBus = modeler.get('eventBus')
+          const connections = []
+          if (connectionDocking && elementRegistry) {
+            elementRegistry.forEach((element) => {
+              if (element.waypoints && element.source && element.target) {
+                const cropped = connectionDocking.getCroppedWaypoints(element, element.source, element.target)
+                if (cropped && cropped.length >= 2) {
+                  element.waypoints = cropped
+                  connections.push(element)
                 }
               }
-            } catch (e) {
-              console.warn('[BpmnViewer] connection dock crop:', e)
+            })
+            if (connections.length && eventBus) {
+              eventBus.fire('elements.changed', { elements: connections })
             }
-            modeler.get('canvas').zoom('fit-viewport')
-            // Move palette inside the panel and keep a single instance
-            const syncPaletteIntoPanel = () => {
-              const canvasContainer = containerRef.current
-              const panelContainer = paletteContainerRef.current
-              if (!canvasContainer || !panelContainer) return
+          }
+        } catch (e) {
+          console.warn('[BpmnViewer] connection dock crop:', e)
+        }
+        modeler.get('canvas').zoom('fit-viewport')
+        // Move palette inside the panel and keep a single instance
+        const syncPaletteIntoPanel = () => {
+          const canvasContainer = containerRef.current
+          const panelContainer = paletteContainerRef.current
+          if (!canvasContainer || !panelContainer) return
 
-              const paletteInCanvas = canvasContainer.querySelector('.djs-palette')
-              if (paletteInCanvas) {
-                panelContainer.appendChild(paletteInCanvas)
-              }
+          const paletteInCanvas = canvasContainer.querySelector('.djs-palette')
+          if (paletteInCanvas) {
+            panelContainer.appendChild(paletteInCanvas)
+          }
 
-              const palettesInPanel = panelContainer.querySelectorAll('.djs-palette')
-              palettesInPanel.forEach((el, idx) => {
-                if (idx < palettesInPanel.length - 1) el.remove()
-              })
-            }
-
-            setCanUndo(modeler.get('commandStack').canUndo())
-            setCanRedo(modeler.get('commandStack').canRedo())
-
-            syncPaletteIntoPanel()
-            const observer = new MutationObserver(syncPaletteIntoPanel)
-            const canvasContainer = containerRef.current
-            if (canvasContainer) observer.observe(canvasContainer, { childList: true, subtree: true })
-            modelerRef.current._paletteObserver = observer
-            setLoading(false)
+          const palettesInPanel = panelContainer.querySelectorAll('.djs-palette')
+          palettesInPanel.forEach((el, idx) => {
+            if (idx < palettesInPanel.length - 1) el.remove()
           })
-          .catch((err) => {
-            if (!cancelled) {
-              setError(err?.message || 'Failed to load BPMN')
-              setLoading(false)
-            }
-          })
+        }
+
+        setCanUndo(modeler.get('commandStack').canUndo())
+        setCanRedo(modeler.get('commandStack').canRedo())
+
+        syncPaletteIntoPanel()
+        const observer = new MutationObserver(syncPaletteIntoPanel)
+        const canvasContainer = containerRef.current
+        if (canvasContainer) observer.observe(canvasContainer, { childList: true, subtree: true })
+        modelerRef.current._paletteObserver = observer
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err?.message || 'Failed to fetch BPMN')
-          setLoading(false)
+          setViewerError(err?.message || 'Failed to load BPMN')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setInitializing(false)
         }
       })
 
@@ -266,12 +258,15 @@ export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride 
         }
         modeler.destroy()
       }
-      if (paletteContainerRef.current) {
-        paletteContainerRef.current.querySelectorAll('.djs-palette').forEach((el) => el.remove())
+      if (paletteContainer) {
+        paletteContainer.querySelectorAll('.djs-palette').forEach((el) => el.remove())
       }
       modelerRef.current = null
     }
-  }, [sessionId, refreshTrigger, xmlOverride, onXmlChange])
+  }, [xml, xmlLoading, xmlError])
+
+  const loading = xmlLoading || initializing
+  const error = xmlError || viewerError
 
   return (
     <div className="bpmn-viewer">
@@ -321,16 +316,13 @@ export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride 
           {panelFooter && <div className="bpmn-viewer__panel-footer">{panelFooter}</div>}
         </div>
       </aside>
-      {loading && (
-        <div className="bpmn-viewer__loading">
-          Loading BPMN…
-        </div>
-      )}
-      {error && (
-        <div className="bpmn-viewer__error" role="alert">
-          {error}
-        </div>
-      )}
+      <DataViewState
+        loading={loading}
+        error={error}
+        loadingText="Loading BPMN…"
+        loadingClassName="bpmn-viewer__loading"
+        errorClassName="bpmn-viewer__error"
+      />
       <div
         ref={containerRef}
         className="bpmn-viewer__canvas"

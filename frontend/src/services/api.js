@@ -5,46 +5,45 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
 
-async function request(path, options = {}) {
-  const url = `${API_BASE}${path}`
-  const res = await fetch(url, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    let detail = text
-    try {
-      const json = JSON.parse(text)
-      detail = json.detail ?? json.message ?? text
-    } catch (parseErr) {
-      void parseErr
-    }
-    const err = new Error(detail || `Request failed: ${res.status}`)
-    err.status = res.status
-    err.response = res
-    throw err
+async function buildError(res) {
+  const text = await res.text()
+  let detail = text
+  try {
+    const json = JSON.parse(text)
+    detail = json.detail ?? json.message ?? text
+  } catch (parseErr) {
+    void parseErr
   }
-  return res.json()
+  const err = new Error(detail || `Request failed: ${res.status}`)
+  err.status = res.status
+  err.response = res
+  return err
 }
 
-const API_BASE_FOR_TEXT = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
+async function request(path, options = {}) {
+  const { parseAs = 'json', headers = {}, ...rest } = options
+  const url = `${API_BASE}${path}`
+  const hasJsonBody = typeof rest.body === 'string'
+  const res = await fetch(url, {
+    ...rest,
+    headers: {
+      ...(hasJsonBody ? { 'Content-Type': 'application/json' } : {}),
+      ...headers,
+    },
+  })
+  if (!res.ok) {
+    throw await buildError(res)
+  }
+  if (parseAs === 'text') return res.text()
+  return res.json()
+}
 
 /**
  * Fetch the baseline BPMN 2.0 XML (raw file). Use to display the unmodified base graph.
  * @returns {Promise<string>} BPMN XML string
  */
-export async function getBaselineBpmnXml() {
-  const url = `${API_BASE_FOR_TEXT}/api/graph/baseline`
-  console.log('[getBaselineBpmnXml] Fetching baseline', { url })
-  const res = await fetch(url)
-  const text = await res.text()
-  if (!res.ok) {
-    console.error('[getBaselineBpmnXml] Failed', { status: res.status, body: text?.slice(0, 200) })
-    throw new Error(text || `Request failed: ${res.status}`)
-  }
-  console.log('[getBaselineBpmnXml] OK', { xmlLength: text?.length })
-  return text
+export function getBaselineBpmnXml(options = {}) {
+  return request('/api/graph/baseline', { ...options, parseAs: 'text' })
 }
 
 /**
@@ -52,18 +51,9 @@ export async function getBaselineBpmnXml() {
  * @param {string} sessionId - Session id (e.g. company name)
  * @returns {Promise<string>} BPMN XML string
  */
-export async function getBpmnXml(sessionId) {
+export function getBpmnXml(sessionId, options = {}) {
   const sid = encodeURIComponent(sessionId)
-  const url = `${API_BASE_FOR_TEXT}/api/graph/export?session_id=${sid}`
-  console.log('[getBpmnXml] Fetching graph', { sessionId, url })
-  const res = await fetch(url)
-  const text = await res.text()
-  if (!res.ok) {
-    console.error('[getBpmnXml] Failed', { status: res.status, body: text?.slice(0, 200) })
-    throw new Error(text || `Request failed: ${res.status}`)
-  }
-  console.log('[getBpmnXml] OK', { sessionId, xmlLength: text?.length, preview: text?.slice(0, 80) })
-  return text
+  return request(`/api/graph/export?session_id=${sid}`, { ...options, parseAs: 'text' })
 }
 
 /**
@@ -71,9 +61,9 @@ export async function getBpmnXml(sessionId) {
  * @param {string} sessionId - Session id (e.g. company name)
  * @returns {Promise<object>} graph payload with lanes, nodes, edges, and layout
  */
-export function getGraphJson(sessionId) {
+export function getGraphJson(sessionId, options = {}) {
   const sid = encodeURIComponent(sessionId)
-  return request(`/api/graph/json?session_id=${sid}`)
+  return request(`/api/graph/json?session_id=${sid}`, options)
 }
 
 /**
@@ -82,8 +72,9 @@ export function getGraphJson(sessionId) {
  * @param {string} message - User message
  * @returns {Promise<{ message: string, bpmn_xml: string, meta: object }>}
  */
-export function sendChat(sessionId, message) {
+export function sendChat(sessionId, message, options = {}) {
   return request('/api/chat', {
+    ...options,
     method: 'POST',
     body: JSON.stringify({ session_id: sessionId, message }),
   })

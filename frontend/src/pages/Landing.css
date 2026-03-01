@@ -195,6 +195,12 @@
 
 .landing__btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.landing__error {
+  margin-top: 0.5rem;
+  color: #ffad9a;
+  font-size: 0.85rem;
+}
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .landing__main {

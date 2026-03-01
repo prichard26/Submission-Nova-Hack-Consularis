@@ -6,6 +6,15 @@ import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 
 from bpmn.model import EXTENSION_KEYS
+from bpmn.layout import (
+    GAP_X,
+    GAP_Y,
+    LANE_HEIGHT,
+    LANE_LABEL_WIDTH,
+    TASK_HEIGHT,
+    TASK_WIDTH,
+    layout_bounds,
+)
 
 if TYPE_CHECKING:
     from bpmn.model import BpmnModel
@@ -15,17 +24,6 @@ CONSULARIS_NS = "http://consularis.example/bpmn"
 BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI"
 DC_NS = "http://www.omg.org/spec/DD/20100524/DC"
 DI_NS = "http://www.omg.org/spec/DD/20100524/DI"
-
-# Generous spacing to prevent titles, arrows, and boxes from overlapping
-# Lane names stay in the left strip; nodes start after it
-LANE_LABEL_WIDTH = 280
-TASK_WIDTH = 220
-TASK_HEIGHT = 112
-EVENT_SIZE = 44
-GATEWAY_SIZE = 56
-LANE_HEIGHT = 200
-GAP_Y = 24  # vertical gap between lanes so arrows don't sit on borders
-GAP_X = 140
 
 
 def _elem(tag: str, ns: str = BPMN_NS, text: str | None = None, **attrs: str) -> ET.Element:
@@ -74,34 +72,6 @@ def _extension_elements(task: dict) -> ET.Element | None:
 
 
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
-
-
-def _node_size(model: "BpmnModel", node_id: str) -> tuple[int, int]:
-    """Return (width, height) for a flow node."""
-    kind = model.flow_node_type(node_id)
-    if kind == "task":
-        return (TASK_WIDTH, TASK_HEIGHT)
-    if kind in ("startEvent", "endEvent"):
-        return (EVENT_SIZE, EVENT_SIZE)
-    if kind == "exclusiveGateway":
-        return (GATEWAY_SIZE, GATEWAY_SIZE)
-    return (TASK_WIDTH, TASK_HEIGHT)
-
-
-def _layout_bounds(model: "BpmnModel") -> dict[str, tuple[int, int, int, int]]:
-    """Return node_id -> (x, y, width, height). Lane names in 0..LANE_LABEL_WIDTH; nodes start after; GAP_Y between lanes."""
-    bounds: dict[str, tuple[int, int, int, int]] = {}
-    y_offset = 0
-    for lane in model.lanes:
-        refs = lane.get("flow_node_refs", [])
-        x = LANE_LABEL_WIDTH
-        for node_id in refs:
-            w, h = _node_size(model, node_id)
-            dy = (LANE_HEIGHT - h) // 2
-            bounds[node_id] = (x, y_offset + max(0, dy), w, h)
-            x += w + GAP_X
-        y_offset += LANE_HEIGHT + GAP_Y
-    return bounds
 
 
 def _segment_rect_intersections(
@@ -276,7 +246,7 @@ def serialize_bpmn_xml(model: "BpmnModel") -> str:
             cond.set(f"{{{XSI_NS}}}type", "bpmn:tFormalExpression")
 
     # Diagram interchange so bpmn-js can display the diagram
-    node_bounds = _layout_bounds(model)
+    node_bounds = layout_bounds(model)
     _add_diagram_interchange(definitions, model, node_bounds)
 
     ET.indent(definitions, space="  ")

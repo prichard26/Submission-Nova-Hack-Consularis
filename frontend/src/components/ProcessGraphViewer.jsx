@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import {
   Background,
   Controls,
@@ -9,10 +9,11 @@ import {
   Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { getGraphJson } from '../services/api'
+import { useGraphJson } from '../hooks/useGraphJson'
 import './ProcessGraphViewer.css'
+import DataViewState from './DataViewState'
 
-function ProcessTaskNode({ data }) {
+const ProcessTaskNode = memo(function ProcessTaskNode({ data }) {
   return (
     <div className="process-graph-viewer__task-node">
       <Handle type="target" position={Position.Left} className="process-graph-viewer__handle" />
@@ -24,7 +25,7 @@ function ProcessTaskNode({ data }) {
       </div>
     </div>
   )
-}
+})
 
 const nodeTypes = {
   processTask: ProcessTaskNode,
@@ -36,41 +37,7 @@ const nodeTypes = {
  * - Refreshes on either prop change so chat edits appear immediately.
  */
 export default function ProcessGraphViewer({ sessionId, refreshTrigger = 0 }) {
-  const [graph, setGraph] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!sessionId) {
-      setError('No session')
-      setGraph(null)
-      setLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setLoading(true)
-    setError('')
-
-    getGraphJson(sessionId)
-      .then((payload) => {
-        if (cancelled) return
-        setGraph(payload)
-        setError('')
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setError(err?.message || 'Failed to fetch graph')
-        setGraph(null)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [sessionId, refreshTrigger])
+  const { graph, loading, error } = useGraphJson(sessionId, refreshTrigger)
 
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] }
@@ -144,8 +111,13 @@ export default function ProcessGraphViewer({ sessionId, refreshTrigger = 0 }) {
 
   return (
     <div className="process-graph-viewer">
-      {loading && <div className="process-graph-viewer__loading">Loading process map…</div>}
-      {error && <div className="process-graph-viewer__error">{error}</div>}
+      <DataViewState
+        loading={loading}
+        error={error}
+        loadingText="Loading process map…"
+        loadingClassName="process-graph-viewer__loading"
+        errorClassName="process-graph-viewer__error"
+      />
       <div
         className="process-graph-viewer__canvas"
         style={{ visibility: loading || error ? 'hidden' : 'visible' }}
