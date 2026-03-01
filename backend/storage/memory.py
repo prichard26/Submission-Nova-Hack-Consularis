@@ -1,5 +1,5 @@
 """In-memory SessionStore: graph from graph_store, chat in a dict. Single interface for both."""
-from graph_store import get_graph, get_or_create_session
+from graph_store import get_bpmn_xml, get_or_create_session
 
 
 class InMemorySessionStore:
@@ -13,9 +13,9 @@ class InMemorySessionStore:
         if session_id not in self._chat:
             self._chat[session_id] = []
 
-    def get_graph(self, session_id: str) -> dict:
+    def get_bpmn_xml(self, session_id: str) -> str:
         self.ensure_session(session_id)
-        return get_graph(session_id)
+        return get_bpmn_xml(session_id)
 
     def get_chat_history(self, session_id: str) -> list[dict]:
         self.ensure_session(session_id)

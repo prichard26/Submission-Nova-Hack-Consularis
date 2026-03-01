@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                   xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:consularis="http://consularis.example/bpmn"
+                   id="Definitions_1"
+                   targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_Pharmacy" name="Pharmacy medication circuit" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="P1" name="Prescription">
+        <bpmn:flowNodeRef>P1.1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>P1.2</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:task id="P1.1" name="Prescribe Medication">
+      <bpmn:extensionElements>
+        <consularis:actor>Physician</consularis:actor>
+        <consularis:durationMin>5–10 min</consularis:durationMin>
+        <consularis:description>Doctor writes prescription.</consularis:description>
+        <consularis:inputs>["Patient diagnosis"]</consularis:inputs>
+        <consularis:outputs>["Prescription order"]</consularis:outputs>
+        <consularis:risks>["Prescribing error"]</consularis:risks>
+      </bpmn:extensionElements>
+    </bpmn:task>
+    <bpmn:task id="P1.2" name="Verify Prescription">
+      <bpmn:extensionElements>
+        <consularis:actor>Pharmacist</consularis:actor>
+        <consularis:durationMin>5–10 min</consularis:durationMin>
+      </bpmn:extensionElements>
+    </bpmn:task>
+    <bpmn:sequenceFlow id="flow_P1.1_P1.2" sourceRef="P1.1" targetRef="P1.2" name="Prescription submitted"/>
+    <bpmn:sequenceFlow id="flow_P1.2_P1.1" sourceRef="P1.2" targetRef="P1.1" name="Clarification needed">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">If unclear</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+  </bpmn:process>
+</bpmn:definitions>

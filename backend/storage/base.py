@@ -6,8 +6,8 @@ from typing import Protocol, runtime_checkable
 class SessionStore(Protocol):
     """Single source of truth for session state: graph and chat history."""
 
-    def get_graph(self, session_id: str) -> dict:
-        """Return the graph for this session (creates from baseline if new)."""
+    def get_bpmn_xml(self, session_id: str) -> str:
+        """Return BPMN XML for this session (creates from baseline if new)."""
         ...
 
     def get_chat_history(self, session_id: str) -> list[dict]:

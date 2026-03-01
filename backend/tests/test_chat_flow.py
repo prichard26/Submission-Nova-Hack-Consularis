@@ -1,7 +1,6 @@
-"""Chat flow: run_chat returns (message, graph, tools_used); API returns meta."""
+"""Chat flow: run_chat returns (message, bpmn_xml, tools_used); API returns meta."""
 import os
 
-import pytest
 from fastapi.testclient import TestClient
 
 # Force no Groq key so run_chat returns without calling API
@@ -19,10 +18,10 @@ def test_run_chat_returns_tools_used_flag():
 
     sid = "test-returns-three"
     get_or_create_session(sid)
-    msg, graph, tools_used = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}], max_rounds=1)
+    msg, bpmn_xml, tools_used = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}], max_rounds=1)
     assert isinstance(msg, str)
-    assert isinstance(graph, dict)
-    assert "phases" in graph
+    assert isinstance(bpmn_xml, str)
+    assert "process" in bpmn_xml
     assert isinstance(tools_used, bool)
     # Without real Groq, we get the "GROQ_KEY is not set" message and no tools run
     assert tools_used is False
@@ -33,7 +32,7 @@ def test_api_chat_returns_meta():
     assert resp.status_code == 200
     data = resp.json()
     assert "message" in data
-    assert "graph" in data
+    assert "bpmn_xml" in data
     assert "meta" in data
     assert data["meta"]["session_id"] == "meta-test-session"
     assert "tools_used" in data["meta"]
@@ -45,6 +44,6 @@ def test_api_chat_rejects_empty_session_id():
     assert resp.status_code == 422  # validation error
 
 
-def test_api_graph_rejects_empty_session_id():
-    resp = client.get("/api/graph", params={"session_id": ""})
-    assert resp.status_code == 400
+def test_api_graph_endpoint_removed():
+    resp = client.get("/api/graph", params={"session_id": "test-session"})
+    assert resp.status_code == 404

@@ -1,0 +1,410 @@
+/* White background with dot grid */
+.bpmn-viewer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  background-color: #ffffff;
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Right-side panel overlay: 1/4 width over the map */
+.bpmn-viewer__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30%;
+  min-width: 260px;
+  max-width: 440px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bpmn-viewer__panel > * {
+  pointer-events: auto;
+}
+
+/* Single container: toolbar + palette in one box */
+.bpmn-viewer__panel-inner {
+  border: 1px solid rgba(255, 153, 51, 0.35);
+  border-radius: 10px;
+  background: rgba(30, 30, 30, 0.92);
+  backdrop-filter: blur(8px);
+  padding: 14px;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bpmn-viewer__panel-toolbar {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bpmn-viewer__toolbar-title {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 4px 0;
+}
+
+.bpmn-viewer__toolbar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bpmn-viewer__toolbar-label {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bpmn-viewer__toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bpmn-viewer__toolbar-actions button {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  min-width: 36px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 153, 51, 0.4);
+  border-radius: 6px;
+  background: rgba(56, 56, 56, 0.95);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.bpmn-viewer__toolbar-actions button:hover:not(:disabled) {
+  background: rgba(255, 153, 51, 0.2);
+  border-color: #ff9933;
+}
+
+.bpmn-viewer__toolbar-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bpmn-viewer__hud {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 3;
+  max-width: 380px;
+  border: 1px solid rgba(255, 153, 51, 0.35);
+  border-radius: 10px;
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(8px);
+  padding: 10px 12px;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.bpmn-viewer__hud-title {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.bpmn-viewer__hud-hint {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #cccccc;
+}
+
+.bpmn-viewer__hud-hint strong {
+  color: #ff9933;
+}
+
+.bpmn-viewer__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.bpmn-viewer__loading,
+.bpmn-viewer__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cccccc;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 14px;
+}
+
+.bpmn-viewer__error {
+  color: #ff9933;
+}
+
+/* Canvas: white with dot grid to match viewer */
+.bpmn-viewer .djs-container {
+  background-color: #ffffff !important;
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+}
+
+/* Graph boxes/elements: light orange */
+.bpmn-viewer .djs-element[data-element-type="bpmn:Task"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:UserTask"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:ServiceTask"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:ManualTask"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:StartEvent"] > .djs-visual > circle,
+.bpmn-viewer .djs-element[data-element-type="bpmn:EndEvent"] > .djs-visual > circle,
+.bpmn-viewer .djs-element[data-element-type="bpmn:IntermediateThrowEvent"] > .djs-visual > circle,
+.bpmn-viewer .djs-element[data-element-type="bpmn:IntermediateCatchEvent"] > .djs-visual > circle,
+.bpmn-viewer .djs-element[data-element-type="bpmn:ExclusiveGateway"] > .djs-visual > polygon,
+.bpmn-viewer .djs-element[data-element-type="bpmn:ExclusiveGateway"] > .djs-visual > path {
+  fill: #f5d4b8 !important;
+  stroke: #c97d3a !important;
+  stroke-width: 2.5px !important;
+}
+
+/* Rounded corners on task rects (SVG attribute; bpmn-js may use path) */
+.bpmn-viewer .djs-element[data-element-type="bpmn:Task"] rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:UserTask"] rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:ServiceTask"] rect {
+  rx: 8;
+  ry: 8;
+}
+
+/* Lanes: light orange to match graph elements */
+.bpmn-viewer .djs-element[data-element-type="bpmn:Lane"] > .djs-visual > rect {
+  fill: rgba(245, 212, 184, 0.35) !important;
+  stroke: #c97d3a !important;
+  stroke-width: 2.5px !important;
+}
+
+/* Global containers (pool/participant/group): very light orange, low-impact */
+.bpmn-viewer .djs-element[data-element-type="bpmn:Participant"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:Group"] > .djs-visual > rect {
+  fill: rgba(245, 212, 184, 0.25) !important;
+  stroke: #c97d3a !important;
+}
+
+.bpmn-viewer .djs-element[data-element-type="bpmn:Group"] > .djs-visual > rect {
+  stroke-dasharray: 6 4;
+  stroke-width: 1.6px !important;
+}
+
+/* Edges: orange to match light orange graph */
+.bpmn-viewer .djs-edge path,
+.bpmn-viewer .djs-edge .djs-line {
+  stroke: #c97d3a !important;
+  stroke-width: 1.8px !important;
+}
+
+.bpmn-viewer .djs-edge .djs-end-marker {
+  fill: #c97d3a !important;
+  stroke: #c97d3a !important;
+}
+
+/* Palette lives inside this container (moved from canvas); flow in layout */
+.bpmn-viewer__panel-palette {
+  position: relative;
+  min-height: 100px;
+  overflow: auto;
+}
+.bpmn-viewer__panel-palette .djs-palette {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  display: block !important;
+  width: auto !important;
+}
+
+/* Chatbot under the menu, still inside same container */
+.bpmn-viewer__panel-footer {
+  margin-top: 14px;
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 153, 51, 0.25);
+  padding-top: 12px;
+}
+
+/* When chat is inside panel, make it fill the footer (no fixed position) */
+.bpmn-viewer__panel-footer .chat-panel {
+  position: relative !important;
+  bottom: auto !important;
+  right: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 200px;
+  max-height: 100%;
+}
+
+/* Palette styling (whether in panel or canvas) */
+.bpmn-viewer .djs-palette {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 153, 51, 0.35);
+  background: rgba(30, 30, 30, 0.95) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.bpmn-viewer .djs-palette .entry {
+  color: #ffffff;
+}
+
+.bpmn-viewer .djs-palette .entry:hover {
+  background: rgba(255, 153, 51, 0.2) !important;
+}
+
+/* Selection: darker orange outline on light orange */
+.bpmn-viewer .djs-element.selected .djs-outline,
+.bpmn-viewer .djs-element.hover .djs-outline {
+  stroke: #a85a20 !important;
+  stroke-width: 2px;
+}
+
+.bpmn-viewer .djs-element.selected .djs-outline {
+  stroke-width: 2.5px;
+}
+
+/* Context pad (modify menu): dark background + visible icons (fix white-on-white) */
+.bpmn-viewer .djs-container {
+  --context-pad-entry-background-color: #383838;
+  --context-pad-entry-hover-background-color: rgba(255, 153, 51, 0.35);
+}
+
+.bpmn-viewer .djs-context-pad {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 153, 51, 0.4);
+  background: #2a2a2a !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.bpmn-viewer .djs-context-pad .entry {
+  background-color: #383838 !important;
+  box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.2) !important;
+  color: #ffffff !important;
+}
+
+.bpmn-viewer .djs-context-pad .entry:hover {
+  background: rgba(255, 153, 51, 0.35) !important;
+}
+
+/* BPMN icon font inside context pad: force light so visible on dark */
+.bpmn-viewer .djs-context-pad .entry .bpmn-icon,
+.bpmn-viewer .djs-context-pad .entry [class*="bpmn-icon"] {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+.bpmn-viewer .djs-minimap {
+  background: #1e1e1e !important;
+  border: 1px solid rgba(255, 153, 51, 0.3);
+  border-radius: 10px;
+}
+
+
+/* Labels on light orange boxes: dark text for contrast */
+.bpmn-viewer svg text,
+.bpmn-viewer svg tspan {
+  fill: #4a3020 !important;
+  stroke: none !important;
+  opacity: 1 !important;
+}
+
+.bpmn-viewer .djs-label,
+.bpmn-viewer .djs-label text,
+.bpmn-viewer .djs-label tspan {
+  fill: #4a3020 !important;
+  color: #4a3020 !important;
+  font-family: Helvetica, Arial, sans-serif !important;
+  font-weight: 700 !important;
+}
+
+/* Lane/section names: dark text on light orange (readable) */
+.bpmn-viewer .bjs-lane .djs-label,
+.bpmn-viewer .bjs-lane .djs-label text,
+.bpmn-viewer .bjs-lane .djs-label tspan,
+.bpmn-viewer .djs-shape[data-element-type="lane"] .djs-label,
+.bpmn-viewer .djs-shape[data-element-type="lane"] .djs-label text,
+.bpmn-viewer .djs-shape[data-element-type="lane"] .djs-label tspan {
+  max-width: 240px !important;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  padding: 6px 10px !important;
+  box-sizing: border-box;
+  line-height: 1.3;
+  font-family: Helvetica, Arial, sans-serif !important;
+  fill: #4a3020 !important;
+  color: #4a3020 !important;
+}
+.bpmn-viewer .bjs-lane .djs-visual,
+.bpmn-viewer .djs-shape[data-element-type="lane"] .djs-visual {
+  /* Lane label lives in the left part of the visual */
+  min-width: 260px;
+}
+
+/* Task/event/gateway labels: dark text on light orange (readable) */
+.bpmn-viewer .djs-element .djs-label,
+.bpmn-viewer .djs-element .djs-label text,
+.bpmn-viewer .djs-element .djs-label tspan {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  text-align: center;
+  padding: 6px 8px !important;
+  max-width: 100%;
+  box-sizing: border-box;
+  line-height: 1.25;
+  font-family: Helvetica, Arial, sans-serif !important;
+  font-weight: 700 !important;
+  fill: #4a3020 !important;
+  color: #4a3020 !important;
+}
+
+/* Edge labels: dark text on light orange pill */
+.bpmn-viewer .djs-edge .djs-label {
+  padding: 4px 8px !important;
+  max-width: 160px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  line-height: 1.25;
+  font-family: Helvetica, Arial, sans-serif !important;
+  fill: #4a3020 !important;
+  color: #4a3020 !important;
+  background: rgba(245, 212, 184, 0.95) !important;
+  border-radius: 4px;
+  border: 1px solid #c97d3a;
+}

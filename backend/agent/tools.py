@@ -3,7 +3,7 @@ import json
 import logging
 
 from graph_store import (
-    get_graph,
+    get_bpmn_xml,
     get_node,
     update_node,
     add_node,
@@ -16,7 +16,7 @@ from graph_store import (
 )
 
 TOOLS = [
-    {"type": "function", "function": {"name": "get_graph", "description": "Get the full process graph (phases and steps). Use this to see current state before making changes.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+    {"type": "function", "function": {"name": "get_graph", "description": "Get the current process graph as BPMN 2.0 XML. Use this to inspect the canonical graph before making changes.", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "get_node", "description": "Get one step by id (e.g. P1.2, P3.1).", "parameters": {"type": "object", "properties": {"node_id": {"type": "string", "description": "Step id, e.g. P1.2"}}, "required": ["node_id"]}}},
     {"type": "function", "function": {"name": "update_node", "description": "Update a step's name, actor, duration_min, description, inputs, outputs, or risks.", "parameters": {"type": "object", "properties": {"node_id": {"type": "string"}, "updates": {"type": "object", "properties": {"name": {"type": "string"}, "actor": {"type": "string"}, "duration_min": {"type": "string"}, "description": {"type": "string"}, "inputs": {"type": "array", "items": {"type": "string"}}, "outputs": {"type": "array", "items": {"type": "string"}}, "risks": {"type": "array", "items": {"type": "string"}}}}}, "required": ["node_id", "updates"]}}},
     {"type": "function", "function": {"name": "add_node", "description": "Add a new step to a phase. Use when the user wants to add a step. phase_id is e.g. P1, P2, ... P7.", "parameters": {"type": "object", "properties": {"phase_id": {"type": "string"}, "step_data": {"type": "object", "properties": {"name": {"type": "string"}, "actor": {"type": "string"}, "duration_min": {"type": "string"}, "description": {"type": "string"}}}}, "required": ["phase_id", "step_data"]}}},
@@ -38,8 +38,8 @@ def run_tool(session_id: str, name: str, arguments: dict) -> str:
 
     try:
         if name == "get_graph":
-            out = json.dumps(get_graph(session_id), indent=2)
-            logger.debug("[AGENT][GRAPH] get_graph -> returned full graph")
+            out = get_bpmn_xml(session_id)
+            logger.debug("[AGENT][GRAPH] get_graph -> returned BPMN XML")
             return out
         if name == "get_node":
             n = get_node(session_id, arguments.get("node_id", ""))

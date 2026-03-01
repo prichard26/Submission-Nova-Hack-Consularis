@@ -1,4 +1,4 @@
-"""Agent runtime: run_chat loop and tool execution. Returns (message, graph, tools_used)."""
+"""Agent runtime: run_chat loop and tool execution. Returns (message, bpmn_xml, tools_used)."""
 import json
 import logging
 import re
@@ -6,7 +6,7 @@ import re
 from groq import Groq
 
 from config import GROQ_KEY, MAX_TOOL_ROUNDS
-from graph_store import get_graph
+from graph_store import get_bpmn_xml, get_graph_summary
 from agent.prompt import SYSTEM_PROMPT
 from agent.tools import TOOLS, run_tool
 
@@ -23,10 +23,10 @@ def _sanitize_reply(text: str) -> str:
     return text.strip() or text
 
 
-def run_chat(session_id: str, messages: list[dict], max_rounds: int | None = None) -> tuple[str, dict, bool]:
+def run_chat(session_id: str, messages: list[dict], max_rounds: int | None = None) -> tuple[str, str, bool]:
     """
     Run the agent: Groq with tools until no more tool_calls.
-    Returns (final_message, updated_graph, tools_used).
+    Returns (final_message, updated_bpmn_xml, tools_used).
     """
     if max_rounds is None:
         max_rounds = MAX_TOOL_ROUNDS
@@ -35,14 +35,12 @@ def run_chat(session_id: str, messages: list[dict], max_rounds: int | None = Non
     if not GROQ_KEY or GROQ_KEY == "missing":
         return (
             "I cannot run yet: GROQ_KEY is not set. Put your key in backend/.env (see backend/env.example) and restart.",
-            get_graph(session_id),
+            get_bpmn_xml(session_id),
             False,
         )
 
     client = Groq(api_key=GROQ_KEY)
-    graph = get_graph(session_id)
-    summary_parts = [f"{p['id']} {p['name']}: {', '.join(s['id'] for s in p['steps'])}" for p in graph["phases"]]
-    graph_context = "Current steps (use these IDs only): " + " | ".join(summary_parts)
+    graph_context = "Current steps (use these IDs only): " + get_graph_summary(session_id)
 
     full_messages = [
         {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + graph_context},
@@ -97,4 +95,4 @@ def run_chat(session_id: str, messages: list[dict], max_rounds: int | None = Non
         final_message = "I did not quite understand. Please repeat: which step (e.g. P1.2) and what would you like to change?"
 
     final_message = _sanitize_reply(final_message)
-    return final_message, get_graph(session_id), tools_used
+    return final_message, get_bpmn_xml(session_id), tools_used

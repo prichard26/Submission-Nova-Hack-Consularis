@@ -1,4 +1,3 @@
-import copy
 import logging
 import threading
 from collections import OrderedDict
@@ -9,10 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, field_validator
 
-from config import GROQ_KEY, ALLOWED_CORS_ORIGINS, SESSION_ID_MAX_LEN, STORAGE
+from config import GROQ_KEY, ALLOWED_CORS_ORIGINS, SESSION_ID_MAX_LEN, STORAGE, BASELINE_GRAPH_PATH
 from storage import InMemorySessionStore, FileSessionStore
 from agent import run_chat, try_apply_message_update
-from graph_store import init_baseline
+from graph_store import init_baseline, get_bpmn_xml, get_graph_json
+from bpmn.parser import parse_bpmn_xml
+from bpmn.serializer import serialize_bpmn_xml
 
 logger = logging.getLogger("consularis")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
@@ -94,7 +95,7 @@ class ChatResponseMeta(BaseModel):
 
 class ChatResponse(BaseModel):
     message: str
-    graph: dict
+    bpmn_xml: str
     meta: ChatResponseMeta
 
 
@@ -118,33 +119,61 @@ def options_chat():
     return Response(status_code=200)
 
 
-@app.get("/api/graph")
-def api_get_graph(session_id: str = Query(..., description="Session id (e.g. company name)")):
+@app.get("/api/graph/baseline")
+def api_baseline_bpmn():
+    """Return the baseline BPMN 2.0 XML with diagram interchange so bpmn-js can display it."""
+    if not BASELINE_GRAPH_PATH.exists():
+        raise HTTPException(status_code=404, detail="Baseline graph file not found")
+    model = parse_bpmn_xml(BASELINE_GRAPH_PATH)
+    xml = serialize_bpmn_xml(model)
+    logger.info("graph/baseline served xml_len=%d", len(xml))
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.get("/api/graph/export")
+def api_export_bpmn(session_id: str = Query(..., description="Session id")):
+    """Return the session graph as BPMN 2.0 XML for download."""
     _validate_session_id(session_id)
-    graph = store.get_graph(session_id)
+    store.ensure_session(session_id)
+    xml = get_bpmn_xml(session_id)
+    logger.info("graph/export session_id=%s xml_len=%d", session_id, len(xml))
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.get("/api/graph/json")
+def api_export_graph_json(session_id: str = Query(..., description="Session id")):
+    """Return the session graph as JSON for custom renderers."""
+    _validate_session_id(session_id)
+    store.ensure_session(session_id)
+    graph = get_graph_json(session_id)
+    logger.info(
+        "graph/json session_id=%s lanes=%d nodes=%d edges=%d",
+        session_id,
+        len(graph.get("lanes", [])),
+        len(graph.get("nodes", [])),
+        len(graph.get("edges", [])),
+    )
     return graph
 
 
-@app.post("/api/chat", response_model=None)
+@app.post("/api/chat", response_model=ChatResponse)
 def api_chat(req: ChatRequest):
     session_id = req.session_id
     lock = _lock_for_session(session_id)
     with lock:
         store.append_chat_message(session_id, "user", req.message)
 
-        message, graph, tools_used = run_chat(session_id, store.get_chat_history(session_id))
+        message, bpmn_xml, tools_used = run_chat(session_id, store.get_chat_history(session_id))
         fallback_used = False
         if not tools_used:
             fallback_used = try_apply_message_update(session_id, req.message)
-            graph = store.get_graph(session_id)
-        else:
-            graph = store.get_graph(session_id)
+            bpmn_xml = store.get_bpmn_xml(session_id)
 
         store.append_chat_message(session_id, "assistant", message)
 
         logger.info("chat session_id=%s tools_used=%s fallback_used=%s", session_id, tools_used, fallback_used)
         return {
             "message": message,
-            "graph": copy.deepcopy(graph),
+            "bpmn_xml": bpmn_xml,
             "meta": {"tools_used": tools_used, "fallback_used": fallback_used, "session_id": session_id},
         }

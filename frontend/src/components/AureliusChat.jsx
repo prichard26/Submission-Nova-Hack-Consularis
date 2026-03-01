@@ -28,9 +28,9 @@ export default function AureliusChat({ sessionId, onGraphUpdate, onClose }) {
       const data = await sendChat(sessionId, userText)
       const reply = data.message || 'I could not process that. Please try again.'
       setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text: reply }])
-      // Backend returns authoritative graph; replace local state to avoid drift (meta optional for debugging)
-      if (data.graph && onGraphUpdate) {
-        onGraphUpdate(data.graph)
+      // Backend returns authoritative BPMN XML; refresh diagram from this payload.
+      if (data.bpmn_xml && onGraphUpdate) {
+        onGraphUpdate(data.bpmn_xml)
       }
     } catch (err) {
       const text = err.status ? `Request failed (${err.status}). Please try again.` : 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.'

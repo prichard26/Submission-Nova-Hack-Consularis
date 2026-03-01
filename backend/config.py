@@ -15,7 +15,7 @@ if not GROQ_KEY or GROQ_KEY.startswith("your_"):
     GROQ_KEY = os.getenv("GROQ_KEY", "missing")
 
 # Paths
-_default_baseline = _BACKEND_DIR / "data" / "pharmacy_circuit.json"
+_default_baseline = _BACKEND_DIR / "data" / "pharmacy_circuit.bpmn"
 _baseline_env = os.getenv("BASELINE_GRAPH_PATH", "")
 BASELINE_GRAPH_PATH: Path = Path(_baseline_env) if _baseline_env else _default_baseline
 if not BASELINE_GRAPH_PATH.is_absolute():
