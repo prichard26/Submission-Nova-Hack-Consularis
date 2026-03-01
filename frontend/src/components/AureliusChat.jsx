@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import { sendChat } from '../services/api'
 import './AureliusChat.css'
-
-const API_BASE = 'http://localhost:8000'
 
 const WELCOME_MSG = "Salve! I am Aurelius, your process consul. Tell me which step you wish to change — use the step id (e.g. P1.2, P3.1) — and what to update. I shall refine your pharmacy graph. If I do not understand, I will ask you to repeat."
 
@@ -26,21 +25,18 @@ export default function AureliusChat({ sessionId, onGraphUpdate, onClose }) {
     setLoading(true)
 
     try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: userText }),
-      })
-      const data = await res.json()
+      const data = await sendChat(sessionId, userText)
       const reply = data.message || 'I could not process that. Please try again.'
       setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text: reply }])
+      // Backend returns authoritative graph; replace local state to avoid drift (meta optional for debugging)
       if (data.graph && onGraphUpdate) {
         onGraphUpdate(data.graph)
       }
     } catch (err) {
+      const text = err.status ? `Request failed (${err.status}). Please try again.` : 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.'
       setMessages((prev) => [
         ...prev,
-        { id: Date.now() + 1, role: 'assistant', text: 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.' }
+        { id: Date.now() + 1, role: 'assistant', text }
       ])
     } finally {
       setLoading(false)

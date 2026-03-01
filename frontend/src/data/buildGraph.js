@@ -1,5 +1,3 @@
-import pharmacyData from './pharmacy_circuit.json'
-
 const PHASE_COLORS = {
   'Prescription':              { bg: '#1e1509', border: '#e85d04', text: '#ff9a5c' },
   'Selection, Acquisition, and Reception': { bg: '#1a160d', border: '#d54d02', text: '#ff7a2e' },
@@ -26,8 +24,9 @@ const NODE_H = 90
 const H_GAP  = 60
 const V_GAP  = 80
 
+/** Build React Flow nodes/edges from backend graph. When no data yet, uses empty graph (single source of truth is backend). */
 export function buildGraphData(circuitData = null) {
-  const data = circuitData || pharmacyData
+  const data = circuitData ?? { phases: [], flow_connections: [] }
   const phases = data.phases || []
   const flowConnections = data.flow_connections || []
 
@@ -110,5 +109,3 @@ export function buildGraphData(circuitData = null) {
 
   return { nodes, edges, phases, stepMap }
 }
-
-export { pharmacyData }

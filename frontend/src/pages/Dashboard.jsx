@@ -14,13 +14,12 @@ import StepNode from '../components/StepNode'
 import DetailDrawer from '../components/DetailDrawer'
 import AureliusChat from '../components/AureliusChat'
 import { buildGraphData } from '../data/buildGraph'
+import { getGraph } from '../services/api'
 import './Dashboard.css'
 
 const nodeTypes = { stepNode: StepNode }
 
 const ALL_PHASES = 'All'
-
-const API_BASE = 'http://localhost:8000'
 
 export default function Dashboard({ companyName }) {
   const [graphSource, setGraphSource] = useState(null)
@@ -40,9 +39,7 @@ export default function Dashboard({ companyName }) {
 
   // Fetch graph from backend on mount (keeps session in sync)
   useEffect(() => {
-    const sid = encodeURIComponent(companyName)
-    fetch(`${API_BASE}/api/graph?session_id=${sid}`)
-      .then((r) => r.json())
+    getGraph(companyName)
       .then(setGraphSource)
       .catch(() => setGraphSource(null))
   }, [companyName])

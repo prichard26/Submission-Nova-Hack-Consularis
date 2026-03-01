@@ -66,11 +66,13 @@ cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install 
 4. **Validation:** Every tool call is validated (node/edge exists, IDs from the graph only). Invalid calls return an error to the model so it can say “Please repeat” or correct.
 5. **Live graph:** The API returns `{ message, graph }`. The frontend updates the diagram from `graph` so edits appear immediately.
 
-## Repo layout
+## Project structure
 
-- `frontend/` – React + Vite app (Aurelius robot, interactive graph, chat)
 - `backend/` – FastAPI (graph store, Groq agent with tools, `/api/chat`, `/api/graph`)
-- `databases/` – APQC Excel data
-- `datasets/pharmacy/` – pharmacy circuit JSON (source for default graph)
+- `frontend/` – React + Vite app (Aurelius robot, interactive graph, chat)
+- `backend/data/` – baseline graph (`pharmacy_circuit.json`) and optional session persistence
+- `docs/` – architecture and data-flow docs
 - `run.sh` – one-shot setup and run
 - `stop.sh` – stop dev servers on 5173, 5174, 8000
+
+Data flow and state: see [DATA_FLOW.md](docs/DATA_FLOW.md).

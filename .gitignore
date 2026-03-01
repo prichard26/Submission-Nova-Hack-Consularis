@@ -1,5 +1,38 @@
 # History (e.g. Cursor/local history)
 .history/
 
-# Backend secrets (Groq API key)
+# Secrets — never commit real API keys
 backend/.env
+.env
+.env.local
+*.env.local
+
+# Backend (Python)
+backend/.venv/
+backend/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# Frontend (Node)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs and build
+*.log
+npm-debug.log*
