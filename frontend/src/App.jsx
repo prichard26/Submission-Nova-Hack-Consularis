@@ -3,16 +3,6 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 
-function SessionRoutes({ session }) {
-  if (!session) {
-    return <Navigate to="/" replace />
-  }
-
-  return (
-    <Dashboard companyName={session.companyName} sector={session.sector} />
-  )
-}
-
 export default function App() {
   const [session, setSession] = useState(() => {
     try {
@@ -53,7 +43,16 @@ export default function App() {
           )
         }
       />
-      <Route path="/dashboard" element={<SessionRoutes session={safeSession} />} />
+      <Route
+        path="/dashboard"
+        element={
+          safeSession ? (
+            <Dashboard companyName={safeSession.companyName} sector={safeSession.sector} />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

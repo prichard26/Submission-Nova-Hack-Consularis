@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   animation: detail-slide-in 0.2s ease;
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.3);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.08);
 }
 
 @keyframes detail-slide-in {

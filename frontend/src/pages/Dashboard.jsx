@@ -1,10 +1,11 @@
-import { useState, useCallback, useMemo } from 'react'
-import AureliusChat from '../components/AureliusChat'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import AureliusChat, { WELCOME_MSG } from '../components/AureliusChat'
 import ProcessCanvas from '../components/ProcessCanvas'
 import ProcessBreadcrumb from '../components/ProcessBreadcrumb'
 import DetailPanel from '../components/DetailPanel'
 import LandscapeView from '../components/LandscapeView'
 import { useWorkspace } from '../hooks/useWorkspace'
+import { sendChat } from '../services/api'
 import './Dashboard.css'
 
 const DEFAULT_PROCESS_ID = 'Process_Global'
@@ -15,13 +16,15 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
   const [activeProcessId, setActiveProcessId] = useState(DEFAULT_PROCESS_ID)
   const [selectedStep, setSelectedStep] = useState(null)
   const [viewMode, setViewMode] = useState('detail')
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, role: 'assistant', text: WELCOME_MSG }
+  ])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
 
   const { workspace } = useWorkspace(companyName)
 
-  const sectorLabel = useMemo(
-    () => `${sector.charAt(0).toUpperCase()}${sector.slice(1)}`,
-    [sector],
-  )
+  const sectorLabel = `${sector.charAt(0).toUpperCase()}${sector.slice(1)}`
 
   const workspaceProcesses = useMemo(() => {
     return workspace?.process_tree?.processes || {}
@@ -31,12 +34,7 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
     setRefreshTrigger((t) => t + 1)
   }, [])
 
-  const handleDrillDown = useCallback((processId) => {
-    setActiveProcessId(processId)
-    setSelectedStep(null)
-  }, [])
-
-  const handleBreadcrumbNav = useCallback((processId) => {
+  const navigateToProcess = useCallback((processId) => {
     setActiveProcessId(processId)
     setSelectedStep(null)
   }, [])
@@ -53,17 +51,54 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
     setRefreshTrigger((t) => t + 1)
   }, [])
 
-  const panelFooter = useMemo(
-    () => (
-      <AureliusChat
-        sessionId={companyName}
-        processId={activeProcessId}
-        onGraphUpdate={handleExternalGraphUpdate}
-        onClose={() => setChatOpen(false)}
-      />
-    ),
+  const handleChatSend = useCallback(
+    async (userText) => {
+      setChatInput('')
+      setChatMessages((prev) => [...prev, { id: Date.now(), role: 'user', text: userText }])
+      setChatLoading(true)
+      try {
+        const data = await sendChat(companyName, userText, { processId: activeProcessId })
+        const reply = data.message || 'I could not process that. Please try again.'
+        setChatMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text: reply }])
+        if (data.graph_json) handleExternalGraphUpdate()
+      } catch (err) {
+        const text = err.status ? `Request failed (${err.status}). Please try again.` : 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.'
+        setChatMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text }])
+      } finally {
+        setChatLoading(false)
+      }
+    },
     [companyName, activeProcessId, handleExternalGraphUpdate],
   )
+
+  const sharedChatProps = {
+    sessionId: companyName,
+    processId: activeProcessId,
+    onGraphUpdate: handleExternalGraphUpdate,
+    onClose: () => setChatOpen(false),
+    messages: chatMessages,
+    onSend: handleChatSend,
+    input: chatInput,
+    onInputChange: setChatInput,
+    loading: chatLoading,
+  }
+
+  const panelFooter = (
+    <AureliusChat {...sharedChatProps} />
+  )
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key !== 'Escape') return
+      if (selectedStep) {
+        setSelectedStep(null)
+        return
+      }
+      if (chatOpen) setChatOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selectedStep, chatOpen])
 
   return (
     <div className="dashboard">
@@ -98,7 +133,7 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
         <ProcessBreadcrumb
           workspaceProcesses={workspaceProcesses}
           activeProcessId={activeProcessId}
-          onNavigate={handleBreadcrumbNav}
+          onNavigate={navigateToProcess}
         />
       )}
 
@@ -108,7 +143,7 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
           <LandscapeView
             sessionId={companyName}
             workspace={workspace}
-            onProcessSelect={handleDrillDown}
+            onProcessSelect={navigateToProcess}
           />
         ) : (
           <ProcessCanvas
@@ -116,7 +151,7 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
             processId={activeProcessId}
             refreshTrigger={refreshTrigger}
             onStepSelect={handleStepSelect}
-            onDrillDown={handleDrillDown}
+            onDrillDown={navigateToProcess}
             onRequestRefresh={handleExternalGraphUpdate}
             panelFooter={panelFooter}
             workspaceProcesses={workspaceProcesses}
@@ -126,24 +161,26 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
 
       {/* ── Detail Panel slide-in ── */}
       {selectedStep && (
-        <DetailPanel
-          step={selectedStep}
-          sessionId={companyName}
-          processId={activeProcessId}
-          onClose={handleCloseDetail}
-          onUpdate={handleStepUpdate}
-        />
+        <>
+          <div className="dashboard__backdrop" onClick={handleCloseDetail} aria-hidden />
+          <DetailPanel
+            step={selectedStep}
+            sessionId={companyName}
+            processId={activeProcessId}
+            onClose={handleCloseDetail}
+            onUpdate={handleStepUpdate}
+          />
+        </>
       )}
 
       {/* ── Aurelius chat overlay ── */}
       {chatOpen && (
-        <AureliusChat
-          sessionId={companyName}
-          processId={activeProcessId}
-          onGraphUpdate={handleExternalGraphUpdate}
-          onClose={() => setChatOpen(false)}
-          isOverlay
-        />
+        <>
+          <div className="dashboard__backdrop" onClick={() => setChatOpen(false)} aria-hidden />
+          <div className="dashboard__overlay-wrap">
+            <AureliusChat {...sharedChatProps} isOverlay />
+          </div>
+        </>
       )}
     </div>
   )

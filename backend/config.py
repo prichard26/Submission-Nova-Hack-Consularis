@@ -20,7 +20,6 @@ _graphs_dir_env = os.getenv("BASELINE_GRAPHS_DIR", "")
 BASELINE_GRAPHS_DIR: Path = Path(_graphs_dir_env) if _graphs_dir_env else _default_graphs_dir
 if not BASELINE_GRAPHS_DIR.is_absolute():
     BASELINE_GRAPHS_DIR = _BACKEND_DIR / BASELINE_GRAPHS_DIR
-BASELINE_GRAPH_REGISTRY_PATH: Path = BASELINE_GRAPHS_DIR / "registry.json"
 BASELINE_WORKSPACE_PATH: Path = BASELINE_GRAPHS_DIR.parent / "workspace.json"
 
 DEFAULT_PROCESS_ID: str = os.getenv("DEFAULT_PROCESS_ID", "Process_Global")

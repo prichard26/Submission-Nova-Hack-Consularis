@@ -5,6 +5,8 @@
 
 const LANE_PADDING = 40
 const LANE_MIN_HEIGHT = 160
+const NODE_WIDTH = 260
+const NODE_HEIGHT = 120
 
 function computeLaneNodes(graph) {
   const nodes = []
@@ -20,8 +22,8 @@ function computeLaneNodes(graph) {
       const pos = s.position || { x: 0, y: 0 }
       minX = Math.min(minX, pos.x)
       minY = Math.min(minY, pos.y)
-      maxX = Math.max(maxX, pos.x + 260)
-      maxY = Math.max(maxY, pos.y + 120)
+      maxX = Math.max(maxX, pos.x + NODE_WIDTH)
+      maxY = Math.max(maxY, pos.y + NODE_HEIGHT)
     }
 
     const width = maxX - minX + LANE_PADDING * 2 + 100

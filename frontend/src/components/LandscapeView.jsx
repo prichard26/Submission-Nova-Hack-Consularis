@@ -100,7 +100,7 @@ function LandscapeCanvas({ workspace, onProcessSelect }) {
         defaultEdgeOptions={{ type: 'smoothstep' }}
       >
         <Controls position="bottom-left" />
-        <Background color="var(--border, #2e2820)" gap={24} />
+        <Background variant="dots" color="#ccc4b8" gap={20} size={1.5} />
       </ReactFlow>
     </div>
   )

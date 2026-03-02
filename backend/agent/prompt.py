@@ -34,6 +34,7 @@ Inspect:
 Steps (nodes):
 - update_node(node_id, updates) — update name and any metadata field: actor, duration_min, description, inputs, outputs, risks, automation_potential, automation_notes, current_state, frequency, annual_volume, error_rate_percent, cost_per_execution, current_systems, data_format, external_dependencies, regulatory_constraints, sla_target, pain_points.
 - add_node(phase_id, step_data) — add a step to a phase. delete_node(node_id) — remove step and its edges.
+- move_node(node_id, target_lane_id, position?) — move a step to another phase/lane (preserves all metadata). Optional position is 0-based index in the target lane.
 
 Edges:
 - add_edge(source, target, label?, condition?) — add link. delete_edge(source, target) — remove link.
@@ -42,6 +43,11 @@ Edges:
 Phases (lanes):
 - add_lane(name, description?) — add a phase. update_lane(lane_id, updates) — rename or set description.
 - delete_lane(lane_id) — remove phase and all its steps.
+- reorder_lanes(lane_ids) — reorder phases: pass the full list of lane_ids in the desired order.
+- reorder_steps(lane_id, ordered_ids) — reorder steps within a phase: pass lane_id and the full list of step ids in desired order.
+
+Process:
+- rename_process(new_name) — rename the current process (e.g. "Hospital medication circuit").
 
 Other:
 - validate_graph — check consistency after many changes.

@@ -13,6 +13,10 @@ from graph.store import (
     get_edges,
     get_graph_summary,
     get_node,
+    move_node,
+    rename_process,
+    reorder_lanes,
+    reorder_steps,
     resolve_step,
     update_edge,
     update_lane,
@@ -128,6 +132,32 @@ TOOL_SCHEMAS = [
         ["lane_id", "updates"],
     ),
     _schema("delete_lane", "Delete a lane and all its steps.", {"lane_id": {"type": "string"}}, ["lane_id"]),
+    _schema(
+        "move_node",
+        "Move a step from one phase/lane to another (preserves metadata).",
+        {
+            "node_id": {"type": "string"},
+            "target_lane_id": {"type": "string"},
+            "position": {"type": "integer", "description": "Optional index in target lane (0-based)."},
+        },
+        ["node_id", "target_lane_id"],
+    ),
+    _schema(
+        "reorder_lanes",
+        "Reorder phases/lanes. Pass the full list of lane_ids in the desired order.",
+        {"lane_ids": {"type": "array", "items": {"type": "string"}}},
+        ["lane_ids"],
+    ),
+    _schema(
+        "reorder_steps",
+        "Reorder steps within a phase. Pass lane_id and the full list of step ids in desired order.",
+        {
+            "lane_id": {"type": "string"},
+            "ordered_ids": {"type": "array", "items": {"type": "string"}},
+        },
+        ["lane_id", "ordered_ids"],
+    ),
+    _schema("rename_process", "Rename the current process.", {"new_name": {"type": "string"}}, ["new_name"]),
     _schema("validate_graph", "Validate current process graph."),
 ]
 
@@ -220,6 +250,37 @@ def _handle_delete_lane(session_id: str, arguments: dict, process_id: str | None
     return json.dumps({"deleted": ok}) if ok else json.dumps({"error": "Lane not found"})
 
 
+def _handle_move_node(session_id: str, arguments: dict, process_id: str | None) -> str:
+    n = move_node(
+        session_id,
+        arguments.get("node_id", ""),
+        arguments.get("target_lane_id", ""),
+        arguments.get("position"),
+        process_id=process_id,
+    )
+    return json.dumps(n) if n else json.dumps({"error": "Node or target lane not found"})
+
+
+def _handle_reorder_lanes(session_id: str, arguments: dict, process_id: str | None) -> str:
+    ok = reorder_lanes(session_id, arguments.get("lane_ids", []), process_id=process_id)
+    return json.dumps({"ok": ok}) if ok else json.dumps({"error": "Invalid lane_ids (must match current lanes exactly)"})
+
+
+def _handle_reorder_steps(session_id: str, arguments: dict, process_id: str | None) -> str:
+    ok = reorder_steps(
+        session_id,
+        arguments.get("lane_id", ""),
+        arguments.get("ordered_ids", []),
+        process_id=process_id,
+    )
+    return json.dumps({"ok": ok}) if ok else json.dumps({"error": "Lane not found or ordered_ids do not match lane steps"})
+
+
+def _handle_rename_process(session_id: str, arguments: dict, process_id: str | None) -> str:
+    ok = rename_process(session_id, arguments.get("new_name", ""), process_id=process_id)
+    return json.dumps({"ok": ok}) if ok else json.dumps({"error": "Failed to rename"})
+
+
 TOOL_HANDLERS: dict[str, ToolHandler] = {
     "get_graph_summary": _handle_get_graph_summary,
     "resolve_step": _handle_resolve_step,
@@ -234,6 +295,10 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "add_lane": _handle_add_lane,
     "update_lane": _handle_update_lane,
     "delete_lane": _handle_delete_lane,
+    "move_node": _handle_move_node,
+    "reorder_lanes": _handle_reorder_lanes,
+    "reorder_steps": _handle_reorder_steps,
+    "rename_process": _handle_rename_process,
     "validate_graph": _handle_validate_graph,
 }
 

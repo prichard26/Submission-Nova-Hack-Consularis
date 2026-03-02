@@ -4,13 +4,13 @@
   right: 16px;
   width: 320px;
   height: 440px;
-  background: #18140f;
-  border: 1px solid #2e2820;
-  border-radius: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   z-index: 30;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
   animation: pop-up 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
 }
@@ -22,7 +22,7 @@
 
 .chat-panel__header {
   padding: 0.9rem 1rem;
-  border-bottom: 1px solid #2e2820;
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -39,11 +39,11 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #e85d04, #d54d02);
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-weight: 700;
   font-size: 0.85rem;
   color: white;
@@ -51,27 +51,27 @@
 }
 
 .chat-panel__name {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 600;
-  color: #fbf9f1;
+  color: var(--text-primary);
 }
 
 .chat-panel__status {
   font-size: 0.68rem;
-  color: #7a6f60;
+  color: var(--text-muted);
 }
 
 .chat-panel__close {
   background: none;
   border: none;
-  color: #7a6f60;
+  color: var(--text-muted);
   font-size: 0.85rem;
   cursor: pointer;
   padding: 4px;
   transition: color 0.15s;
 }
-.chat-panel__close:hover { color: #e85d04; }
+.chat-panel__close:hover { color: var(--accent); }
 
 /* Messages */
 .chat-panel__messages {
@@ -82,7 +82,7 @@
   flex-direction: column;
   gap: 0.6rem;
   scrollbar-width: thin;
-  scrollbar-color: #2e2820 transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .chat-msg {
@@ -99,11 +99,11 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #e85d04, #d54d02);
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-weight: 700;
   font-size: 0.65rem;
   color: white;
@@ -120,14 +120,14 @@
 }
 
 .chat-msg--assistant .chat-msg__bubble {
-  background: #1e1914;
-  border: 1px solid #2e2820;
-  color: #c9bfb0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   border-radius: 2px 10px 10px 10px;
 }
 
 .chat-msg--user .chat-msg__bubble {
-  background: #e85d04;
+  background: var(--accent);
   color: white;
   border-radius: 10px 2px 10px 10px;
 }
@@ -144,7 +144,7 @@
 /* Input form */
 .chat-panel__form {
   padding: 0.75rem;
-  border-top: 1px solid #2e2820;
+  border-top: 1px solid var(--border);
   display: flex;
   gap: 0.5rem;
   flex-shrink: 0;
@@ -154,22 +154,22 @@
   flex: 1;
   padding: 0.55rem 0.8rem;
   font-size: 0.82rem;
-  font-family: 'DM Sans', sans-serif;
-  background: #12100d;
-  border: 1px solid #2e2820;
-  border-radius: 8px;
-  color: #fbf9f1;
+  font-family: var(--font-body);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
   outline: none;
   transition: border-color 0.15s;
 }
-.chat-panel__input::placeholder { color: #4a3f30; }
-.chat-panel__input:focus { border-color: rgba(232, 93, 4, 0.4); }
+.chat-panel__input::placeholder { color: var(--text-muted); }
+.chat-panel__input:focus { border-color: var(--border-accent); }
 
 .chat-panel__send {
   width: 34px;
   height: 34px;
-  border-radius: 8px;
-  background: #e85d04;
+  border-radius: var(--radius);
+  background: var(--accent);
   border: none;
   color: white;
   font-size: 1rem;
@@ -180,5 +180,5 @@
   transition: background 0.15s;
   flex-shrink: 0;
 }
-.chat-panel__send:hover:not(:disabled) { background: #d54d02; }
+.chat-panel__send:hover:not(:disabled) { background: var(--accent-dark); }
 .chat-panel__send:disabled { opacity: 0.4; cursor: not-allowed; }

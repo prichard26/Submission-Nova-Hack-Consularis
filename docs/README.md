@@ -8,7 +8,7 @@ This folder holds architecture and reference docs for the Consularis Nova Hack M
 |----------|---------|
 | [AGENT_README.md](AGENT_README.md) | **How to use the agent (Aurelius):** what you can ask, no step IDs needed, full list of capabilities with example phrases. |
 | [DATA_FLOW.md](DATA_FLOW.md) | Data flow and ownership: where graph and chat state live (SQLite), request path, backend module map. |
-| [GRAPH_STRUCTURE.md](GRAPH_STRUCTURE.md) | BPMN 2.0 hierarchical model: process tree, registry, SQLite persistence, extension metadata, in-memory cache, API contracts. |
+| [GRAPH_STRUCTURE.md](GRAPH_STRUCTURE.md) | JSON-native hierarchical model: process tree, workspace manifest, SQLite persistence, extension metadata, in-memory cache, API contracts. |
 
 ## Backend and frontend READMEs
 

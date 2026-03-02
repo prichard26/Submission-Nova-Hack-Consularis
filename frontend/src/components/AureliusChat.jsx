@@ -2,45 +2,64 @@ import { useState, useRef, useEffect } from 'react'
 import { sendChat } from '../services/api'
 import './AureliusChat.css'
 
-const WELCOME_MSG = "Salve! I am Aurelius, your process consul. Describe your process or tell me what you'd like to change — I shall refine your graph accordingly."
+export const WELCOME_MSG = "Salve! I am Aurelius, your process consul. Describe your process or tell me what you'd like to change — I shall refine your graph accordingly."
 
-export default function AureliusChat({ sessionId, processId = 'Process_Global', onGraphUpdate, onClose, isOverlay = false }) {
-  const [messages, setMessages] = useState([
+export default function AureliusChat({
+  sessionId,
+  processId = 'Process_Global',
+  onGraphUpdate,
+  onClose,
+  isOverlay = false,
+  messages: controlledMessages,
+  onSend: controlledOnSend,
+  input: controlledInput,
+  onInputChange,
+  loading: controlledLoading,
+}) {
+  const [uncontrolledMessages, setUncontrolledMessages] = useState([
     { id: 1, role: 'assistant', text: WELCOME_MSG }
   ])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [uncontrolledInput, setUncontrolledInput] = useState('')
+  const [uncontrolledLoading, setUncontrolledLoading] = useState(false)
   const bottomRef = useRef(null)
+
+  const isControlled = controlledMessages != null && controlledOnSend != null
+  const messages = isControlled ? controlledMessages : uncontrolledMessages
+  const input = isControlled ? (controlledInput ?? '') : uncontrolledInput
+  const setInput = isControlled ? (onInputChange ?? (() => {})) : setUncontrolledInput
+  const loading = isControlled ? (controlledLoading ?? false) : uncontrolledLoading
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function handleSend(e) {
+  async function handleSendUncontrolled(e) {
     e.preventDefault()
-    if (!input.trim() || loading) return
-    const userText = input.trim()
-    setInput('')
-    setMessages((prev) => [...prev, { id: Date.now(), role: 'user', text: userText }])
-    setLoading(true)
-
+    if (!uncontrolledInput.trim() || uncontrolledLoading) return
+    const userText = uncontrolledInput.trim()
+    setUncontrolledInput('')
+    setUncontrolledMessages((prev) => [...prev, { id: Date.now(), role: 'user', text: userText }])
+    setUncontrolledLoading(true)
     try {
       const data = await sendChat(sessionId, userText, { processId })
       const reply = data.message || 'I could not process that. Please try again.'
-      setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text: reply }])
-      if (data.graph_json && onGraphUpdate) {
-        onGraphUpdate(data.graph_json)
-      }
+      setUncontrolledMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text: reply }])
+      if (data.graph_json && onGraphUpdate) onGraphUpdate()
     } catch (err) {
       const text = err.status ? `Request failed (${err.status}). Please try again.` : 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.'
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now() + 1, role: 'assistant', text }
-      ])
+      setUncontrolledMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text }])
     } finally {
-      setLoading(false)
+      setUncontrolledLoading(false)
     }
   }
+
+  function handleSendControlled(e) {
+    e.preventDefault()
+    if (!input.trim() || loading) return
+    controlledOnSend(input.trim())
+  }
+
+  const handleSend = isControlled ? handleSendControlled : handleSendUncontrolled
 
   return (
     <div
@@ -57,7 +76,9 @@ export default function AureliusChat({ sessionId, processId = 'Process_Global', 
             <div className="chat-panel__status">{loading ? 'Thinking…' : 'Process consul'}</div>
           </div>
         </div>
-        <button className="chat-panel__close" onClick={onClose} aria-label="Close chat">✕</button>
+        {isOverlay && onClose && (
+          <button className="chat-panel__close" onClick={onClose} aria-label="Close chat">✕</button>
+        )}
       </div>
 
       <div className="chat-panel__messages">

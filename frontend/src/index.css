@@ -7,36 +7,36 @@
 }
 
 :root {
-  --bg-primary: #0d0a07;
-  --bg-secondary: #1a1510;
-  --bg-card: #1e1914;
-  --bg-card-hover: #2a2218;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7f5f2;
+  --bg-card: #f0ede8;
+  --bg-card-hover: #e8e4de;
   --accent: #e85d04;
   --accent-dark: #d54d02;
   --accent-light: #ff7a2e;
-  --accent-glow: rgba(232, 93, 4, 0.25);
-  --accent-soft: rgba(232, 93, 4, 0.08);
-  --text-primary: #fbf9f1;
-  --text-secondary: #c9bfb0;
-  --text-muted: #7a6f60;
-  --border: #2e2820;
-  --border-accent: rgba(232, 93, 4, 0.2);
+  --accent-glow: rgba(232, 93, 4, 0.15);
+  --accent-soft: rgba(232, 93, 4, 0.06);
+  --text-primary: #1a1510;
+  --text-secondary: #4a4035;
+  --text-muted: #9a8e80;
+  --border: #ddd5ca;
+  --border-accent: rgba(232, 93, 4, 0.25);
   --font-sans: 'Outfit', system-ui, sans-serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
   --radius: 8px;
   --radius-lg: 12px;
 
   /* Node / graph vars */
-  --node-fill: #f5d4b8;
+  --node-fill: #fff8f0;
   --node-stroke: #c97d3a;
-  --node-text: #4a3020;
+  --node-text: #3d2b1a;
   --node-badge-green: #2d6a4f;
   --node-badge-red: #d00000;
   --node-badge-blue: #1d3557;
   --edge-stroke: #c97d3a;
-  --lane-bg: rgba(245, 212, 184, 0.04);
+  --lane-bg: rgba(201, 125, 58, 0.05);
   --lane-border: rgba(201, 125, 58, 0.15);
-  --panel-bg: #1a1510;
+  --panel-bg: #f7f5f2;
 }
 
 body {

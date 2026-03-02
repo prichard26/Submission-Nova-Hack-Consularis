@@ -63,16 +63,17 @@ def _get_graph(session_id: str, process_id: str | None = None) -> ProcessGraph:
     return graph
 
 
-def _persist(session_id: str, process_id: str | None = None) -> None:
-    """Write the cached graph back to DB. Saves previous JSON to history."""
+def _persist(session_id: str, process_id: str | None = None, *, skip_history: bool = False) -> None:
+    """Write the cached graph back to DB. Optionally saves previous JSON to history (skip for position-only updates)."""
     pid = _normalize_process_id(process_id)
     key = (session_id, pid)
     graph = _cache.get(key)
     if graph is None:
         return
-    current = db.get_session_json(session_id, pid)
-    if current:
-        db.push_history(session_id, pid, current)
+    if not skip_history:
+        current = db.get_session_json(session_id, pid)
+        if current:
+            db.push_history(session_id, pid, current)
     db.upsert_session_json(session_id, pid, graph.to_json())
 
 
@@ -554,7 +555,7 @@ def update_positions(session_id: str, process_id: str | None, positions: dict[st
             step["position"] = {"x": pos.get("x", 0), "y": pos.get("y", 0)}
             changed = True
     if changed:
-        _persist(session_id, process_id)
+        _persist(session_id, process_id, skip_history=True)
     return changed
 
 

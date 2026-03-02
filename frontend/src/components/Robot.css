@@ -87,7 +87,7 @@
   justify-content: center;
   gap: 24px;
   padding-top: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 /* Eyes */
@@ -174,7 +174,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 /* SPQR-style chest emblem */
@@ -289,7 +289,7 @@
   padding: 1.25rem 1.5rem;
   max-width: 420px;
   position: relative;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
   animation: fade-in 0.3s ease-out;
 }
 

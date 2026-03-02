@@ -94,6 +94,11 @@ frontend/
 4. **Landscape View** shows the workspace process tree using Dagre layout; clicking a process drills into its detail canvas.
 5. **Aurelius chat** (`POST /api/chat`): sends message, receives assistant reply and updated `graph_json`; the canvas refreshes after a chat turn.
 
+## UI theme and UX
+
+- **Theme**: Light background with warm off-whites and orange accent. All colors are defined as CSS variables in `src/index.css` (`:root`). Main surfaces use `--bg-primary` (white), `--bg-secondary`, and `--bg-card`; graph canvases use a dot-pattern background (React Flow `Background` with `variant="dots"`).
+- **Panels**: The step Detail Panel and the Aurelius chat overlay both have a semi-transparent backdrop. Clicking the backdrop or pressing **Escape** closes the open panel (Detail Panel takes precedence if both could close).
+
 ## Notes
 
 - This frontend assumes the backend API is available.

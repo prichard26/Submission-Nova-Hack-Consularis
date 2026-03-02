@@ -30,7 +30,7 @@ backend/
 │
 ├── routers/             # HTTP routes by feature
 │   ├── health.py        # GET /health
-│   ├── chat.py          # OPTIONS + POST /api/chat
+│   ├── chat.py          # POST /api/chat
 │   └── graph.py         # JSON graph, workspace, BPMN export, name resolution, node CRUD, positions, undo
 │
 ├── agent/               # Aurelius chat + tools
@@ -43,7 +43,7 @@ backend/
 │   ├── workspace.py     # WorkspaceManifest: process tree index, summaries
 │   ├── store.py         # Session-scoped graph store with SQLite backing + in-memory cache (~25 public methods)
 │   ├── layout.py        # Auto-positioning for new nodes
-│   └── bpmn_export.py   # JSON → BPMN 2.0 XML export with diagram interchange
+│   └── bpmn_export.py   # JSON → BPMN 2.0 XML export (model only)
 │
 │
 ├── data/                # Runtime data
@@ -56,7 +56,6 @@ backend/
 │       ├── P4.json           # Distribution
 │       ├── P5.json           # Dispensing and Preparation
 │       ├── P6.json           # Administration
-│       ├── P7.json           # Monitoring and Waste Management
 │       └── P7.json           # Monitoring and Waste Management
 │
 └── tests/

@@ -212,6 +212,7 @@ Steps carry rich metadata as flat top-level fields (no nested extension sub-dict
 | `/api/graph/position` | POST | Batch update positions. Body: `{ positions: { id: {x,y} } }` |
 | `/api/graph/undo` | POST | Undo last mutation. `?session_id=…&process_id=…` |
 | `/api/graph/export` | GET | Session graph as BPMN 2.0 XML (for download). `?session_id=…&process_id=…` |
+| `/api/graph/baseline/json` | GET | Baseline graph as JSON (no session required). `?process_id=…` |
 | `/api/graph/baseline` | GET | Baseline as BPMN 2.0 XML. `?process_id=…` |
 | `/api/graph/resolve` | GET | Fuzzy name → ID resolution. `?session_id=…&name=…&process_id=…` |
 

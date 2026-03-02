@@ -83,7 +83,6 @@ When you have multiple processes (e.g. a global map and phase subprocesses), you
 
 | Capability | What you can say (examples) |
 |------------|-----------------------------|
-| **Replace the whole graph** | "Replace the current process with this BPMN" (when you provide full BPMN XML) |
 | **Validate** | "Check the graph for errors", "Validate the process" |
 
 ---

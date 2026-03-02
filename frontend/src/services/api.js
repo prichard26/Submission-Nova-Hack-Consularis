@@ -52,10 +52,7 @@ export function getGraphJson(sessionId, options = {}) {
 export function getBaselineJson(options = {}) {
   const { processId, ...rest } = options
   const pid = processId ? `?process_id=${encodeURIComponent(processId)}` : ''
-  return request(`/api/graph/json${pid}`, rest).catch(() => {
-    const fallbackPid = processId ? `?process_id=${encodeURIComponent(processId)}` : ''
-    return request(`/api/graph/baseline${fallbackPid}`, { ...rest, parseAs: 'text' }).then(() => null)
-  })
+  return request(`/api/graph/baseline/json${pid}`, rest)
 }
 
 export function getWorkspace(sessionId, options = {}) {
@@ -90,17 +87,6 @@ export function createNode(sessionId, processId, laneId, name, type = 'step', op
     ...options,
     method: 'POST',
     body: JSON.stringify({ lane_id: laneId, name, type }),
-  })
-}
-
-export function deleteNodeApi(sessionId, nodeId, options = {}) {
-  const { processId, ...rest } = options
-  const sid = encodeURIComponent(sessionId)
-  const nid = encodeURIComponent(nodeId)
-  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
-  return request(`/api/graph/node?session_id=${sid}&node_id=${nid}${pid}`, {
-    ...rest,
-    method: 'DELETE',
   })
 }
 

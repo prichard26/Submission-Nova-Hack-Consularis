@@ -59,6 +59,15 @@ def api_workspace(
     return Response(content=ws_json, media_type="application/json")
 
 
+@router.get("/baseline/json")
+def api_baseline_json(
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
+):
+    """Return baseline graph as JSON (no session required)."""
+    graph_json = get_baseline_json(process_id=process_id)
+    return Response(content=graph_json, media_type="application/json")
+
+
 class StepUpdateRequest(BaseModel):
     step_id: str
     updates: dict

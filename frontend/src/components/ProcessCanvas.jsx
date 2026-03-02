@@ -1,4 +1,4 @@
-import { useCallback, useRef, useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import {
   ReactFlow,
   MiniMap,
@@ -43,7 +43,7 @@ function Canvas({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
   // Sync when graph data changes
-  useMemo(() => {
+  useEffect(() => {
     setNodes(initialNodes)
     setEdges(initialEdges)
   }, [initialNodes, initialEdges, setNodes, setEdges])
@@ -115,7 +115,7 @@ function Canvas({
   const handleExportPng = useCallback(async () => {
     if (!flowWrapper.current) return
     try {
-      const dataUrl = await toPng(flowWrapper.current, { backgroundColor: '#0d0a07' })
+      const dataUrl = await toPng(flowWrapper.current, { backgroundColor: '#ffffff' })
       const link = document.createElement('a')
       link.download = `${processId}.png`
       link.href = dataUrl
@@ -207,10 +207,10 @@ function Canvas({
           <MiniMap
             nodeStrokeColor="var(--node-stroke, #c97d3a)"
             nodeColor="var(--node-fill, #f5d4b8)"
-            maskColor="rgba(13, 10, 7, 0.7)"
+            maskColor="rgba(255, 255, 255, 0.7)"
             style={{ background: 'var(--bg-secondary, #1a1510)' }}
           />
-          <Background color="var(--border, #2e2820)" gap={24} />
+          <Background variant="dots" color="#ccc4b8" gap={20} size={1.5} />
         </ReactFlow>
       </div>
     </div>

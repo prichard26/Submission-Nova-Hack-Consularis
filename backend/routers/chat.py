@@ -1,4 +1,4 @@
-"""Chat endpoint: OPTIONS + POST /api/chat."""
+"""Chat endpoint: POST /api/chat."""
 import asyncio
 import json
 import logging
@@ -6,7 +6,6 @@ import threading
 from collections import OrderedDict
 
 from fastapi import APIRouter
-from fastapi.responses import Response
 from pydantic import BaseModel, field_validator
 
 import db
@@ -69,14 +68,8 @@ class ChatResponseMeta(BaseModel):
 class ChatResponse(BaseModel):
     message: str
     graph_json: dict | None = None
-    bpmn_xml: str | None = None
     process_id: str | None = None
     meta: ChatResponseMeta
-
-
-@router.options("/chat")
-def options_chat():
-    return Response(status_code=200)
 
 
 @router.post("/chat", response_model=ChatResponse)
