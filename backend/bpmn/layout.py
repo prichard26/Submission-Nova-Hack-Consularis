@@ -15,14 +15,17 @@ EVENT_SIZE = 44
 GATEWAY_SIZE = 56
 LANE_HEIGHT = 200
 GAP_Y = 24  # vertical gap between lanes so arrows don't sit on borders
-GAP_X = 140
+GAP_X = 180  # increased from 140 for more breathing room between elements
 
 
 def node_size(model: "BpmnModel", node_id: str) -> tuple[int, int]:
-    """Return (width, height) for a flow node."""
+    """Return (width, height) for a flow node. Task/call width grows with name length."""
     kind = model.flow_node_type(node_id)
     if kind in ("task", "callActivity"):
-        return (TASK_WIDTH, TASK_HEIGHT)
+        name = model.get_node_name(node_id) or ""
+        char_w = max(len(name) * 9, TASK_WIDTH)
+        w = min(char_w, 360)
+        return (w, TASK_HEIGHT)
     if kind in ("startEvent", "endEvent"):
         return (EVENT_SIZE, EVENT_SIZE)
     if kind == "exclusiveGateway":

@@ -42,10 +42,20 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS session_process_history (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            process_id TEXT NOT NULL,
+            bpmn_xml   TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_session_processes_sid
             ON session_processes(session_id);
         CREATE INDEX IF NOT EXISTS idx_chat_messages_sid
             ON chat_messages(session_id);
+        CREATE INDEX IF NOT EXISTS idx_session_process_history_sid_pid
+            ON session_process_history(session_id, process_id);
     """)
 
 
@@ -83,7 +93,8 @@ def get_baseline_xml(process_id: str) -> str | None:
 
 
 def clone_baseline_to_session(session_id: str) -> None:
-    """Copy all baseline rows into session_processes for the given session."""
+    """Copy all baseline rows into session_processes for the given session.
+    Uses INSERT OR IGNORE so concurrent requests for the same session do not raise UNIQUE."""
     conn = get_conn()
     existing = conn.execute(
         "SELECT count(*) FROM session_processes WHERE session_id = ?", (session_id,)
@@ -91,7 +102,7 @@ def clone_baseline_to_session(session_id: str) -> None:
     if existing > 0:
         return
     conn.execute(
-        "INSERT INTO session_processes (session_id, process_id, bpmn_xml) "
+        "INSERT OR IGNORE INTO session_processes (session_id, process_id, bpmn_xml) "
         "SELECT ?, process_id, bpmn_xml FROM baseline_processes",
         (session_id,),
     )
@@ -122,6 +133,31 @@ def upsert_session_xml(session_id: str, process_id: str, bpmn_xml: str) -> None:
         (session_id, process_id, bpmn_xml),
     )
     conn.commit()
+
+
+def push_history(session_id: str, process_id: str, bpmn_xml: str) -> None:
+    """Append a snapshot to session process history (used before overwriting with a mutation)."""
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO session_process_history (session_id, process_id, bpmn_xml) VALUES (?, ?, ?)",
+        (session_id, process_id, bpmn_xml),
+    )
+    conn.commit()
+
+
+def pop_history(session_id: str, process_id: str) -> str | None:
+    """Remove and return the most recent history entry for (session_id, process_id), or None if empty."""
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT id, bpmn_xml FROM session_process_history "
+        "WHERE session_id = ? AND process_id = ? ORDER BY id DESC LIMIT 1",
+        (session_id, process_id),
+    ).fetchone()
+    if row is None:
+        return None
+    conn.execute("DELETE FROM session_process_history WHERE id = ?", (row["id"],))
+    conn.commit()
+    return row["bpmn_xml"]
 
 
 def get_chat_history(session_id: str) -> list[dict]:

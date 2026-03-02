@@ -63,12 +63,16 @@ def _get_model(session_id: str, process_id: str | None = None) -> BpmnModel:
 
 
 def _persist(session_id: str, process_id: str | None = None) -> None:
-    """Write the cached model back to the DB after a mutation."""
+    """Write the cached model back to the DB after a mutation. Saves previous XML to history before overwriting."""
     pid = _normalize_process_id(process_id)
     key = (session_id, pid)
     model = _cache.get(key)
     if model is None:
         return
+    # Snapshot current session XML so bot actions can be undone
+    current_xml = db.get_session_xml(session_id, pid)
+    if current_xml:
+        db.push_history(session_id, pid, current_xml)
     db.upsert_session_xml(session_id, pid, serialize_bpmn_xml(model))
 
 
@@ -105,6 +109,18 @@ def set_session(session_id: str, graph: BpmnModel | str, process_id: str | None 
 def get_bpmn_xml(session_id: str, process_id: str | None = None) -> str:
     model = _get_model(session_id, process_id)
     return serialize_bpmn_xml(model)
+
+
+def undo_graph(session_id: str, process_id: str | None = None) -> str | None:
+    """Restore the previous graph state from history. Returns restored BPMN XML or None if nothing to undo."""
+    pid = _normalize_process_id(process_id)
+    prev_xml = db.pop_history(session_id, pid)
+    if prev_xml is None:
+        return None
+    key = (session_id, pid)
+    _cache.pop(key, None)
+    db.upsert_session_xml(session_id, pid, prev_xml)
+    return prev_xml
 
 
 def get_task_ids(session_id: str, process_id: str | None = None) -> set[str]:

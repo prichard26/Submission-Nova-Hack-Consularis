@@ -196,6 +196,22 @@ def _add_diagram_interchange(
         edge = ET.SubElement(plane, f"{{{BPMNDI_NS}}}BPMNEdge", id=f"BPMNEdge_{fid}", bpmnElement=fid)
         ET.SubElement(edge, f"{{{DI_NS}}}waypoint", x=str(round(wx1)), y=str(round(wy1)))
         ET.SubElement(edge, f"{{{DI_NS}}}waypoint", x=str(round(wx2)), y=str(round(wy2)))
+        # BPMNLabel with offset bounds so edge text does not overlap the arrow
+        label_name = flow.get("name", "")
+        if label_name:
+            mid_x = (wx1 + wx2) / 2
+            mid_y = (wy1 + wy2) / 2
+            label_w = min(len(label_name) * 8, 160)
+            label_h = 20
+            label_el = ET.SubElement(edge, f"{{{BPMNDI_NS}}}BPMNLabel")
+            ET.SubElement(
+                label_el,
+                f"{{{DC_NS}}}Bounds",
+                x=str(round(mid_x - label_w / 2)),
+                y=str(round(mid_y - label_h - 10)),
+                width=str(label_w),
+                height=str(label_h),
+            )
 
 
 def serialize_bpmn_xml(model: "BpmnModel") -> str:

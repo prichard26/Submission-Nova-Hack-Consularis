@@ -9,6 +9,7 @@ from bpmn.store import (
     get_bpmn_xml,
     resolve_step,
     get_baseline_bpmn_xml,
+    undo_graph,
 )
 
 logger = logging.getLogger("consularis")
@@ -56,3 +57,16 @@ def api_resolve_step(
     _validate_session_id(session_id)
     matches = resolve_step(session_id, name_fragment=name, process_id=process_id)
     return {"matches": matches}
+
+
+@router.post("/undo")
+def api_undo_graph(
+    session_id: str = Query(..., description="Session id"),
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
+):
+    """Undo the last bot mutation for this session/process. Returns restored BPMN XML or 404 if nothing to undo."""
+    _validate_session_id(session_id)
+    restored_xml = undo_graph(session_id, process_id=process_id)
+    if restored_xml is None:
+        raise HTTPException(status_code=404, detail="Nothing to undo")
+    return {"bpmn_xml": restored_xml}

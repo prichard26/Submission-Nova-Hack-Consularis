@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { useBpmnXml } from '../hooks/useBpmnXml'
+import { undoGraph } from '../services/api'
 import 'diagram-js/assets/diagram-js.css'
 import 'bpmn-js/dist/assets/bpmn-js.css'
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css'
@@ -19,17 +20,37 @@ export default function BpmnViewer({
   refreshTrigger = 0,
   panelFooter,
   onDrillDown,
+  onRequestRefresh,
 }) {
   const containerRef = useRef(null)
   const paletteContainerRef = useRef(null)
   const modelerRef = useRef(null)
+  const isFirstLoadRef = useRef(true)
   const [initializing, setInitializing] = useState(false)
   const [viewerError, setViewerError] = useState(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [undoBotPending, setUndoBotPending] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [modelerReady, setModelerReady] = useState(false)
   const { xml, loading: xmlLoading, error: xmlError } = useBpmnXml(sessionId, processId, refreshTrigger)
 
   const getModeler = useCallback(() => modelerRef.current, [])
+
+  const handleUndoBot = useCallback(async () => {
+    if (!sessionId || undoBotPending || !onRequestRefresh) return
+    setUndoBotPending(true)
+    try {
+      await undoGraph(sessionId, { processId })
+      onRequestRefresh()
+    } catch (err) {
+      if (err?.status !== 404) {
+        console.warn('Undo bot failed', err)
+      }
+    } finally {
+      setUndoBotPending(false)
+    }
+  }, [sessionId, processId, onRequestRefresh, undoBotPending])
 
   const undo = useCallback(() => {
     const modeler = getModeler()
@@ -121,32 +142,144 @@ export default function BpmnViewer({
     }
   }, [getModeler])
 
+  // Destroy modeler when session or process changes (or unmount)
+  useEffect(() => {
+    return () => {
+      const modeler = modelerRef.current
+      if (modeler) {
+        if (modeler._paletteObserver) {
+          modeler._paletteObserver.disconnect()
+        }
+        if (modeler._commandStackHandler) {
+          modeler.off('commandStack.changed', modeler._commandStackHandler)
+          modeler._commandStackHandler = null
+        }
+        modeler.destroy()
+      }
+      if (paletteContainerRef.current) {
+        paletteContainerRef.current.querySelectorAll('.djs-palette').forEach((el) => el.remove())
+      }
+      modelerRef.current = null
+      isFirstLoadRef.current = true
+      setModelerReady(false)
+    }
+  }, [sessionId, processId])
+
+  // View mode: block create/delete (and label edit) when editMode is false.
+  // We do NOT block directEditing.activate — it can break selection/zoom.
+  // Per bpmn.io forum: use element.dblclick with higher priority + stopPropagation()
+  // so the default label-editing handler never runs (https://forum.bpmn.io/t/how-to-remove-double-click-event-to-add-label-in-the-modeler/610).
+  useEffect(() => {
+    const modeler = modelerRef.current
+    if (!modeler || editMode) return
+
+    const block = () => false
+    const events = [
+      'commandStack.shape.delete.canExecute',
+      'commandStack.elements.delete.canExecute',
+      'commandStack.connection.delete.canExecute',
+      'commandStack.shape.create.canExecute',
+      'commandStack.connection.create.canExecute',
+    ]
+    const eventBus = modeler.get('eventBus')
+
+    const preventLabelEditOnDblClick = (event) => {
+      if (typeof event.stopPropagation === 'function') {
+        event.stopPropagation()
+      }
+    }
+
+    events.forEach((e) => eventBus.on(e, 2000, block))
+    eventBus.on('element.dblclick', 2000, preventLabelEditOnDblClick)
+
+    return () => {
+      events.forEach((e) => eventBus.off(e, block))
+      eventBus.off('element.dblclick', preventLabelEditOnDblClick)
+    }
+  }, [editMode, modelerReady])
+
   useEffect(() => {
     if (xmlLoading) return
     if (xmlError) return
     if (!xml?.trim()) return
 
-    let cancelled = false
-    const paletteContainer = paletteContainerRef.current
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setViewerError(null)
-        setInitializing(true)
-      }
-    })
-
     const container = containerRef.current
     if (!container) {
-      queueMicrotask(() => {
-        if (!cancelled) {
-          setViewerError('Canvas not ready')
-          setInitializing(false)
-        }
-      })
+      setViewerError('Canvas not ready')
       return
     }
 
-    const modeler = new BpmnModeler({
+    const modeler = modelerRef.current
+    const isUpdate = modeler != null
+
+    if (isUpdate) {
+      // Reuse existing modeler: preserve viewport, then import new XML
+      const canvas = modeler.get('canvas')
+      let prevViewbox = null
+      try {
+        prevViewbox = canvas.viewbox()
+      } catch (e) {
+        void e
+      }
+
+      setViewerError(null)
+      setInitializing(true)
+      modeler
+        .importXML(xml)
+        .then((result) => {
+          if (result?.warnings?.length) {
+            console.warn('[BpmnViewer] import warnings:', result.warnings)
+          }
+          try {
+            const connectionDocking = modeler.get('connectionDocking', false)
+            const elementRegistry = modeler.get('elementRegistry')
+            const eventBus = modeler.get('eventBus')
+            const connections = []
+            if (connectionDocking && elementRegistry) {
+              elementRegistry.forEach((element) => {
+                if (element.waypoints && element.source && element.target) {
+                  const cropped = connectionDocking.getCroppedWaypoints(element, element.source, element.target)
+                  if (cropped && cropped.length >= 2) {
+                    element.waypoints = cropped
+                    connections.push(element)
+                  }
+                }
+              })
+              if (connections.length && eventBus) {
+                eventBus.fire('elements.changed', { elements: connections })
+              }
+            }
+          } catch (e) {
+            console.warn('[BpmnViewer] connection dock crop:', e)
+          }
+          if (prevViewbox && typeof modeler.get('canvas').viewbox === 'function') {
+            try {
+              modeler.get('canvas').viewbox(prevViewbox)
+            } catch (err) {
+              void err
+            }
+          }
+          setCanUndo(modeler.get('commandStack').canUndo())
+          setCanRedo(modeler.get('commandStack').canRedo())
+          setModelerReady(true)
+        })
+        .catch((err) => {
+          setViewerError(err?.message || 'Failed to load BPMN')
+        })
+        .finally(() => {
+          setInitializing(false)
+        })
+      return
+    }
+
+    // First load: create modeler, import, fit-viewport
+    let cancelled = false
+    const paletteContainer = paletteContainerRef.current
+    setViewerError(null)
+    setInitializing(true)
+
+    /* Colors must match BpmnViewer.css theme (--bpmn-fill, --bpmn-stroke, --bpmn-text) */
+    const newModeler = new BpmnModeler({
       container,
       width: '100%',
       height: '100%',
@@ -164,14 +297,13 @@ export default function BpmnViewer({
         },
       },
     })
-    modelerRef.current = modeler
+    modelerRef.current = newModeler
 
     const onCommandStackChanged = () => {
-      // Defer so React state updates don't run while bpmn-js is mid-update (avoids crash)
       queueMicrotask(() => {
         if (cancelled) return
         try {
-          const stack = modeler.get('commandStack')
+          const stack = newModeler.get('commandStack')
           setCanUndo(stack.canUndo())
           setCanRedo(stack.canRedo())
         } catch (err) {
@@ -179,10 +311,10 @@ export default function BpmnViewer({
         }
       })
     }
-    modeler._commandStackHandler = onCommandStackChanged
-    modeler.on('commandStack.changed', onCommandStackChanged)
+    newModeler._commandStackHandler = onCommandStackChanged
+    newModeler.on('commandStack.changed', onCommandStackChanged)
 
-    modeler
+    newModeler
       .importXML(xml)
       .then((result) => {
         if (cancelled) return
@@ -190,11 +322,10 @@ export default function BpmnViewer({
           console.warn('[BpmnViewer] import warnings:', result.warnings)
         }
         setViewerError(null)
-        // Ensure connection anchors are on shape borders, not centers
         try {
-          const connectionDocking = modeler.get('connectionDocking', false)
-          const elementRegistry = modeler.get('elementRegistry')
-          const eventBus = modeler.get('eventBus')
+          const connectionDocking = newModeler.get('connectionDocking', false)
+          const elementRegistry = newModeler.get('elementRegistry')
+          const eventBus = newModeler.get('eventBus')
           const connections = []
           if (connectionDocking && elementRegistry) {
             elementRegistry.forEach((element) => {
@@ -213,8 +344,10 @@ export default function BpmnViewer({
         } catch (e) {
           console.warn('[BpmnViewer] connection dock crop:', e)
         }
-        modeler.get('canvas').zoom('fit-viewport')
-        // Move palette inside the panel and keep a single instance
+        newModeler.get('canvas').zoom('fit-viewport')
+        isFirstLoadRef.current = false
+        setModelerReady(true)
+
         const syncPaletteIntoPanel = () => {
           const canvasContainer = containerRef.current
           const panelContainer = paletteContainerRef.current
@@ -231,23 +364,14 @@ export default function BpmnViewer({
           })
         }
 
-        setCanUndo(modeler.get('commandStack').canUndo())
-        setCanRedo(modeler.get('commandStack').canRedo())
-
-        const onElementDblClick = (event) => {
-          const bo = event?.element?.businessObject
-          if (!bo || bo.$type !== 'bpmn:CallActivity') return
-          const targetProcess = bo.calledElement
-          if (targetProcess && onDrillDown) onDrillDown(targetProcess)
-        }
-        modeler._onElementDblClick = onElementDblClick
-        modeler.on('element.dblclick', onElementDblClick)
+        setCanUndo(newModeler.get('commandStack').canUndo())
+        setCanRedo(newModeler.get('commandStack').canRedo())
 
         syncPaletteIntoPanel()
         const observer = new MutationObserver(syncPaletteIntoPanel)
         const canvasContainer = containerRef.current
         if (canvasContainer) observer.observe(canvasContainer, { childList: true, subtree: true })
-        modelerRef.current._paletteObserver = observer
+        newModeler._paletteObserver = observer
       })
       .catch((err) => {
         if (!cancelled) {
@@ -259,49 +383,46 @@ export default function BpmnViewer({
           setInitializing(false)
         }
       })
-
-    return () => {
-      cancelled = true
-      const modeler = modelerRef.current
-      if (modeler) {
-        if (modeler._paletteObserver) {
-          modeler._paletteObserver.disconnect()
-        }
-        if (modeler._commandStackHandler) {
-          modeler.off('commandStack.changed', modeler._commandStackHandler)
-          modeler._commandStackHandler = null
-        }
-        if (modeler._onElementDblClick) {
-          modeler.off('element.dblclick', modeler._onElementDblClick)
-          modeler._onElementDblClick = null
-        }
-        modeler.destroy()
-      }
-      if (paletteContainer) {
-        paletteContainer.querySelectorAll('.djs-palette').forEach((el) => el.remove())
-      }
-      modelerRef.current = null
-    }
-  }, [xml, xmlLoading, xmlError, onDrillDown])
+  }, [xml, xmlLoading, xmlError, sessionId, processId])
 
   const loading = xmlLoading || initializing
   const error = xmlError || viewerError
 
   return (
-    <div className="bpmn-viewer">
+    <div className={`bpmn-viewer ${editMode ? 'bpmn-viewer--edit-mode' : 'bpmn-viewer--view-mode'}`}>
       {/* Right-side panel: one container (editor + palette) + chatbot under */}
       <aside className="bpmn-viewer__panel" aria-label="BPMN tools">
         <div className="bpmn-viewer__panel-inner">
           <div className="bpmn-viewer__panel-toolbar" role="toolbar" aria-label="BPMN editor actions">
-            <span className="bpmn-viewer__toolbar-title">BPMN editor</span>
+            <button
+              type="button"
+              className={`bpmn-viewer__mode-toggle ${editMode ? 'active' : ''}`}
+              onClick={() => setEditMode((m) => !m)}
+              title={editMode ? 'Switch to View mode' : 'Switch to Edit mode'}
+            >
+              {editMode ? 'Editing' : 'View only'}
+            </button>
+            <span className="bpmn-viewer__toolbar-title">{editMode ? 'Edit mode' : 'View mode'}</span>
             <div className="bpmn-viewer__toolbar-group">
-              <span className="bpmn-viewer__toolbar-label">Edit</span>
+              <span className="bpmn-viewer__toolbar-label">{editMode ? 'Edit' : 'Undo'}</span>
               <div className="bpmn-viewer__toolbar-actions">
-                <button type="button" onClick={undo} title="Undo" disabled={loading || !!error || !canUndo}>
-                  Undo
-                </button>
-                <button type="button" onClick={redo} title="Redo" disabled={loading || !!error || !canRedo}>
-                  Redo
+                {editMode && (
+                  <>
+                    <button type="button" onClick={undo} title="Undo" disabled={loading || !!error || !canUndo}>
+                      Undo
+                    </button>
+                    <button type="button" onClick={redo} title="Redo" disabled={loading || !!error || !canRedo}>
+                      Redo
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={handleUndoBot}
+                  title="Undo last bot change"
+                  disabled={loading || !!error || undoBotPending || !onRequestRefresh}
+                >
+                  Undo (bot)
                 </button>
               </div>
             </div>

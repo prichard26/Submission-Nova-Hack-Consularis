@@ -56,6 +56,7 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
           processId={PROCESS_ID}
           refreshTrigger={bpmnRefreshTrigger}
           panelFooter={panelFooter}
+          onRequestRefresh={handleExternalGraphUpdate}
         />
       </div>
 

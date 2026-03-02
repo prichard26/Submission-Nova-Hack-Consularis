@@ -74,3 +74,19 @@ export function sendChat(sessionId, message, options = {}) {
     body: JSON.stringify({ session_id: sessionId, message, process_id: processId || null }),
   })
 }
+
+/**
+ * Undo the last bot graph change for this session/process.
+ * @param {string} sessionId - Session id
+ * @param {{ processId?: string }} options - Optional process id
+ * @returns {Promise<{ bpmn_xml: string }>} Restored BPMN XML; throws if nothing to undo (404)
+ */
+export function undoGraph(sessionId, options = {}) {
+  const { processId, ...rest } = options
+  const sid = encodeURIComponent(sessionId)
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/undo?session_id=${sid}${pid}`, {
+    ...rest,
+    method: 'POST',
+  })
+}

@@ -192,6 +192,25 @@ class BpmnModel:
             out.add(g["id"])
         return out
 
+    def get_node_name(self, node_id: str) -> str | None:
+        """Return display name for a flow node (task, call activity, event, gateway)."""
+        task = self.get_task(node_id)
+        if task is not None:
+            return task.get("name")
+        call = self.get_call_activity(node_id)
+        if call is not None:
+            return call.get("name")
+        for e in self.start_events:
+            if e["id"] == node_id:
+                return e.get("name")
+        for e in self.end_events:
+            if e["id"] == node_id:
+                return e.get("name")
+        for g in self.gateways:
+            if g["id"] == node_id:
+                return g.get("name")
+        return None
+
     def flow_node_type(self, node_id: str) -> str:
         """Return 'task'|'callActivity'|'startEvent'|'endEvent'|'exclusiveGateway' for layout."""
         if any(t["id"] == node_id for t in self.tasks):

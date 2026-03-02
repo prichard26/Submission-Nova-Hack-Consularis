@@ -1,16 +1,63 @@
-/* White background with dot grid */
+/* ==========================================================================
+   BPMN viewer theme – single source of truth for colors and typography.
+   Override these variables to retheme; diagram-js/bpmn-js vars are mapped below.
+   ========================================================================== */
+.bpmn-viewer {
+  /* Theme: fill and stroke for shapes, edges, text */
+  --bpmn-fill: #f5d4b8;
+  --bpmn-fill-lane: rgba(245, 212, 184, 0.35);
+  --bpmn-fill-pool: rgba(245, 212, 184, 0.25);
+  --bpmn-fill-edge-label: rgba(245, 212, 184, 0.95);
+  --bpmn-stroke: #c97d3a;
+  --bpmn-stroke-strong: #a85a20;
+  --bpmn-text: #4a3020;
+
+  /* UI: panel, toolbar, context pad */
+  --bpmn-accent: #ff9933;
+  --bpmn-accent-subtle: rgba(255, 153, 51, 0.2);
+  --bpmn-accent-border: rgba(255, 153, 51, 0.35);
+  --bpmn-accent-border-strong: rgba(255, 153, 51, 0.4);
+  --bpmn-panel-bg: rgba(30, 30, 30, 0.92);
+  --bpmn-panel-button-bg: rgba(56, 56, 56, 0.95);
+  --bpmn-context-pad-bg: #2a2a2a;
+  --bpmn-context-pad-entry: #383838;
+  --bpmn-context-pad-hover: rgba(255, 153, 51, 0.35);
+  --bpmn-palette-bg: rgba(30, 30, 30, 0.95);
+
+  /* Canvas */
+  --bpmn-canvas-bg: #ffffff;
+  --bpmn-canvas-dot: rgba(0, 0, 0, 0.12);
+  --bpmn-font: Helvetica, Arial, sans-serif;
+}
+
+/* Map diagram-js/bpmn-js CSS variables to our theme so library logic is preserved */
+.bpmn-viewer .djs-container,
+.bpmn-viewer .djs-parent {
+  --canvas-fill-color: var(--bpmn-canvas-bg);
+  --context-pad-entry-background-color: var(--bpmn-context-pad-entry);
+  --context-pad-entry-hover-background-color: var(--bpmn-context-pad-hover);
+  --element-selected-outline-stroke-color: var(--bpmn-stroke-strong);
+  --element-hover-outline-fill-color: var(--bpmn-stroke-strong);
+  --element-selected-outline-secondary-stroke-color: var(--bpmn-stroke);
+  --palette-background-color: var(--bpmn-palette-bg);
+  --palette-entry-color: #ffffff;
+  --palette-entry-hover-color: var(--bpmn-accent);
+}
+
+/* ==========================================================================
+   Layout: viewer, panel, canvas (no theme colors – structure only)
+   ========================================================================== */
 .bpmn-viewer {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   min-height: 400px;
-  background-color: #ffffff;
-  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+  background-color: var(--bpmn-canvas-bg);
+  background-image: radial-gradient(circle, var(--bpmn-canvas-dot) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* Right-side panel overlay: 1/4 width over the map */
 .bpmn-viewer__panel {
   position: absolute;
   top: 0;
@@ -32,11 +79,10 @@
   pointer-events: auto;
 }
 
-/* Single container: toolbar + palette in one box */
 .bpmn-viewer__panel-inner {
-  border: 1px solid rgba(255, 153, 51, 0.35);
+  border: 1px solid var(--bpmn-accent-border);
   border-radius: 10px;
-  background: rgba(30, 30, 30, 0.92);
+  background: var(--bpmn-panel-bg);
   backdrop-filter: blur(8px);
   padding: 14px;
   color: #ffffff;
@@ -59,8 +105,33 @@
   gap: 14px;
 }
 
+.bpmn-viewer__mode-toggle {
+  align-self: flex-start;
+  font-family: var(--bpmn-font);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border: 1px solid var(--bpmn-accent-border-strong);
+  border-radius: 6px;
+  background: var(--bpmn-panel-button-bg);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.bpmn-viewer__mode-toggle:hover {
+  background: var(--bpmn-accent-subtle);
+  border-color: var(--bpmn-accent);
+}
+
+.bpmn-viewer__mode-toggle.active {
+  background: var(--bpmn-accent-subtle);
+  border-color: var(--bpmn-accent);
+  color: #ffffff;
+}
+
 .bpmn-viewer__toolbar-title {
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: var(--bpmn-font);
   font-size: 14px;
   font-weight: 700;
   color: #ffffff;
@@ -74,7 +145,7 @@
 }
 
 .bpmn-viewer__toolbar-label {
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: var(--bpmn-font);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -90,21 +161,21 @@
 }
 
 .bpmn-viewer__toolbar-actions button {
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: var(--bpmn-font);
   font-size: 13px;
   min-width: 36px;
   padding: 6px 10px;
-  border: 1px solid rgba(255, 153, 51, 0.4);
+  border: 1px solid var(--bpmn-accent-border-strong);
   border-radius: 6px;
-  background: rgba(56, 56, 56, 0.95);
+  background: var(--bpmn-panel-button-bg);
   color: #ffffff;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 
 .bpmn-viewer__toolbar-actions button:hover:not(:disabled) {
-  background: rgba(255, 153, 51, 0.2);
-  border-color: #ff9933;
+  background: var(--bpmn-accent-subtle);
+  border-color: var(--bpmn-accent);
 }
 
 .bpmn-viewer__toolbar-actions button:disabled {
@@ -118,9 +189,9 @@
   left: 14px;
   z-index: 3;
   max-width: 380px;
-  border: 1px solid rgba(255, 153, 51, 0.35);
+  border: 1px solid var(--bpmn-accent-border);
   border-radius: 10px;
-  background: rgba(30, 30, 30, 0.9);
+  background: var(--bpmn-panel-bg);
   backdrop-filter: blur(8px);
   padding: 10px 12px;
   color: #ffffff;
@@ -128,21 +199,21 @@
 }
 
 .bpmn-viewer__hud-title {
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: var(--bpmn-font);
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 6px;
 }
 
 .bpmn-viewer__hud-hint {
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: var(--bpmn-font);
   font-size: 12px;
   line-height: 1.4;
   color: #cccccc;
 }
 
 .bpmn-viewer__hud-hint strong {
-  color: #ff9933;
+  color: var(--bpmn-accent);
 }
 
 .bpmn-viewer__canvas {
@@ -153,67 +224,91 @@
   min-height: 400px;
   padding: 0;
   box-sizing: border-box;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .bpmn-viewer__loading,
 .bpmn-viewer__error {
   position: absolute;
   inset: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #cccccc;
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: var(--bpmn-font);
   font-size: 14px;
 }
 
 .bpmn-viewer__error {
-  color: #ff9933;
+  color: var(--bpmn-accent);
 }
 
-/* Canvas: white with dot grid to match viewer */
+/* ==========================================================================
+   diagram-js canvas: background only (rest of behaviour unchanged)
+   ========================================================================== */
 .bpmn-viewer .djs-container {
-  background-color: #ffffff !important;
-  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px) !important;
+  background-color: var(--bpmn-canvas-bg) !important;
+  background-image: radial-gradient(circle, var(--bpmn-canvas-dot) 1px, transparent 1px) !important;
   background-size: 24px 24px !important;
 }
 
-/* Graph boxes/elements: light orange */
+/* ==========================================================================
+   BPMN shapes: fill/stroke via theme. Use both data-element-type and generic
+   .djs-shape .djs-visual so CallActivity and any type are styled.
+   Exclude diagram-js state classes (connect-ok, drop-not-ok, etc.) so their
+   logic for valid/invalid drop and connect is preserved.
+   ========================================================================== */
+.bpmn-viewer .djs-shape:not(.connect-ok):not(.connect-not-ok):not(.drop-not-ok):not(.drop-ok):not(.new-parent) > .djs-visual > rect,
+.bpmn-viewer .djs-shape:not(.connect-ok):not(.connect-not-ok):not(.drop-not-ok):not(.drop-ok):not(.new-parent) > .djs-visual > circle,
+.bpmn-viewer .djs-shape:not(.connect-ok):not(.connect-not-ok):not(.drop-not-ok):not(.drop-ok):not(.new-parent) > .djs-visual > polygon,
+.bpmn-viewer .djs-shape:not(.connect-ok):not(.connect-not-ok):not(.drop-not-ok):not(.drop-ok):not(.new-parent) > .djs-visual > path {
+  fill: var(--bpmn-fill) !important;
+  stroke: var(--bpmn-stroke) !important;
+  stroke-width: 2.5px !important;
+}
+
+/* Type-specific overrides (in case library uses data-element-type) */
 .bpmn-viewer .djs-element[data-element-type="bpmn:Task"] > .djs-visual > rect,
 .bpmn-viewer .djs-element[data-element-type="bpmn:UserTask"] > .djs-visual > rect,
 .bpmn-viewer .djs-element[data-element-type="bpmn:ServiceTask"] > .djs-visual > rect,
 .bpmn-viewer .djs-element[data-element-type="bpmn:ManualTask"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:CallActivity"] > .djs-visual > rect,
 .bpmn-viewer .djs-element[data-element-type="bpmn:StartEvent"] > .djs-visual > circle,
 .bpmn-viewer .djs-element[data-element-type="bpmn:EndEvent"] > .djs-visual > circle,
 .bpmn-viewer .djs-element[data-element-type="bpmn:IntermediateThrowEvent"] > .djs-visual > circle,
 .bpmn-viewer .djs-element[data-element-type="bpmn:IntermediateCatchEvent"] > .djs-visual > circle,
 .bpmn-viewer .djs-element[data-element-type="bpmn:ExclusiveGateway"] > .djs-visual > polygon,
 .bpmn-viewer .djs-element[data-element-type="bpmn:ExclusiveGateway"] > .djs-visual > path {
-  fill: #f5d4b8 !important;
-  stroke: #c97d3a !important;
+  fill: var(--bpmn-fill) !important;
+  stroke: var(--bpmn-stroke) !important;
   stroke-width: 2.5px !important;
 }
 
-/* Rounded corners on task rects (SVG attribute; bpmn-js may use path) */
-.bpmn-viewer .djs-element[data-element-type="bpmn:Task"] rect,
-.bpmn-viewer .djs-element[data-element-type="bpmn:UserTask"] rect,
-.bpmn-viewer .djs-element[data-element-type="bpmn:ServiceTask"] rect {
+/* Rounded corners on task-like rects */
+.bpmn-viewer .djs-shape > .djs-visual > rect[width][height],
+.bpmn-viewer .djs-element[data-element-type="bpmn:Task"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:UserTask"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:ServiceTask"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:ManualTask"] > .djs-visual > rect,
+.bpmn-viewer .djs-element[data-element-type="bpmn:CallActivity"] > .djs-visual > rect {
   rx: 8;
   ry: 8;
 }
 
-/* Lanes: light orange to match graph elements */
-.bpmn-viewer .djs-element[data-element-type="bpmn:Lane"] > .djs-visual > rect {
-  fill: rgba(245, 212, 184, 0.35) !important;
-  stroke: #c97d3a !important;
+/* Lanes and pools (softer fill) */
+.bpmn-viewer .djs-element[data-element-type="bpmn:Lane"] > .djs-visual > rect,
+.bpmn-viewer .djs-shape[data-element-type="bpmn:Lane"] > .djs-visual > rect {
+  fill: var(--bpmn-fill-lane) !important;
+  stroke: var(--bpmn-stroke) !important;
   stroke-width: 2.5px !important;
 }
 
-/* Global containers (pool/participant/group): very light orange, low-impact */
 .bpmn-viewer .djs-element[data-element-type="bpmn:Participant"] > .djs-visual > rect,
 .bpmn-viewer .djs-element[data-element-type="bpmn:Group"] > .djs-visual > rect {
-  fill: rgba(245, 212, 184, 0.25) !important;
-  stroke: #c97d3a !important;
+  fill: var(--bpmn-fill-pool) !important;
+  stroke: var(--bpmn-stroke) !important;
 }
 
 .bpmn-viewer .djs-element[data-element-type="bpmn:Group"] > .djs-visual > rect {
@@ -221,24 +316,38 @@
   stroke-width: 1.6px !important;
 }
 
-/* Edges: orange to match light orange graph */
+/* Edges */
 .bpmn-viewer .djs-edge path,
 .bpmn-viewer .djs-edge .djs-line {
-  stroke: #c97d3a !important;
+  stroke: var(--bpmn-stroke) !important;
   stroke-width: 1.8px !important;
 }
 
 .bpmn-viewer .djs-edge .djs-end-marker {
-  fill: #c97d3a !important;
-  stroke: #c97d3a !important;
+  fill: var(--bpmn-stroke) !important;
+  stroke: var(--bpmn-stroke) !important;
 }
 
-/* Palette lives inside this container (moved from canvas); flow in layout */
+/* Selection / hover: use theme strong stroke (diagram-js vars already mapped above) */
+.bpmn-viewer .djs-element.selected .djs-outline,
+.bpmn-viewer .djs-element.hover .djs-outline {
+  stroke: var(--bpmn-stroke-strong) !important;
+  stroke-width: 2px;
+}
+
+.bpmn-viewer .djs-element.selected .djs-outline {
+  stroke-width: 2.5px;
+}
+
+/* ==========================================================================
+   Palette (moved into panel) – layout + theme
+   ========================================================================== */
 .bpmn-viewer__panel-palette {
   position: relative;
   min-height: 100px;
   overflow: auto;
 }
+
 .bpmn-viewer__panel-palette .djs-palette {
   position: relative !important;
   top: auto !important;
@@ -248,7 +357,24 @@
   width: auto !important;
 }
 
-/* Chatbot under the menu, still inside same container */
+.bpmn-viewer .djs-palette {
+  border-radius: 10px;
+  border: 1px solid var(--bpmn-accent-border);
+  background: var(--bpmn-palette-bg) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.bpmn-viewer .djs-palette .entry {
+  color: #ffffff;
+}
+
+.bpmn-viewer .djs-palette .entry:hover {
+  background: var(--bpmn-accent-subtle) !important;
+}
+
+/* ==========================================================================
+   Panel footer (chat)
+   ========================================================================== */
 .bpmn-viewer__panel-footer {
   margin-top: 14px;
   flex: 1;
@@ -256,11 +382,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-top: 1px solid rgba(255, 153, 51, 0.25);
+  border-top: 1px solid var(--bpmn-accent-border);
   padding-top: 12px;
 }
 
-/* When chat is inside panel, make it fill the footer (no fixed position) */
 .bpmn-viewer__panel-footer .chat-panel {
   position: relative !important;
   bottom: auto !important;
@@ -271,57 +396,26 @@
   max-height: 100%;
 }
 
-/* Palette styling (whether in panel or canvas) */
-.bpmn-viewer .djs-palette {
-  border-radius: 10px;
-  border: 1px solid rgba(255, 153, 51, 0.35);
-  background: rgba(30, 30, 30, 0.95) !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-}
-
-.bpmn-viewer .djs-palette .entry {
-  color: #ffffff;
-}
-
-.bpmn-viewer .djs-palette .entry:hover {
-  background: rgba(255, 153, 51, 0.2) !important;
-}
-
-/* Selection: darker orange outline on light orange */
-.bpmn-viewer .djs-element.selected .djs-outline,
-.bpmn-viewer .djs-element.hover .djs-outline {
-  stroke: #a85a20 !important;
-  stroke-width: 2px;
-}
-
-.bpmn-viewer .djs-element.selected .djs-outline {
-  stroke-width: 2.5px;
-}
-
-/* Context pad (modify menu): dark background + visible icons (fix white-on-white) */
-.bpmn-viewer .djs-container {
-  --context-pad-entry-background-color: #383838;
-  --context-pad-entry-hover-background-color: rgba(255, 153, 51, 0.35);
-}
-
+/* ==========================================================================
+   Context pad – use theme vars (diagram-js --context-pad-* already mapped)
+   ========================================================================== */
 .bpmn-viewer .djs-context-pad {
   border-radius: 8px;
-  border: 1px solid rgba(255, 153, 51, 0.4);
-  background: #2a2a2a !important;
+  border: 1px solid var(--bpmn-accent-border-strong);
+  background: var(--bpmn-context-pad-bg) !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .bpmn-viewer .djs-context-pad .entry {
-  background-color: #383838 !important;
+  background-color: var(--bpmn-context-pad-entry) !important;
   box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.2) !important;
   color: #ffffff !important;
 }
 
 .bpmn-viewer .djs-context-pad .entry:hover {
-  background: rgba(255, 153, 51, 0.35) !important;
+  background: var(--bpmn-context-pad-hover) !important;
 }
 
-/* BPMN icon font inside context pad: force light so visible on dark */
 .bpmn-viewer .djs-context-pad .entry .bpmn-icon,
 .bpmn-viewer .djs-context-pad .entry [class*="bpmn-icon"] {
   color: #ffffff !important;
@@ -330,32 +424,38 @@
 
 .bpmn-viewer .djs-minimap {
   background: #1e1e1e !important;
-  border: 1px solid rgba(255, 153, 51, 0.3);
+  border: 1px solid var(--bpmn-accent-border);
   border-radius: 10px;
 }
 
-
-/* Labels on light orange boxes: dark text for contrast */
-.bpmn-viewer svg text,
-.bpmn-viewer svg tspan {
-  fill: #4a3020 !important;
+/* ==========================================================================
+   Labels: one place for all text styling (theme text color)
+   ========================================================================== */
+.bpmn-viewer .djs-container svg text,
+.bpmn-viewer .djs-container svg tspan {
+  fill: var(--bpmn-text) !important;
   stroke: none !important;
   opacity: 1 !important;
+  font-family: var(--bpmn-font) !important;
+  font-weight: 700 !important;
 }
 
 .bpmn-viewer .djs-label,
 .bpmn-viewer .djs-label text,
 .bpmn-viewer .djs-label tspan {
-  fill: #4a3020 !important;
-  color: #4a3020 !important;
-  font-family: Helvetica, Arial, sans-serif !important;
+  fill: var(--bpmn-text) !important;
+  color: var(--bpmn-text) !important;
+  font-family: var(--bpmn-font) !important;
   font-weight: 700 !important;
 }
 
-/* Lane/section names: dark text on light orange (readable) */
+/* Lane labels */
 .bpmn-viewer .bjs-lane .djs-label,
 .bpmn-viewer .bjs-lane .djs-label text,
 .bpmn-viewer .bjs-lane .djs-label tspan,
+.bpmn-viewer .djs-shape[data-element-type="bpmn:Lane"] .djs-label,
+.bpmn-viewer .djs-shape[data-element-type="bpmn:Lane"] .djs-label text,
+.bpmn-viewer .djs-shape[data-element-type="bpmn:Lane"] .djs-label tspan,
 .bpmn-viewer .djs-shape[data-element-type="lane"] .djs-label,
 .bpmn-viewer .djs-shape[data-element-type="lane"] .djs-label text,
 .bpmn-viewer .djs-shape[data-element-type="lane"] .djs-label tspan {
@@ -365,17 +465,18 @@
   padding: 6px 10px !important;
   box-sizing: border-box;
   line-height: 1.3;
-  font-family: Helvetica, Arial, sans-serif !important;
-  fill: #4a3020 !important;
-  color: #4a3020 !important;
+  font-family: var(--bpmn-font) !important;
+  fill: var(--bpmn-text) !important;
+  color: var(--bpmn-text) !important;
 }
+
 .bpmn-viewer .bjs-lane .djs-visual,
+.bpmn-viewer .djs-shape[data-element-type="bpmn:Lane"] .djs-visual,
 .bpmn-viewer .djs-shape[data-element-type="lane"] .djs-visual {
-  /* Lane label lives in the left part of the visual */
   min-width: 260px;
 }
 
-/* Task/event/gateway labels: dark text on light orange (readable) */
+/* Shape labels (task, event, gateway) */
 .bpmn-viewer .djs-element .djs-label,
 .bpmn-viewer .djs-element .djs-label text,
 .bpmn-viewer .djs-element .djs-label tspan {
@@ -387,13 +488,13 @@
   max-width: 100%;
   box-sizing: border-box;
   line-height: 1.25;
-  font-family: Helvetica, Arial, sans-serif !important;
+  font-family: var(--bpmn-font) !important;
   font-weight: 700 !important;
-  fill: #4a3020 !important;
-  color: #4a3020 !important;
+  fill: var(--bpmn-text) !important;
+  color: var(--bpmn-text) !important;
 }
 
-/* Edge labels: dark text on light orange pill */
+/* Edge labels */
 .bpmn-viewer .djs-edge .djs-label {
   padding: 4px 8px !important;
   max-width: 160px;
@@ -401,10 +502,24 @@
   overflow-wrap: break-word;
   white-space: pre-wrap;
   line-height: 1.25;
-  font-family: Helvetica, Arial, sans-serif !important;
-  fill: #4a3020 !important;
-  color: #4a3020 !important;
-  background: rgba(245, 212, 184, 0.95) !important;
+  font-family: var(--bpmn-font) !important;
+  fill: var(--bpmn-text) !important;
+  color: var(--bpmn-text) !important;
+  background: var(--bpmn-fill-edge-label) !important;
   border-radius: 4px;
-  border: 1px solid #c97d3a;
+  border: 1px solid var(--bpmn-stroke);
+}
+
+/* View mode: hide palette only; keep context pad so click-to-select shows submenu */
+.bpmn-viewer--view-mode .bpmn-viewer__panel-palette {
+  display: none;
+}
+
+.bpmn-viewer--view-mode .djs-direct-editing-parent {
+  display: none !important;
+}
+
+/* Edit mode: show palette */
+.bpmn-viewer--edit-mode .bpmn-viewer__panel-palette {
+  display: block;
 }
