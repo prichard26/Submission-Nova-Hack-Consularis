@@ -1,6 +1,6 @@
 # Agent (Aurelius) – User Guide
 
-The Consularis agent (**Aurelius**) is a process consul that helps you refine your BPMN process graphs through natural conversation. You describe what you want in plain language; the agent applies the changes to the graph and confirms what it did.
+The Consularis agent (**Aurelius**) is a process consul that helps you refine your process graphs through natural conversation. You describe what you want in plain language; the agent applies the changes to the JSON-native graph and confirms what it did.
 
 ---
 
@@ -20,7 +20,7 @@ The agent resolves step and phase names to the underlying graph IDs itself. If y
 
 ## What the agent can do
 
-The agent can read and modify every part of your process graph (BPMN 2.0). Capabilities are grouped below.
+The agent can read and modify every part of your process graph (JSON-native, with BPMN export available). Capabilities are grouped below.
 
 ### Inspect and navigate
 
@@ -90,9 +90,9 @@ When you have multiple processes (e.g. a global map and phase subprocesses), you
 
 ## How it works (brief)
 
-- The agent receives a **graph summary** (phases, steps with names, actors, durations) so it knows the current state.
+- The agent receives a **graph summary** (phases, steps with names, actors, durations, costs, error rates, automation levels) so it knows the current state.
 - When you refer to something by **name**, the agent uses an internal **resolve** step to map that name to the correct step or phase ID, then calls the right tool.
-- All changes are made through **tools** that update the in-memory BPMN model; each mutation is persisted to SQLite and the API returns updated BPMN XML so the diagram stays in sync.
+- All changes are made through **tools** that update the in-memory JSON graph; each mutation is persisted to SQLite and the API returns updated graph JSON so the React Flow canvas stays in sync.
 
 For technical details (store, DB schema, API), see [GRAPH_STRUCTURE.md](GRAPH_STRUCTURE.md).
 
@@ -111,6 +111,6 @@ For technical details (store, DB schema, API), see [GRAPH_STRUCTURE.md](GRAPH_ST
 | Document | Content |
 |----------|---------|
 | [README.md](README.md) | Docs index and links. |
-| [GRAPH_STRUCTURE.md](GRAPH_STRUCTURE.md) | BPMN format, hierarchical model, SQLite schema, API contracts. |
+| [GRAPH_STRUCTURE.md](GRAPH_STRUCTURE.md) | JSON-native format, hierarchical model, SQLite schema, API contracts. |
 | [DATA_FLOW.md](DATA_FLOW.md) | Backend module map, state ownership, request paths. |
 | [backend/README.md](../backend/README.md) | Backend layout and run instructions. |

@@ -1,0 +1,41 @@
+.subprocess-node {
+  background: var(--node-fill, #f5d4b8);
+  border: 3px double var(--node-stroke, #c97d3a);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 160px;
+  max-width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  color: var(--node-text, #4a3020);
+  transition: box-shadow 0.15s ease;
+}
+
+.subprocess-node:hover {
+  box-shadow: 0 0 0 2px var(--accent, #e85d04), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.subprocess-node__icon {
+  font-size: 12px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.subprocess-node__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subprocess-node__name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.subprocess-node__summary {
+  font-size: 10px;
+  opacity: 0.7;
+}

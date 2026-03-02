@@ -1,4 +1,4 @@
-"""Agent runtime: run_chat loop and tool execution. Returns (message, bpmn_xml, tools_used)."""
+"""Agent runtime: run_chat loop and tool execution. Returns (message, graph_json, tools_used)."""
 import json
 import logging
 import re
@@ -7,7 +7,7 @@ import time
 from groq import Groq
 
 from config import GROQ_KEY, MAX_TOOL_ROUNDS, GROQ_TIMEOUT, GROQ_MAX_RETRIES
-from bpmn.store import get_bpmn_xml, get_graph_summary
+from graph.store import get_graph_json, get_graph_summary
 from agent.prompt import SYSTEM_PROMPT
 from agent.tools import TOOLS, run_tool
 
@@ -32,7 +32,7 @@ def run_chat(
 ) -> tuple[str, str, bool]:
     """
     Run the agent: Groq with tools until no more tool_calls.
-    Returns (final_message, updated_bpmn_xml, tools_used).
+    Returns (final_message, updated_graph_json, tools_used).
     """
     if max_rounds is None:
         max_rounds = MAX_TOOL_ROUNDS
@@ -41,7 +41,7 @@ def run_chat(
     if not GROQ_KEY or GROQ_KEY == "missing":
         return (
             "I cannot run yet: GROQ_KEY is not set. Put your key in backend/.env (see backend/env.example) and restart.",
-            get_bpmn_xml(session_id, process_id=process_id),
+            get_graph_json(session_id, process_id=process_id),
             False,
         )
 
@@ -80,7 +80,7 @@ def run_chat(
                     logger.exception("[AGENT] session_id=%s Groq call failed after %d attempts", session_id, GROQ_MAX_RETRIES + 1)
                     return (
                         "The assistant is temporarily unavailable (API error or timeout). Please try again in a moment.",
-                        get_bpmn_xml(session_id, process_id=process_id),
+                        get_graph_json(session_id, process_id=process_id),
                         False,
                     )
         choice = response.choices[0]
@@ -121,4 +121,4 @@ def run_chat(
         final_message = "I did not quite understand. Please say which step or phase you mean and what you would like to change."
 
     final_message = _sanitize_reply(final_message)
-    return final_message, get_bpmn_xml(session_id, process_id=process_id), tools_used
+    return final_message, get_graph_json(session_id, process_id=process_id), tools_used

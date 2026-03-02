@@ -1,5 +1,6 @@
 """Chat endpoint: OPTIONS + POST /api/chat."""
 import asyncio
+import json
 import logging
 import threading
 from collections import OrderedDict
@@ -16,12 +17,12 @@ logger = logging.getLogger("consularis")
 
 
 def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None):
-    """Append user message, run agent, append assistant message. Returns (message, bpmn_xml, meta)."""
+    """Append user message, run agent, append assistant message."""
     db.append_chat_message(session_id, "user", user_message)
-    message, bpmn_xml, tools_used = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id)
+    message, graph_json_str, tools_used = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id)
     db.append_chat_message(session_id, "assistant", message)
     meta = {"tools_used": tools_used, "session_id": session_id, "process_id": process_id}
-    return message, bpmn_xml, meta
+    return message, graph_json_str, meta
 
 
 MAX_SESSION_LOCKS = 500
@@ -67,7 +68,9 @@ class ChatResponseMeta(BaseModel):
 
 class ChatResponse(BaseModel):
     message: str
-    bpmn_xml: str
+    graph_json: dict | None = None
+    bpmn_xml: str | None = None
+    process_id: str | None = None
     meta: ChatResponseMeta
 
 
@@ -81,11 +84,22 @@ async def api_chat(req: ChatRequest):
     session_id = req.session_id
     lock = _lock_for_session(session_id)
     with lock:
-        message, bpmn_xml, meta = await asyncio.to_thread(
+        message, graph_json_str, meta = await asyncio.to_thread(
             _handle_chat_turn, session_id, req.message, req.process_id
         )
         logger.info(
             "chat session_id=%s process_id=%s tools_used=%s",
             session_id, req.process_id, meta["tools_used"],
         )
-        return {"message": message, "bpmn_xml": bpmn_xml, "meta": meta}
+        graph_dict = None
+        if graph_json_str:
+            try:
+                graph_dict = json.loads(graph_json_str)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return {
+            "message": message,
+            "graph_json": graph_dict,
+            "process_id": req.process_id,
+            "meta": meta,
+        }

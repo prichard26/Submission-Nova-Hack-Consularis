@@ -1,0 +1,169 @@
+{
+  "format_version": "1.0",
+  "process_id": "Process_Global",
+  "name": "Pharmacy medication circuit",
+  "metadata": {
+    "owner": "Pharmacy Department",
+    "category": "clinical",
+    "criticality": "high"
+  },
+  "lanes": [
+    {
+      "id": "GLOBAL",
+      "name": "Global map",
+      "description": "",
+      "node_refs": [
+        "Start_Global",
+        "Call_P1",
+        "Call_P2",
+        "Call_P3",
+        "Call_P4",
+        "Call_P5",
+        "Call_P6",
+        "Call_P7",
+        "End_Global"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "Start_Global",
+      "name": "Start",
+      "type": "start",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 280,
+        "y": 78
+      }
+    },
+    {
+      "id": "Call_P1",
+      "name": "Prescription",
+      "type": "subprocess",
+      "called_element": "Process_P1",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 504,
+        "y": 44
+      }
+    },
+    {
+      "id": "Call_P2",
+      "name": "Selection, Acquisition, and Reception",
+      "type": "subprocess",
+      "called_element": "Process_P2",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 904,
+        "y": 44
+      }
+    },
+    {
+      "id": "Call_P3",
+      "name": "Storage and Storage Management",
+      "type": "subprocess",
+      "called_element": "Process_P3",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 1417,
+        "y": 44
+      }
+    },
+    {
+      "id": "Call_P4",
+      "name": "Distribution",
+      "type": "subprocess",
+      "called_element": "Process_P4",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 1867,
+        "y": 44
+      }
+    },
+    {
+      "id": "Call_P5",
+      "name": "Dispensing and Preparation",
+      "type": "subprocess",
+      "called_element": "Process_P5",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 2267,
+        "y": 44
+      }
+    },
+    {
+      "id": "Call_P6",
+      "name": "Administration",
+      "type": "subprocess",
+      "called_element": "Process_P6",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 2681,
+        "y": 44
+      }
+    },
+    {
+      "id": "Call_P7",
+      "name": "Monitoring and Waste Management",
+      "type": "subprocess",
+      "called_element": "Process_P7",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 3081,
+        "y": 44
+      }
+    },
+    {
+      "id": "End_Global",
+      "name": "End",
+      "type": "end",
+      "lane_id": "GLOBAL",
+      "position": {
+        "x": 3540,
+        "y": 78
+      }
+    }
+  ],
+  "flows": [
+    {
+      "from": "Start_Global",
+      "to": "Call_P1",
+      "label": "Start"
+    },
+    {
+      "from": "Call_P1",
+      "to": "Call_P2",
+      "label": "Call_P1 → Call_P2"
+    },
+    {
+      "from": "Call_P2",
+      "to": "Call_P3",
+      "label": "Call_P2 → Call_P3"
+    },
+    {
+      "from": "Call_P3",
+      "to": "Call_P4",
+      "label": "Call_P3 → Call_P4"
+    },
+    {
+      "from": "Call_P4",
+      "to": "Call_P5",
+      "label": "Call_P4 → Call_P5"
+    },
+    {
+      "from": "Call_P5",
+      "to": "Call_P6",
+      "label": "Call_P5 → Call_P6"
+    },
+    {
+      "from": "Call_P6",
+      "to": "Call_P7",
+      "label": "Call_P6 → Call_P7"
+    },
+    {
+      "from": "Call_P7",
+      "to": "End_Global",
+      "label": "Complete"
+    }
+  ]
+}

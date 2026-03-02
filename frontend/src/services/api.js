@@ -38,34 +38,87 @@ async function request(path, options = {}) {
   return res.json()
 }
 
-/**
- * Fetch the baseline BPMN 2.0 XML (raw file). Use to display the unmodified base graph.
- * @returns {Promise<string>} BPMN XML string
- */
-export function getBaselineBpmnXml(options = {}) {
+// ---------------------------------------------------------------------------
+// JSON-native graph endpoints
+// ---------------------------------------------------------------------------
+
+export function getGraphJson(sessionId, options = {}) {
   const { processId, ...rest } = options
-  const pid = processId ? `?process_id=${encodeURIComponent(processId)}` : ''
-  return request(`/api/graph/baseline${pid}`, { ...rest, parseAs: 'text' })
+  const sid = encodeURIComponent(sessionId)
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/json?session_id=${sid}${pid}`, rest)
 }
 
-/**
- * Fetch the graph as BPMN 2.0 XML for the session.
- * @param {string} sessionId - Session id (e.g. company name)
- * @returns {Promise<string>} BPMN XML string
- */
-export function getBpmnXml(sessionId, options = {}) {
+export function getBaselineJson(options = {}) {
+  const { processId, ...rest } = options
+  const pid = processId ? `?process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/json${pid}`, rest).catch(() => {
+    const fallbackPid = processId ? `?process_id=${encodeURIComponent(processId)}` : ''
+    return request(`/api/graph/baseline${fallbackPid}`, { ...rest, parseAs: 'text' }).then(() => null)
+  })
+}
+
+export function getWorkspace(sessionId, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  return request(`/api/graph/workspace?session_id=${sid}`, options)
+}
+
+export function updateStepFields(sessionId, processId, stepId, updates, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = encodeURIComponent(processId)
+  return request(`/api/graph/step?session_id=${sid}&process_id=${pid}`, {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({ step_id: stepId, updates }),
+  })
+}
+
+export function updatePositions(sessionId, processId, positions, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = encodeURIComponent(processId)
+  return request(`/api/graph/position?session_id=${sid}&process_id=${pid}`, {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({ positions }),
+  })
+}
+
+export function createNode(sessionId, processId, laneId, name, type = 'step', options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = encodeURIComponent(processId)
+  return request(`/api/graph/node?session_id=${sid}&process_id=${pid}`, {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({ lane_id: laneId, name, type }),
+  })
+}
+
+export function deleteNodeApi(sessionId, nodeId, options = {}) {
+  const { processId, ...rest } = options
+  const sid = encodeURIComponent(sessionId)
+  const nid = encodeURIComponent(nodeId)
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/node?session_id=${sid}&node_id=${nid}${pid}`, {
+    ...rest,
+    method: 'DELETE',
+  })
+}
+
+// ---------------------------------------------------------------------------
+// BPMN export (download only)
+// ---------------------------------------------------------------------------
+
+export function exportBpmnXml(sessionId, options = {}) {
   const { processId, ...rest } = options
   const sid = encodeURIComponent(sessionId)
   const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
   return request(`/api/graph/export?session_id=${sid}${pid}`, { ...rest, parseAs: 'text' })
 }
 
-/**
- * Send a chat message and get the assistant reply and updated BPMN XML.
- * @param {string} sessionId - Session id
- * @param {string} message - User message
- * @returns {Promise<{ message: string, bpmn_xml: string, meta: object }>}
- */
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+
 export function sendChat(sessionId, message, options = {}) {
   const { processId, ...rest } = options
   return request('/api/chat', {
@@ -75,12 +128,10 @@ export function sendChat(sessionId, message, options = {}) {
   })
 }
 
-/**
- * Undo the last bot graph change for this session/process.
- * @param {string} sessionId - Session id
- * @param {{ processId?: string }} options - Optional process id
- * @returns {Promise<{ bpmn_xml: string }>} Restored BPMN XML; throws if nothing to undo (404)
- */
+// ---------------------------------------------------------------------------
+// Undo
+// ---------------------------------------------------------------------------
+
 export function undoGraph(sessionId, options = {}) {
   const { processId, ...rest } = options
   const sid = encodeURIComponent(sessionId)

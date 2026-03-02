@@ -1,6 +1,6 @@
 """Graph store: duplicate risks and session validation."""
 
-from bpmn.store import update_node, get_node, add_edge
+from graph.store import update_node, get_node, add_edge, get_edges
 
 
 def test_update_node_risks_dedupe():
@@ -13,8 +13,6 @@ def test_update_node_risks_dedupe():
 
 def test_add_edge_idempotent():
     """Second add_edge for same (from, to) returns existing edge; no duplicate."""
-    from bpmn.store import get_edges
-
     sid = "test-edge-idempotent"
     e1 = add_edge(sid, "P1.1", "P1.2", "first", process_id="Process_P1")
     e2 = add_edge(sid, "P1.1", "P1.2", "second", process_id="Process_P1")

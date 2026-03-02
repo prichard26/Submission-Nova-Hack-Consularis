@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import GROQ_KEY, ALLOWED_CORS_ORIGINS
 from db import get_conn
-from bpmn.store import init_baseline
+from graph.store import init_baseline
 from routers import health_router, chat_router, graph_router
 
 logger = logging.getLogger("consularis")

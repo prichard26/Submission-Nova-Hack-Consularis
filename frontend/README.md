@@ -1,13 +1,15 @@
 # Consularis Frontend
 
-React + Vite frontend for process mapping and BPMN editing.
+React + Vite frontend for process mapping with React Flow.
 
 ## Stack
 
 - React 19
 - Vite 7
 - React Router
-- bpmn-js
+- @xyflow/react (React Flow)
+- dagre (graph layout)
+- html-to-image (PNG export)
 - ESLint
 
 ## Quick Start
@@ -25,7 +27,7 @@ App runs on the Vite dev URL (typically `http://localhost:5173`).
 
 Frontend API base: `VITE_API_BASE` when set, otherwise `http://localhost:8000`.
 
-The app calls: `GET /api/graph/baseline`, `GET /api/graph/export`, and `POST /api/chat` (see [src/services/api.js](src/services/api.js)).
+The app calls: `GET /api/graph/json`, `GET /api/graph/workspace`, `POST /api/graph/step`, `POST /api/graph/position`, and `POST /api/chat` (see [src/services/api.js](src/services/api.js)).
 
 Example `.env` (frontend):
 
@@ -43,7 +45,7 @@ VITE_API_BASE=http://localhost:8000
 ## Routes
 
 - `/` - Landing page (company input + sector tiles)
-- `/dashboard` - Graph workspace (BPMN view, chat)
+- `/dashboard` - Graph workspace (React Flow canvas, chat)
 
 Session is persisted in `sessionStorage` under `consularis_session`.
 
@@ -55,16 +57,30 @@ frontend/
     components/
       AppErrorBoundary.jsx     # Global runtime fallback UI
       AureliusChat.jsx         # Chat assistant panel
-      BpmnViewer.jsx           # bpmn-js modeler wrapper
+      ProcessCanvas.jsx        # React Flow process graph canvas
+      ProcessCanvas.css
+      DetailPanel.jsx          # Step metadata editor (slides in from right)
+      DetailPanel.css
+      ProcessBreadcrumb.jsx    # Subprocess navigation breadcrumb
+      LandscapeView.jsx        # Workspace tree overview (Dagre layout)
+      LandscapeView.css
       DataViewState.jsx        # Shared loading/error state UI
       Robot.jsx                # Landing mascot component
+      nodes/
+        StepNode.jsx           # Rich step card (actor, metrics, automation bar)
+        DecisionNode.jsx       # Diamond gateway node
+        SubprocessNode.jsx     # Double-bordered drill-down node
+        EventNode.jsx          # Start/end circle node
+        nodeTypes.js           # React Flow nodeTypes registry
     hooks/
-      useBpmnXml.js            # Fetch BPMN XML with fallback + cancellation
+      useProcessGraph.js       # Fetch JSON graph with fallback + cancellation
+      useWorkspace.js          # Fetch workspace manifest
     pages/
       Landing.jsx
       Dashboard.jsx
     services/
       api.js                   # Shared API request helpers
+      graphTransform.js        # JSON graph -> React Flow nodes/edges
     App.jsx
     main.jsx
     index.css
@@ -73,10 +89,12 @@ frontend/
 ## Data Flow
 
 1. User starts on `/` and submits a company name (and sector; only Pharmacy is active). Session is stored in `sessionStorage` and user is routed to `/dashboard`.
-2. Dashboard shows the **BPMN view** (`BpmnViewer`): fetches session graph via `GET /api/graph/export?session_id=...` (or baseline via `GET /api/graph/baseline`); renders with bpmn-js. Chat panel can be shown in the footer.
-3. **Aurelius chat** (`POST /api/chat`): sends message, receives assistant reply and updated `bpmn_xml`; the diagram refreshes after a chat turn.
+2. Dashboard shows the **Process Canvas** (`ProcessCanvas`): fetches session graph via `GET /api/graph/json?session_id=...`; renders with React Flow using custom nodes (StepNode, DecisionNode, SubprocessNode, EventNode).
+3. **Detail Panel** slides in when a step is clicked, showing all 19 metadata fields as an editable form.
+4. **Landscape View** shows the workspace process tree using Dagre layout; clicking a process drills into its detail canvas.
+5. **Aurelius chat** (`POST /api/chat`): sends message, receives assistant reply and updated `graph_json`; the canvas refreshes after a chat turn.
 
 ## Notes
 
 - This frontend assumes the backend API is available.
-- Build currently emits a large chunk warning due to graph/modeling libraries; this is expected for now.
+- Build currently emits a large chunk warning due to React Flow; this is expected for now.

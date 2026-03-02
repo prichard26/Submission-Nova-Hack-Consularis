@@ -1,0 +1,119 @@
+.step-node {
+  background: var(--node-fill, #f5d4b8);
+  border: 2px solid var(--node-stroke, #c97d3a);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 180px;
+  max-width: 280px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  color: var(--node-text, #4a3020);
+  position: relative;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.step-node:hover {
+  box-shadow: 0 0 0 2px var(--accent, #e85d04), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.step-node--high-error {
+  border-color: var(--node-badge-red, #d00000);
+}
+
+.step-node__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.step-node__name {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.2;
+  flex: 1;
+}
+
+.step-node__actor {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(74, 48, 32, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.step-node__metrics {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.step-node__badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.step-node__badge--duration {
+  background: rgba(74, 48, 32, 0.08);
+}
+
+.step-node__badge--cost {
+  background: rgba(29, 53, 87, 0.12);
+  color: var(--node-badge-blue, #1d3557);
+}
+
+.step-node__badge--error {
+  background: rgba(74, 48, 32, 0.08);
+}
+
+.step-node__badge--error-high {
+  background: rgba(208, 0, 0, 0.15);
+  color: var(--node-badge-red, #d00000);
+}
+
+.step-node__automation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.step-node__auto-bar {
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(74, 48, 32, 0.15);
+}
+
+.step-node__auto-bar--high {
+  background: var(--node-badge-green, #2d6a4f);
+}
+
+.step-node__auto-bar--medium {
+  background: #e9c46a;
+}
+
+.step-node__auto-bar--low {
+  background: rgba(74, 48, 32, 0.2);
+}
+
+.step-node__auto-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  opacity: 0.7;
+}
+
+.step-node__risk-indicator {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 14px;
+  line-height: 1;
+}

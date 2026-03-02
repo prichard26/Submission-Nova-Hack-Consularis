@@ -25,6 +25,18 @@
   --font-body: 'DM Sans', system-ui, sans-serif;
   --radius: 8px;
   --radius-lg: 12px;
+
+  /* Node / graph vars */
+  --node-fill: #f5d4b8;
+  --node-stroke: #c97d3a;
+  --node-text: #4a3020;
+  --node-badge-green: #2d6a4f;
+  --node-badge-red: #d00000;
+  --node-badge-blue: #1d3557;
+  --edge-stroke: #c97d3a;
+  --lane-bg: rgba(245, 212, 184, 0.04);
+  --lane-border: rgba(201, 125, 58, 0.15);
+  --panel-bg: #1a1510;
 }
 
 body {

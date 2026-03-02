@@ -1,10 +1,10 @@
 # Graph structure
 
-The process graph is stored and exchanged as **BPMN 2.0 XML**, organized as a **hierarchical process tree** backed by **in-memory SQLite**.
+The process graph is stored and exchanged as **JSON**, organized as a **hierarchical process tree** with a **workspace manifest**, backed by **in-memory SQLite**.
 
 ## 1. Process tree
 
-The system models processes as a tree of arbitrary depth. Each node in the tree is one BPMN diagram (one `BpmnModel`). Parent processes link to children via **call activities** (`<bpmn:callActivity calledElement="Process_P1">`).
+The system models processes as a tree of arbitrary depth. Each node in the tree is one JSON graph document (one `ProcessGraph`). Parent processes link to children via **subprocess steps** (`type: "subprocess"`, `called_element: "Process_P1"`).
 
 ```
 Process_Global (Pharmacy medication circuit)
@@ -17,65 +17,86 @@ Process_Global (Pharmacy medication circuit)
 └── Process_P7  (Monitoring and Waste Management)
 ```
 
-The tree is defined by a **process registry** (`registry.json`), not hardcoded. Adding more depth requires only a new BPMN file and a registry entry — no code changes.
+The tree is defined by a **workspace manifest** (`workspace.json`), not hardcoded. Adding more depth requires only a new JSON graph file and a workspace entry — no code changes.
 
-## 2. Process registry
+## 2. Workspace manifest
 
-**File**: `backend/data/graphs/registry.json`
+**File**: `backend/data/workspace.json`
 
 ```json
 {
-  "processes": [
-    {
-      "process_id": "Process_Global",
-      "name": "Pharmacy medication circuit",
-      "parent_id": null,
-      "bpmn_file": "global.bpmn",
-      "owner": "Pharmacy Department",
-      "category": "clinical",
-      "criticality": "high"
-    },
-    {
-      "process_id": "Process_P1",
-      "name": "Prescription",
-      "parent_id": "Process_Global",
-      "bpmn_file": "P1.bpmn",
-      "owner": "Pharmacy Department",
-      "category": "clinical",
-      "criticality": "high"
+  "format_version": "1.0",
+  "workspace_id": "ws_pharmacy",
+  "name": "Hospital Pharmacy Operations",
+  "process_tree": {
+    "root": "Process_Global",
+    "processes": {
+      "Process_Global": {
+        "name": "Pharmacy medication circuit",
+        "depth": 0,
+        "path": "/Process_Global",
+        "children": ["Process_P1", "Process_P2", ...],
+        "graph_file": "global.json",
+        "owner": "Pharmacy Department",
+        "category": "clinical",
+        "criticality": "high",
+        "summary": { "step_count": 0, "subprocess_count": 7 }
+      }
     }
+  }
+}
+```
+
+## 3. JSON graph schema
+
+Each process is a JSON file (`backend/data/graphs/*.json`):
+
+```json
+{
+  "format_version": "1.0",
+  "process_id": "Process_P1",
+  "name": "Prescription",
+  "metadata": { "owner": "...", "category": "...", "criticality": "..." },
+  "lanes": [
+    { "id": "P1", "name": "Prescription", "node_refs": ["Start_P1", "P1.1", "P1.2", "P1.3", "End_P1"] }
+  ],
+  "steps": [
+    { "id": "P1.1", "name": "Prescribe Medication", "type": "step", "short_id": "P1.1", "lane_id": "P1",
+      "position": { "x": 504, "y": 44 }, "actor": "Physician", "duration_min": "5–10 min", ... }
+  ],
+  "flows": [
+    { "from": "Start_P1", "to": "P1.1", "label": "Process starts" }
   ]
 }
 ```
 
-Each entry includes:
+### Step types
 
-| Field | Purpose |
-|-------|---------|
-| `process_id` | Stable technical ID (machine use) |
-| `name` | Human-readable display name |
-| `parent_id` | Parent process ID (`null` = root) |
-| `bpmn_file` | Filename in `backend/data/graphs/` |
-| `owner` | Department or team that owns this process |
-| `category` | Process classification (clinical, logistics, supply_chain, compliance) |
-| `criticality` | Risk level (critical, high, medium, low) |
+| Type | Description |
+|------|-------------|
+| `start` | Process entry point (circle, thin border) |
+| `end` | Process exit point (circle, thick border) |
+| `step` | Process step with full metadata |
+| `decision` | Decision/routing point (diamond) |
+| `subprocess` | Links to child process (`called_element` field) |
 
-## 3. IDs vs names
+## 4. IDs vs names
 
 **Principle**: IDs are for machines; names are for humans.
 
-- **Technical IDs** (stable): `Process_P1`, `P1.2`, `Call_P1`, `G2`.
+- **Technical IDs** (stable): `Process_P1`, `P1.2`, `Start_P1`, `End_P1`.
+- **Short IDs** (human-friendly alias): `P1.1`, `P1.2`, etc.
 - **Human names** (display/chat): `Prescription`, `Verify Prescription`.
 
 | Surface | What is shown |
 |---------|---------------|
-| BPMN diagram labels | Task/lane **name** |
-| Agent graph summary (LLM context) | `P1 Prescription: P1.1 (Prescribe Medication), P1.2 (Verify Prescription)` |
+| React Flow node labels | Step **name** + metadata badges |
+| Agent graph summary (LLM context) | `P1 Prescription: P1.1 (Prescribe Medication), Physician, 5–10 min, $8.50, 3.2% err, HIGH automation` |
 | Agent tool calls | **node_id** / **process_id** (resolved from name) |
 | API query params | `process_id=Process_P1` (stable slug) |
 | Chat with user | User says "Verify Prescription"; agent resolves to `P1.2` via `resolve_step` |
 
-## 4. Persistence: in-memory SQLite
+## 5. Persistence: in-memory SQLite
 
 All state lives in a single in-memory SQLite connection (`:memory:`), managed by `backend/db.py`.
 
@@ -86,14 +107,24 @@ CREATE TABLE baseline_processes (
     process_id TEXT PRIMARY KEY,
     name       TEXT NOT NULL,
     parent_id  TEXT,
-    bpmn_xml   TEXT NOT NULL
+    graph_json TEXT NOT NULL
+);
+
+CREATE TABLE baseline_workspace (
+    id             INTEGER PRIMARY KEY CHECK (id = 1),
+    workspace_json TEXT NOT NULL
 );
 
 CREATE TABLE session_processes (
     session_id TEXT NOT NULL,
     process_id TEXT NOT NULL,
-    bpmn_xml   TEXT NOT NULL,
+    graph_json TEXT NOT NULL,
     PRIMARY KEY (session_id, process_id)
+);
+
+CREATE TABLE session_workspace (
+    session_id     TEXT PRIMARY KEY,
+    workspace_json TEXT NOT NULL
 );
 
 CREATE TABLE chat_messages (
@@ -103,44 +134,40 @@ CREATE TABLE chat_messages (
     content    TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE session_process_history (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    process_id TEXT NOT NULL,
+    graph_json TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ### Lifecycle
 
-1. **Startup**: `db.seed_baseline()` reads `registry.json` and all BPMN files into `baseline_processes`.
-2. **New session**: On first access, `db.clone_baseline_to_session()` copies all baseline rows into `session_processes`.
-3. **Mutations**: `bpmn.store` modifies the cached `BpmnModel`, then calls `db.upsert_session_xml()` to persist the serialized XML.
-4. **Reads**: `bpmn.store._get_model()` checks the in-memory cache first; on miss, loads from `session_processes` (or clones baseline).
+1. **Startup**: `graph.store.init_baseline()` reads `workspace.json` and all JSON graph files into baseline tables.
+2. **New session**: On first access, `db.clone_baseline_to_session()` copies all baseline rows into session tables.
+3. **Mutations**: `graph.store` modifies the cached `ProcessGraph`, then calls `db.upsert_session_json()` to persist.
+4. **Reads**: `graph.store._get_graph()` checks the in-memory cache first; on miss, loads from `session_processes` (or clones baseline).
+5. **Undo**: Before each mutation, the current state is pushed to `session_process_history`. Undo pops and restores.
 
 The SQLite database is ephemeral (`:memory:`) — data is lost on process restart. This provides structured SQL access without file I/O overhead.
 
-## 5. In-memory cache
+## 6. In-memory cache
 
-`bpmn.store` maintains a dict cache:
+`graph.store` maintains dict caches:
 
 ```python
-_cache: dict[tuple[str, str], BpmnModel]  # (session_id, process_id) -> parsed model
+_cache: dict[tuple[str, str], ProcessGraph]       # (session_id, process_id) -> parsed model
+_ws_cache: dict[str, WorkspaceManifest]            # session_id -> workspace
 ```
 
-This avoids re-parsing BPMN XML on every request. Cache entries are created on first access and updated on mutation.
+This avoids re-parsing JSON on every request. Cache entries are created on first access and updated on mutation.
 
-## 6. BPMN node types
+## 7. Extension metadata (19 fields)
 
-`BpmnModel` supports:
-
-| Type | BPMN element | Usage |
-|------|-------------|-------|
-| `tasks` | `<bpmn:task>` | Process steps with metadata |
-| `call_activities` | `<bpmn:callActivity>` | Links to child processes |
-| `start_events` | `<bpmn:startEvent>` | Process entry point |
-| `end_events` | `<bpmn:endEvent>` | Process exit point |
-| `gateways` | `<bpmn:exclusiveGateway>` | Decision/routing points |
-| `sequence_flows` | `<bpmn:sequenceFlow>` | Connections between nodes |
-| `lanes` | `<bpmn:lane>` | Phases/groupings |
-
-## 7. Extension metadata
-
-Tasks carry rich metadata via BPMN extension elements under the `http://consularis.example/bpmn` namespace. There are 19 extension fields:
+Steps carry rich metadata as flat top-level fields (no nested extension sub-dict):
 
 ### Core fields
 
@@ -152,14 +179,14 @@ Tasks carry rich metadata via BPMN extension elements under the `http://consular
 | `inputs` | list | What the task receives |
 | `outputs` | list | What the task produces |
 | `risks` | list | Associated risks |
-| `automation_potential` | string | How automatable (high/medium/low) |
+| `automation_potential` | string | How automatable (high/medium/low/none) |
 | `automation_notes` | string | Notes on automation feasibility |
 
 ### Operational data fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `current_state` | string | How the task is currently performed (manual/semi-automated/automated) |
+| `current_state` | string | How the task is currently performed (manual/semi_automated/automated) |
 | `frequency` | string | How often (e.g. "200/day", "weekly") |
 | `annual_volume` | string | Yearly execution count |
 | `error_rate_percent` | string | Current error rate |
@@ -171,28 +198,37 @@ Tasks carry rich metadata via BPMN extension elements under the `http://consular
 | `sla_target` | string | Target SLA |
 | `pain_points` | list | Known problems or friction |
 
-List-type fields are serialized as JSON arrays in the BPMN XML extension elements.
-
 ## 8. API contracts
 
 ### Graph endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/graph/baseline` | GET | Baseline BPMN XML. `?process_id=` (default `Process_Global`) |
-| `/api/graph/export` | GET | Session graph as BPMN XML. `?session_id=…&process_id=…` |
+| `/api/graph/json` | GET | Session graph as JSON. `?session_id=…&process_id=…` |
+| `/api/graph/workspace` | GET | Workspace manifest JSON. `?session_id=…` |
+| `/api/graph/step` | POST | Update step fields. Body: `{ step_id, updates }` |
+| `/api/graph/node` | POST | Create node. Body: `{ lane_id, name, type }` |
+| `/api/graph/node` | DELETE | Delete node. `?session_id=…&node_id=…&process_id=…` |
+| `/api/graph/position` | POST | Batch update positions. Body: `{ positions: { id: {x,y} } }` |
+| `/api/graph/undo` | POST | Undo last mutation. `?session_id=…&process_id=…` |
+| `/api/graph/export` | GET | Session graph as BPMN 2.0 XML (for download). `?session_id=…&process_id=…` |
+| `/api/graph/baseline` | GET | Baseline as BPMN 2.0 XML. `?process_id=…` |
 | `/api/graph/resolve` | GET | Fuzzy name → ID resolution. `?session_id=…&name=…&process_id=…` |
 
 ### Chat
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/chat` | POST | `{ session_id, message, process_id? }` → `{ message, bpmn_xml, meta }` |
+| `/api/chat` | POST | `{ session_id, message, process_id? }` → `{ message, graph_json, process_id, meta }` |
 
 `meta` includes `tools_used`, `session_id`, and `process_id`.
 
-## 9. Frontend behavior
+## 9. Frontend architecture
 
-- Dashboard shows one BPMN view (bpmn-js). XML is fetched via `/api/graph/export` or `/api/graph/baseline`.
-- Chat returns updated `bpmn_xml` and the diagram refreshes after each turn.
-- `process_id` can be included in chat requests to scope agent operations to a specific subprocess.
+- **ProcessCanvas** renders one process graph using React Flow with custom nodes (StepNode, DecisionNode, SubprocessNode, EventNode).
+- **LandscapeView** renders the workspace process tree using React Flow + Dagre layout.
+- **DetailPanel** slides in to show/edit all 19 metadata fields for a selected step.
+- **ProcessBreadcrumb** shows the navigation path when drilling into subprocesses.
+- Graph data is fetched via `/api/graph/json`; the `useProcessGraph` hook manages loading and refresh.
+- Chat returns `graph_json` and the canvas refreshes via `refreshTrigger` pattern.
+- Lanes are rendered as non-interactive background rectangles (not React Flow group nodes) to avoid parent/child complexity.

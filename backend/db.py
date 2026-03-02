@@ -1,4 +1,7 @@
-"""In-memory SQLite storage for baseline processes, session state, and chat history."""
+"""In-memory SQLite storage for baseline processes, session state, and chat history.
+
+JSON-native: stores graph_json instead of bpmn_xml.
+"""
 from __future__ import annotations
 
 import json
@@ -24,14 +27,24 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             process_id TEXT PRIMARY KEY,
             name       TEXT NOT NULL,
             parent_id  TEXT,
-            bpmn_xml   TEXT NOT NULL
+            graph_json TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS baseline_workspace (
+            id             INTEGER PRIMARY KEY CHECK (id = 1),
+            workspace_json TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS session_processes (
             session_id TEXT NOT NULL,
             process_id TEXT NOT NULL,
-            bpmn_xml   TEXT NOT NULL,
+            graph_json TEXT NOT NULL,
             PRIMARY KEY (session_id, process_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS session_workspace (
+            session_id     TEXT PRIMARY KEY,
+            workspace_json TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS chat_messages (
@@ -46,7 +59,7 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT NOT NULL,
             process_id TEXT NOT NULL,
-            bpmn_xml   TEXT NOT NULL,
+            graph_json TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -59,24 +72,43 @@ def _init_schema(conn: sqlite3.Connection) -> None:
     """)
 
 
-def seed_baseline(registry_path: Path, graphs_dir: Path) -> None:
-    """Read registry.json + BPMN files and insert into baseline_processes."""
+# ---------------------------------------------------------------------------
+# Baseline seeding
+# ---------------------------------------------------------------------------
+
+def seed_baseline(workspace_path: Path, graphs_dir: Path) -> None:
+    """Read workspace.json + graph JSON files and insert into baseline tables."""
     conn = get_conn()
     if conn.execute("SELECT count(*) FROM baseline_processes").fetchone()[0] > 0:
         return
 
-    registry = json.loads(registry_path.read_text(encoding="utf-8"))
-    for entry in registry["processes"]:
-        bpmn_file = graphs_dir / entry["bpmn_file"]
-        if not bpmn_file.exists():
-            raise FileNotFoundError(f"BPMN file not found: {bpmn_file}")
-        bpmn_xml = bpmn_file.read_text(encoding="utf-8")
+    workspace = json.loads(workspace_path.read_text(encoding="utf-8"))
+    conn.execute(
+        "INSERT OR REPLACE INTO baseline_workspace (id, workspace_json) VALUES (1, ?)",
+        (json.dumps(workspace, ensure_ascii=False),),
+    )
+
+    processes = workspace.get("process_tree", {}).get("processes", {})
+    for pid, info in processes.items():
+        graph_file = graphs_dir / info["graph_file"]
+        if not graph_file.exists():
+            raise FileNotFoundError(f"Graph JSON not found: {graph_file}")
+        graph_json = graph_file.read_text(encoding="utf-8")
+        parent_id = None
+        path = info.get("path", "")
+        parts = [p for p in path.strip("/").split("/") if p]
+        if len(parts) >= 2:
+            parent_id = parts[-2]
         conn.execute(
-            "INSERT OR REPLACE INTO baseline_processes (process_id, name, parent_id, bpmn_xml) VALUES (?, ?, ?, ?)",
-            (entry["process_id"], entry["name"], entry.get("parent_id"), bpmn_xml),
+            "INSERT OR REPLACE INTO baseline_processes (process_id, name, parent_id, graph_json) VALUES (?, ?, ?, ?)",
+            (pid, info["name"], parent_id, graph_json),
         )
     conn.commit()
 
+
+# ---------------------------------------------------------------------------
+# Baseline reads
+# ---------------------------------------------------------------------------
 
 def get_baseline_process_ids() -> list[str]:
     conn = get_conn()
@@ -84,17 +116,26 @@ def get_baseline_process_ids() -> list[str]:
     return [r["process_id"] for r in rows]
 
 
-def get_baseline_xml(process_id: str) -> str | None:
+def get_baseline_json(process_id: str) -> str | None:
     conn = get_conn()
     row = conn.execute(
-        "SELECT bpmn_xml FROM baseline_processes WHERE process_id = ?", (process_id,)
+        "SELECT graph_json FROM baseline_processes WHERE process_id = ?", (process_id,)
     ).fetchone()
-    return row["bpmn_xml"] if row else None
+    return row["graph_json"] if row else None
 
+
+def get_baseline_workspace() -> str | None:
+    conn = get_conn()
+    row = conn.execute("SELECT workspace_json FROM baseline_workspace WHERE id = 1").fetchone()
+    return row["workspace_json"] if row else None
+
+
+# ---------------------------------------------------------------------------
+# Session cloning
+# ---------------------------------------------------------------------------
 
 def clone_baseline_to_session(session_id: str) -> None:
-    """Copy all baseline rows into session_processes for the given session.
-    Uses INSERT OR IGNORE so concurrent requests for the same session do not raise UNIQUE."""
+    """Copy all baseline rows into session tables for the given session."""
     conn = get_conn()
     existing = conn.execute(
         "SELECT count(*) FROM session_processes WHERE session_id = ?", (session_id,)
@@ -102,20 +143,30 @@ def clone_baseline_to_session(session_id: str) -> None:
     if existing > 0:
         return
     conn.execute(
-        "INSERT OR IGNORE INTO session_processes (session_id, process_id, bpmn_xml) "
-        "SELECT ?, process_id, bpmn_xml FROM baseline_processes",
+        "INSERT OR IGNORE INTO session_processes (session_id, process_id, graph_json) "
+        "SELECT ?, process_id, graph_json FROM baseline_processes",
         (session_id,),
     )
+    ws = get_baseline_workspace()
+    if ws:
+        conn.execute(
+            "INSERT OR IGNORE INTO session_workspace (session_id, workspace_json) VALUES (?, ?)",
+            (session_id, ws),
+        )
     conn.commit()
 
 
-def get_session_xml(session_id: str, process_id: str) -> str | None:
+# ---------------------------------------------------------------------------
+# Session graph reads / writes
+# ---------------------------------------------------------------------------
+
+def get_session_json(session_id: str, process_id: str) -> str | None:
     conn = get_conn()
     row = conn.execute(
-        "SELECT bpmn_xml FROM session_processes WHERE session_id = ? AND process_id = ?",
+        "SELECT graph_json FROM session_processes WHERE session_id = ? AND process_id = ?",
         (session_id, process_id),
     ).fetchone()
-    return row["bpmn_xml"] if row else None
+    return row["graph_json"] if row else None
 
 
 def get_session_process_ids(session_id: str) -> list[str]:
@@ -126,30 +177,53 @@ def get_session_process_ids(session_id: str) -> list[str]:
     return [r["process_id"] for r in rows]
 
 
-def upsert_session_xml(session_id: str, process_id: str, bpmn_xml: str) -> None:
+def upsert_session_json(session_id: str, process_id: str, graph_json: str) -> None:
     conn = get_conn()
     conn.execute(
-        "INSERT OR REPLACE INTO session_processes (session_id, process_id, bpmn_xml) VALUES (?, ?, ?)",
-        (session_id, process_id, bpmn_xml),
+        "INSERT OR REPLACE INTO session_processes (session_id, process_id, graph_json) VALUES (?, ?, ?)",
+        (session_id, process_id, graph_json),
     )
     conn.commit()
 
 
-def push_history(session_id: str, process_id: str, bpmn_xml: str) -> None:
-    """Append a snapshot to session process history (used before overwriting with a mutation)."""
+# ---------------------------------------------------------------------------
+# Session workspace reads / writes
+# ---------------------------------------------------------------------------
+
+def get_session_workspace(session_id: str) -> str | None:
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT workspace_json FROM session_workspace WHERE session_id = ?", (session_id,)
+    ).fetchone()
+    return row["workspace_json"] if row else None
+
+
+def upsert_session_workspace(session_id: str, workspace_json: str) -> None:
     conn = get_conn()
     conn.execute(
-        "INSERT INTO session_process_history (session_id, process_id, bpmn_xml) VALUES (?, ?, ?)",
-        (session_id, process_id, bpmn_xml),
+        "INSERT OR REPLACE INTO session_workspace (session_id, workspace_json) VALUES (?, ?)",
+        (session_id, workspace_json),
+    )
+    conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# History (undo support)
+# ---------------------------------------------------------------------------
+
+def push_history(session_id: str, process_id: str, graph_json: str) -> None:
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO session_process_history (session_id, process_id, graph_json) VALUES (?, ?, ?)",
+        (session_id, process_id, graph_json),
     )
     conn.commit()
 
 
 def pop_history(session_id: str, process_id: str) -> str | None:
-    """Remove and return the most recent history entry for (session_id, process_id), or None if empty."""
     conn = get_conn()
     row = conn.execute(
-        "SELECT id, bpmn_xml FROM session_process_history "
+        "SELECT id, graph_json FROM session_process_history "
         "WHERE session_id = ? AND process_id = ? ORDER BY id DESC LIMIT 1",
         (session_id, process_id),
     ).fetchone()
@@ -157,8 +231,12 @@ def pop_history(session_id: str, process_id: str) -> str | None:
         return None
     conn.execute("DELETE FROM session_process_history WHERE id = ?", (row["id"],))
     conn.commit()
-    return row["bpmn_xml"]
+    return row["graph_json"]
 
+
+# ---------------------------------------------------------------------------
+# Chat messages
+# ---------------------------------------------------------------------------
 
 def get_chat_history(session_id: str) -> list[dict]:
     conn = get_conn()

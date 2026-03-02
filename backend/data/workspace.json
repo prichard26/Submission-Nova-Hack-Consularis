@@ -1,0 +1,163 @@
+{
+  "format_version": "1.0",
+  "workspace_id": "ws_pharmacy",
+  "name": "Hospital Pharmacy Operations",
+  "process_tree": {
+    "root": "Process_Global",
+    "processes": {
+      "Process_Global": {
+        "name": "Pharmacy medication circuit",
+        "depth": 0,
+        "path": "/Process_Global",
+        "children": [
+          "Process_P1",
+          "Process_P2",
+          "Process_P3",
+          "Process_P4",
+          "Process_P5",
+          "Process_P6",
+          "Process_P7"
+        ],
+        "graph_file": "global.json",
+        "owner": "Pharmacy Department",
+        "category": "clinical",
+        "criticality": "high",
+        "summary": {
+          "step_count": 0,
+          "subprocess_count": 7
+        }
+      },
+      "Process_P1": {
+        "name": "Prescription",
+        "depth": 1,
+        "path": "/Process_Global/Process_P1",
+        "children": [],
+        "graph_file": "P1.json",
+        "owner": "Pharmacy Department",
+        "category": "clinical",
+        "criticality": "high",
+        "summary": {
+          "step_count": 3,
+          "subprocess_count": 0,
+          "avg_error_rate": 2.03,
+          "automation_coverage": "67%"
+        }
+      },
+      "Process_P2": {
+        "name": "Selection, Acquisition, and Reception",
+        "depth": 1,
+        "path": "/Process_Global/Process_P2",
+        "children": [],
+        "graph_file": "P2.json",
+        "owner": "Pharmacy Department",
+        "category": "supply_chain",
+        "criticality": "high",
+        "summary": {
+          "step_count": 4,
+          "subprocess_count": 0,
+          "avg_error_rate": 2.2,
+          "automation_coverage": "50%"
+        }
+      },
+      "Process_P3": {
+        "name": "Storage and Storage Management",
+        "depth": 1,
+        "path": "/Process_Global/Process_P3",
+        "children": [],
+        "graph_file": "P3.json",
+        "owner": "Pharmacy Department",
+        "category": "logistics",
+        "criticality": "medium",
+        "summary": {
+          "step_count": 3,
+          "subprocess_count": 0,
+          "avg_error_rate": 2.5,
+          "automation_coverage": "100%"
+        }
+      },
+      "Process_P4": {
+        "name": "Distribution",
+        "depth": 1,
+        "path": "/Process_Global/Process_P4",
+        "children": [],
+        "graph_file": "P4.json",
+        "owner": "Pharmacy Department",
+        "category": "logistics",
+        "criticality": "high",
+        "summary": {
+          "step_count": 3,
+          "subprocess_count": 0,
+          "avg_error_rate": 2.17,
+          "automation_coverage": "33%"
+        }
+      },
+      "Process_P5": {
+        "name": "Dispensing and Preparation",
+        "depth": 1,
+        "path": "/Process_Global/Process_P5",
+        "children": [],
+        "graph_file": "P5.json",
+        "owner": "Pharmacy Department",
+        "category": "clinical",
+        "criticality": "high",
+        "summary": {
+          "step_count": 3,
+          "subprocess_count": 0,
+          "avg_error_rate": 2.8,
+          "automation_coverage": "33%"
+        }
+      },
+      "Process_P6": {
+        "name": "Administration",
+        "depth": 1,
+        "path": "/Process_Global/Process_P6",
+        "children": [],
+        "graph_file": "P6.json",
+        "owner": "Nursing Department",
+        "category": "clinical",
+        "criticality": "critical",
+        "summary": {
+          "step_count": 3,
+          "subprocess_count": 0,
+          "avg_error_rate": 2.27,
+          "automation_coverage": "67%"
+        }
+      },
+      "Process_P7": {
+        "name": "Monitoring and Waste Management",
+        "depth": 1,
+        "path": "/Process_Global/Process_P7",
+        "children": [],
+        "graph_file": "P7.json",
+        "owner": "Pharmacy Department",
+        "category": "compliance",
+        "criticality": "high",
+        "summary": {
+          "step_count": 3,
+          "subprocess_count": 0,
+          "avg_error_rate": 3.67,
+          "automation_coverage": "33%"
+        }
+      }
+    }
+  },
+  "cross_links": [],
+  "tags": {
+    "clinical": [
+      "Process_Global",
+      "Process_P1",
+      "Process_P5",
+      "Process_P6"
+    ],
+    "supply_chain": [
+      "Process_P2"
+    ],
+    "logistics": [
+      "Process_P3",
+      "Process_P4"
+    ],
+    "compliance": [
+      "Process_P7"
+    ]
+  }
+}

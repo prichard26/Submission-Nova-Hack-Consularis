@@ -53,6 +53,39 @@
   color: #e85d04;
 }
 
+.dashboard__topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── View toggle ── */
+.dashboard__view-toggle {
+  flex-shrink: 0;
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #2e2820;
+  background: #1e1914;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #a09080;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dashboard__view-toggle:hover {
+  border-color: rgba(232, 93, 4, 0.4);
+  color: #e85d04;
+}
+
+.dashboard__view-toggle--active {
+  border-color: rgba(232, 93, 4, 0.5);
+  background: rgba(232, 93, 4, 0.08);
+  color: #e85d04;
+}
+
 /* ── Chat toggle ── */
 .dashboard__chat-toggle {
   flex-shrink: 0;

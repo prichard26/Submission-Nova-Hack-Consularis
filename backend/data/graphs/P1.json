@@ -1,0 +1,213 @@
+{
+  "format_version": "1.0",
+  "process_id": "Process_P1",
+  "name": "Prescription",
+  "metadata": {
+    "owner": "Pharmacy Department",
+    "category": "clinical",
+    "criticality": "high"
+  },
+  "lanes": [
+    {
+      "id": "P1",
+      "name": "Prescription",
+      "description": "",
+      "node_refs": [
+        "Start_P1",
+        "P1.1",
+        "P1.2",
+        "P1.3",
+        "End_P1"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "Start_P1",
+      "name": "Start",
+      "type": "start",
+      "lane_id": "P1",
+      "position": {
+        "x": 280,
+        "y": 78
+      }
+    },
+    {
+      "id": "P1.1",
+      "name": "Prescribe Medication",
+      "type": "step",
+      "short_id": "P1.1",
+      "lane_id": "P1",
+      "position": {
+        "x": 504,
+        "y": 44
+      },
+      "actor": "Physician",
+      "duration_min": "5–10 min",
+      "description": "Doctor writes or enters a prescription with drug name, dosage form, strength, frequency, and duration.",
+      "inputs": [
+        "Patient diagnosis",
+        "Medical history",
+        "Drug formulary"
+      ],
+      "outputs": [
+        "Prescription order"
+      ],
+      "risks": [
+        "Prescribing error",
+        "Drug interaction",
+        "Wrong dosage"
+      ],
+      "automation_potential": "high",
+      "automation_notes": "E-prescribing systems, clinical decision support (CDS), drug interaction alerts",
+      "current_state": "semi_automated",
+      "frequency": "150/day",
+      "annual_volume": "54750",
+      "error_rate_percent": "3.2",
+      "cost_per_execution": "8.50 EUR",
+      "current_systems": [
+        "EHR",
+        "Paper prescription pad"
+      ],
+      "data_format": "digital_unstructured",
+      "external_dependencies": [
+        "Drug formulary DB"
+      ],
+      "regulatory_constraints": [
+        "Prescription regulations",
+        "Controlled substance laws"
+      ],
+      "sla_target": "< 10 min",
+      "pain_points": [
+        "Illegible handwriting",
+        "Missing allergy data"
+      ]
+    },
+    {
+      "id": "P1.2",
+      "name": "Verify Prescription",
+      "type": "step",
+      "short_id": "P1.2",
+      "lane_id": "P1",
+      "position": {
+        "x": 904,
+        "y": 44
+      },
+      "actor": "Pharmacist",
+      "duration_min": "5–10 min",
+      "description": "Review prescription for compliance with medical standards, hospital policies, drug interactions, and patient allergies.",
+      "inputs": [
+        "Prescription order",
+        "Patient allergy record",
+        "Formulary"
+      ],
+      "outputs": [
+        "Verified prescription"
+      ],
+      "risks": [
+        "Missed interaction",
+        "Allergy oversight",
+        "Illegible handwriting"
+      ],
+      "automation_potential": "high",
+      "automation_notes": "Automated drug-drug / drug-allergy checks, barcode verification",
+      "current_state": "semi_automated",
+      "frequency": "150/day",
+      "annual_volume": "54750",
+      "error_rate_percent": "2.1",
+      "cost_per_execution": "6.00 EUR",
+      "current_systems": [
+        "EHR",
+        "Drug interaction checker"
+      ],
+      "data_format": "digital_structured",
+      "external_dependencies": [
+        "Drug interaction DB",
+        "Allergy registry"
+      ],
+      "regulatory_constraints": [
+        "Pharmacovigilance regulations"
+      ],
+      "sla_target": "< 10 min",
+      "pain_points": [
+        "Illegible prescriptions",
+        "Incomplete patient records"
+      ]
+    },
+    {
+      "id": "P1.3",
+      "name": "Approve Prescription",
+      "type": "step",
+      "short_id": "P1.3",
+      "lane_id": "P1",
+      "position": {
+        "x": 1304,
+        "y": 44
+      },
+      "actor": "Pharmacist",
+      "duration_min": "3–5 min",
+      "description": "Authorize prescription for dispensation after confirming safety, appropriateness, and formulary compliance.",
+      "inputs": [
+        "Verified prescription"
+      ],
+      "outputs": [
+        "Approved prescription"
+      ],
+      "risks": [
+        "Delay in approval",
+        "Unauthorized override"
+      ],
+      "automation_potential": "medium",
+      "automation_notes": "Auto-approval for standard formulary items with no flags",
+      "current_state": "manual",
+      "frequency": "140/day",
+      "annual_volume": "51100",
+      "error_rate_percent": "0.8",
+      "cost_per_execution": "4.00 EUR",
+      "current_systems": [
+        "EHR"
+      ],
+      "data_format": "digital_structured",
+      "regulatory_constraints": [
+        "Formulary compliance policies"
+      ],
+      "sla_target": "< 5 min",
+      "pain_points": [
+        "Bottleneck during peak hours",
+        "Senior pharmacist dependency"
+      ]
+    },
+    {
+      "id": "End_P1",
+      "name": "End",
+      "type": "end",
+      "lane_id": "P1",
+      "position": {
+        "x": 1704,
+        "y": 78
+      }
+    }
+  ],
+  "flows": [
+    {
+      "from": "Start_P1",
+      "to": "P1.1",
+      "label": "Process starts"
+    },
+    {
+      "from": "P1.1",
+      "to": "P1.2",
+      "label": "Prescription submitted"
+    },
+    {
+      "from": "P1.2",
+      "to": "P1.3",
+      "label": "Prescription verified"
+    },
+    {
+      "from": "P1.3",
+      "to": "End_P1",
+      "label": "Complete"
+    }
+  ]
+}

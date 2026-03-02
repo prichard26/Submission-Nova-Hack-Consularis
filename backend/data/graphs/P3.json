@@ -1,0 +1,235 @@
+{
+  "format_version": "1.0",
+  "process_id": "Process_P3",
+  "name": "Storage and Storage Management",
+  "metadata": {
+    "owner": "Pharmacy Department",
+    "category": "logistics",
+    "criticality": "medium"
+  },
+  "lanes": [
+    {
+      "id": "P3",
+      "name": "Storage and Storage Management",
+      "description": "",
+      "node_refs": [
+        "Start_P3",
+        "P3.1",
+        "P3.2",
+        "P3.3",
+        "G3",
+        "End_P3"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "Start_P3",
+      "name": "Start",
+      "type": "start",
+      "lane_id": "P3",
+      "position": {
+        "x": 280,
+        "y": 78
+      }
+    },
+    {
+      "id": "P3.1",
+      "name": "Classify and Shelve",
+      "type": "step",
+      "short_id": "P3.1",
+      "lane_id": "P3",
+      "position": {
+        "x": 504,
+        "y": 44
+      },
+      "actor": "Pharmacy Technician",
+      "duration_min": "15–30 min per batch",
+      "description": "Classify medications by category (therapeutic class, controlled substance schedule, temperature requirements) and place on appropriate shelves or in refrigerators/safes.",
+      "inputs": [
+        "Verified inventory"
+      ],
+      "outputs": [
+        "Stored medications"
+      ],
+      "risks": [
+        "Misplacement",
+        "Wrong storage conditions",
+        "FIFO violation"
+      ],
+      "automation_potential": "high",
+      "automation_notes": "Automated dispensing cabinets (ADCs), carousel systems, pharmacy robots",
+      "current_state": "manual",
+      "frequency": "10/day",
+      "annual_volume": "3650",
+      "error_rate_percent": "4.2",
+      "cost_per_execution": "10.00 EUR",
+      "current_systems": [
+        "Manual shelving",
+        "Label printer"
+      ],
+      "data_format": "paper",
+      "regulatory_constraints": [
+        "Storage classification standards",
+        "Controlled substance storage"
+      ],
+      "sla_target": "< 30 min per batch",
+      "pain_points": [
+        "Misplacement",
+        "FIFO violations",
+        "Overcrowded shelves"
+      ]
+    },
+    {
+      "id": "P3.2",
+      "name": "Monitor Storage Conditions",
+      "type": "step",
+      "short_id": "P3.2",
+      "lane_id": "P3",
+      "position": {
+        "x": 904,
+        "y": 44
+      },
+      "actor": "Pharmacy Technician / System",
+      "duration_min": "continuous",
+      "description": "Monitor temperature, humidity, and security for storage areas. Log conditions for compliance.",
+      "inputs": [
+        "Environmental sensors",
+        "Regulatory requirements"
+      ],
+      "outputs": [
+        "Compliance logs",
+        "Alerts on excursion"
+      ],
+      "risks": [
+        "Temperature excursion undetected",
+        "Controlled substance diversion"
+      ],
+      "automation_potential": "high",
+      "automation_notes": "IoT sensors, automated alerting, continuous logging systems",
+      "current_state": "semi_automated",
+      "frequency": "continuous",
+      "annual_volume": "365",
+      "error_rate_percent": "0.5",
+      "cost_per_execution": "2.00 EUR",
+      "current_systems": [
+        "IoT sensors",
+        "SCADA"
+      ],
+      "data_format": "digital_structured",
+      "external_dependencies": [
+        "IoT platform"
+      ],
+      "regulatory_constraints": [
+        "Cold chain compliance",
+        "GDP guidelines"
+      ],
+      "sla_target": "real-time alerting",
+      "pain_points": [
+        "Sensor calibration",
+        "Alert fatigue"
+      ]
+    },
+    {
+      "id": "P3.3",
+      "name": "Inventory Management",
+      "type": "step",
+      "short_id": "P3.3",
+      "lane_id": "P3",
+      "position": {
+        "x": 1318,
+        "y": 44
+      },
+      "actor": "Pharmacist / System",
+      "duration_min": "daily cycle counts + periodic full inventory",
+      "description": "Track stock levels, manage expiry dates (FEFO), conduct cycle counts, and trigger reorder points.",
+      "inputs": [
+        "Current stock data",
+        "Usage history",
+        "Expiry dates"
+      ],
+      "outputs": [
+        "Reorder triggers",
+        "Expiry removal list",
+        "Inventory report"
+      ],
+      "risks": [
+        "Stockout",
+        "Expired stock dispensed",
+        "Overstock / waste"
+      ],
+      "automation_potential": "high",
+      "automation_notes": "ERP/WMS integration, perpetual inventory systems, AI-based demand forecasting",
+      "current_state": "semi_automated",
+      "frequency": "daily",
+      "annual_volume": "365",
+      "error_rate_percent": "2.8",
+      "cost_per_execution": "20.00 EUR",
+      "current_systems": [
+        "ERP",
+        "Spreadsheets"
+      ],
+      "data_format": "digital_unstructured",
+      "external_dependencies": [
+        "ERP inventory module"
+      ],
+      "regulatory_constraints": [
+        "Inventory audit requirements",
+        "Controlled substance tracking"
+      ],
+      "sla_target": "daily reconciliation",
+      "pain_points": [
+        "Manual cycle counts",
+        "ERP sync delays",
+        "Expiry oversight"
+      ]
+    },
+    {
+      "id": "G3",
+      "name": "Inventory decision",
+      "type": "decision",
+      "lane_id": "P3",
+      "position": {
+        "x": 1718,
+        "y": 72
+      }
+    },
+    {
+      "id": "End_P3",
+      "name": "End",
+      "type": "end",
+      "lane_id": "P3",
+      "position": {
+        "x": 1954,
+        "y": 78
+      }
+    }
+  ],
+  "flows": [
+    {
+      "from": "Start_P3",
+      "to": "P3.1",
+      "label": "Start"
+    },
+    {
+      "from": "G3",
+      "to": "End_P3",
+      "label": "Phase complete"
+    },
+    {
+      "from": "P3.1",
+      "to": "P3.2",
+      "label": "Stored, monitor conditions"
+    },
+    {
+      "from": "P3.2",
+      "to": "P3.3",
+      "label": "Conditions OK, track inventory"
+    },
+    {
+      "from": "P3.3",
+      "to": "G3",
+      "label": "P3.3 → G3"
+    }
+  ]
+}

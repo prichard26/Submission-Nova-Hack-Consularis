@@ -1,4 +1,5 @@
-"""Chat flow: run_chat returns (message, bpmn_xml, tools_used); API returns meta."""
+"""Chat flow: run_chat returns (message, graph_json, tools_used); API returns meta."""
+import json
 import os
 
 os.environ["GROQ_KEY"] = "missing"
@@ -8,10 +9,11 @@ def test_run_chat_returns_tools_used_flag():
     from agent.runtime import run_chat
 
     sid = "test-returns-three"
-    msg, bpmn_xml, tools_used = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}], max_rounds=1)
+    msg, graph_json_str, tools_used = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}], max_rounds=1)
     assert isinstance(msg, str)
-    assert isinstance(bpmn_xml, str)
-    assert "process" in bpmn_xml.lower()
+    assert isinstance(graph_json_str, str)
+    data = json.loads(graph_json_str)
+    assert "steps" in data
     assert isinstance(tools_used, bool)
     assert tools_used is False
 
@@ -21,7 +23,7 @@ def test_api_chat_returns_meta(client):
     assert resp.status_code == 200
     data = resp.json()
     assert "message" in data
-    assert "bpmn_xml" in data
+    assert "graph_json" in data
     assert "meta" in data
     assert data["meta"]["session_id"] == "meta-test-session"
     assert data["meta"]["process_id"] == "Process_P1"

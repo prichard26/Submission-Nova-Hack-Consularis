@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Callable
 
-from bpmn.store import (
+from graph.store import (
     add_edge,
     add_lane,
     add_node,
@@ -60,6 +60,17 @@ TOOL_SCHEMAS = [
                     "risks": {"type": "array", "items": {"type": "string"}},
                     "automation_potential": {"type": "string"},
                     "automation_notes": {"type": "string"},
+                    "current_state": {"type": "string"},
+                    "frequency": {"type": "string"},
+                    "annual_volume": {"type": "string"},
+                    "error_rate_percent": {"type": "string"},
+                    "cost_per_execution": {"type": "string"},
+                    "current_systems": {"type": "array", "items": {"type": "string"}},
+                    "data_format": {"type": "string"},
+                    "external_dependencies": {"type": "array", "items": {"type": "string"}},
+                    "regulatory_constraints": {"type": "array", "items": {"type": "string"}},
+                    "sla_target": {"type": "string"},
+                    "pain_points": {"type": "array", "items": {"type": "string"}},
                 },
             },
         },
@@ -122,7 +133,6 @@ TOOL_SCHEMAS = [
 
 
 def get_active_process(session_id: str, process_id: str | None = None) -> str | None:
-    """Return the process_id from the request (frontend sends it); no server-side state."""
     if process_id and str(process_id).strip():
         return str(process_id).strip()
     return None
@@ -232,13 +242,7 @@ TOOLS = TOOL_SCHEMAS
 
 def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None = None) -> str:
     effective_process = get_active_process(session_id, process_id)
-    logger.info(
-        "[AGENT][GRAPH] %s session_id=%s process_id=%s %s",
-        name,
-        session_id,
-        effective_process,
-        _log_args(name, arguments),
-    )
+    logger.info("[AGENT][GRAPH] %s session_id=%s process_id=%s", name, session_id, effective_process)
     try:
         handler = TOOL_HANDLERS.get(name)
         if handler is not None:
@@ -247,31 +251,3 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
         logger.exception("[AGENT][GRAPH] %s -> exception: %s", name, exc)
         return json.dumps({"error": str(exc)})
     return json.dumps({"error": "Unknown tool"})
-
-
-def _log_args(name: str, arguments: dict) -> str:
-    if name == "get_node":
-        return f"node_id={arguments.get('node_id', '')}"
-    if name == "update_node":
-        return f"node_id={arguments.get('node_id', '')}"
-    if name == "add_node":
-        return f"phase_id={arguments.get('phase_id', '')}"
-    if name == "delete_node":
-        return f"node_id={arguments.get('node_id', '')}"
-    if name == "get_edges":
-        return f"source_id={arguments.get('source_id', 'all')}"
-    if name == "update_edge":
-        return f"source={arguments.get('source', '')} target={arguments.get('target', '')}"
-    if name == "add_edge":
-        return f"source={arguments.get('source', '')} target={arguments.get('target', '')}"
-    if name == "delete_edge":
-        return f"source={arguments.get('source', '')} target={arguments.get('target', '')}"
-    if name == "resolve_step":
-        return f"name_or_fragment={arguments.get('name_or_fragment', '')}"
-    if name == "add_lane":
-        return f"name={arguments.get('name', '')}"
-    if name == "update_lane":
-        return f"lane_id={arguments.get('lane_id', '')}"
-    if name == "delete_lane":
-        return f"lane_id={arguments.get('lane_id', '')}"
-    return ""

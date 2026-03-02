@@ -1,0 +1,223 @@
+{
+  "format_version": "1.0",
+  "process_id": "Process_P7",
+  "name": "Monitoring and Waste Management",
+  "metadata": {
+    "owner": "Pharmacy Department",
+    "category": "compliance",
+    "criticality": "high"
+  },
+  "lanes": [
+    {
+      "id": "P7",
+      "name": "Monitoring and Waste Management",
+      "description": "",
+      "node_refs": [
+        "Start_P7",
+        "P7.1",
+        "P7.2",
+        "P7.3",
+        "End_P7"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "Start_P7",
+      "name": "Start",
+      "type": "start",
+      "lane_id": "P7",
+      "position": {
+        "x": 280,
+        "y": 78
+      }
+    },
+    {
+      "id": "P7.1",
+      "name": "Monitor Patient Response",
+      "type": "step",
+      "short_id": "P7.1",
+      "lane_id": "P7",
+      "position": {
+        "x": 504,
+        "y": 44
+      },
+      "actor": "Nurse / Physician",
+      "duration_min": "ongoing",
+      "description": "Observe and document patient response to medication. Assess efficacy and side effects. Adjust treatment as needed.",
+      "inputs": [
+        "Patient vitals",
+        "Lab results",
+        "Patient feedback"
+      ],
+      "outputs": [
+        "Treatment efficacy assessment",
+        "Dosage adjustment order"
+      ],
+      "risks": [
+        "Delayed detection of adverse effect",
+        "Non-adherence"
+      ],
+      "automation_potential": "medium",
+      "automation_notes": "Clinical decision support alerts, remote monitoring, AI-based adverse event detection",
+      "current_state": "semi_automated",
+      "frequency": "100/day",
+      "annual_volume": "36500",
+      "error_rate_percent": "3.0",
+      "cost_per_execution": "10.00 EUR",
+      "current_systems": [
+        "EHR",
+        "Lab system"
+      ],
+      "data_format": "digital_structured",
+      "external_dependencies": [
+        "Lab LIMS",
+        "Vital signs monitors"
+      ],
+      "regulatory_constraints": [
+        "Pharmacovigilance reporting"
+      ],
+      "sla_target": "ongoing",
+      "pain_points": [
+        "Delayed adverse event detection",
+        "Alert fatigue"
+      ]
+    },
+    {
+      "id": "P7.2",
+      "name": "Handle Returns and Expired Stock",
+      "type": "step",
+      "short_id": "P7.2",
+      "lane_id": "P7",
+      "position": {
+        "x": 904,
+        "y": 44
+      },
+      "actor": "Pharmacy Technician",
+      "duration_min": "varies",
+      "description": "Collect unused or expired medications from wards and patients. Segregate for destruction or return to supplier.",
+      "inputs": [
+        "Expired stock list",
+        "Ward returns"
+      ],
+      "outputs": [
+        "Destruction records",
+        "Credit notes from supplier"
+      ],
+      "risks": [
+        "Expired drugs re-entering stock",
+        "Controlled substance diversion"
+      ],
+      "automation_potential": "medium",
+      "automation_notes": "FEFO alerts, automated expiry tracking, secure destruction logging",
+      "current_state": "manual",
+      "frequency": "5/day",
+      "annual_volume": "1825",
+      "error_rate_percent": "2.0",
+      "cost_per_execution": "18.00 EUR",
+      "current_systems": [
+        "Paper logs",
+        "ERP"
+      ],
+      "data_format": "paper",
+      "external_dependencies": [
+        "Waste disposal vendor"
+      ],
+      "regulatory_constraints": [
+        "Controlled substance disposal",
+        "Pharmaceutical waste regulations"
+      ],
+      "sla_target": "< 24 hours",
+      "pain_points": [
+        "Controlled substance reconciliation",
+        "Witness requirements"
+      ]
+    },
+    {
+      "id": "P7.3",
+      "name": "Regulatory Reporting",
+      "type": "step",
+      "short_id": "P7.3",
+      "lane_id": "P7",
+      "position": {
+        "x": 1372,
+        "y": 44
+      },
+      "actor": "Pharmacist / QA",
+      "duration_min": "periodic",
+      "description": "Compile and submit required reports: controlled substance logs, adverse event reports, cold chain compliance, inventory audits.",
+      "inputs": [
+        "Logs",
+        "Incident reports",
+        "Audit data"
+      ],
+      "outputs": [
+        "Regulatory submissions",
+        "Compliance certificates"
+      ],
+      "risks": [
+        "Non-compliance",
+        "Missing data",
+        "Late submission"
+      ],
+      "automation_potential": "high",
+      "automation_notes": "Automated report generation, dashboard-based compliance monitoring",
+      "current_state": "manual",
+      "frequency": "weekly",
+      "annual_volume": "52",
+      "error_rate_percent": "6.0",
+      "cost_per_execution": "50.00 EUR",
+      "current_systems": [
+        "Spreadsheets",
+        "Paper reports"
+      ],
+      "data_format": "digital_unstructured",
+      "external_dependencies": [
+        "Regulatory portals"
+      ],
+      "regulatory_constraints": [
+        "DEA reporting",
+        "State pharmacy board requirements",
+        "Adverse event reporting"
+      ],
+      "sla_target": "regulatory deadlines",
+      "pain_points": [
+        "Manual data aggregation",
+        "Inconsistent formats",
+        "Deadline pressure"
+      ]
+    },
+    {
+      "id": "End_P7",
+      "name": "End",
+      "type": "end",
+      "lane_id": "P7",
+      "position": {
+        "x": 1772,
+        "y": 78
+      }
+    }
+  ],
+  "flows": [
+    {
+      "from": "Start_P7",
+      "to": "P7.1",
+      "label": "Start"
+    },
+    {
+      "from": "P7.1",
+      "to": "P7.2",
+      "label": "Monitor complete"
+    },
+    {
+      "from": "P7.2",
+      "to": "P7.3",
+      "label": "Destruction logged"
+    },
+    {
+      "from": "P7.3",
+      "to": "End_P7",
+      "label": "Process complete"
+    }
+  ]
+}

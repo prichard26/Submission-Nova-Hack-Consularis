@@ -1,0 +1,34 @@
+.decision-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.decision-node__diamond {
+  width: 56px;
+  height: 56px;
+  background: var(--node-fill, #f5d4b8);
+  border: 2px solid var(--node-stroke, #c97d3a);
+  transform: rotate(45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.decision-node__diamond:hover {
+  box-shadow: 0 0 0 2px var(--accent, #e85d04);
+}
+
+.decision-node__label {
+  transform: rotate(-45deg);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--node-text, #4a3020);
+  text-align: center;
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}

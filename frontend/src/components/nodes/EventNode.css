@@ -1,0 +1,29 @@
+.event-node {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--node-fill, #f5d4b8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  position: relative;
+}
+
+.event-node--start {
+  border: 2px solid var(--node-stroke, #c97d3a);
+}
+
+.event-node--end {
+  border: 3px solid var(--node-stroke, #c97d3a);
+}
+
+.event-node__label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--node-text, #4a3020);
+  text-align: center;
+  position: absolute;
+  bottom: -16px;
+  white-space: nowrap;
+}
