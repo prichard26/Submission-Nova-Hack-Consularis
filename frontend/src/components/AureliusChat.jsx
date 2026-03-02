@@ -4,7 +4,7 @@ import './AureliusChat.css'
 
 const WELCOME_MSG = "Salve! I am Aurelius, your process consul. Tell me which step you wish to change — use the step id (e.g. P1.2, P3.1) — and what to update. I shall refine your pharmacy graph. If I do not understand, I will ask you to repeat."
 
-export default function AureliusChat({ sessionId, onGraphUpdate, onClose, isOverlay = false }) {
+export default function AureliusChat({ sessionId, processId = 'Process_Global', onGraphUpdate, onClose, isOverlay = false }) {
   const [messages, setMessages] = useState([
     { id: 1, role: 'assistant', text: WELCOME_MSG }
   ])
@@ -25,7 +25,7 @@ export default function AureliusChat({ sessionId, onGraphUpdate, onClose, isOver
     setLoading(true)
 
     try {
-      const data = await sendChat(sessionId, userText)
+      const data = await sendChat(sessionId, userText, { processId })
       const reply = data.message || 'I could not process that. Please try again.'
       setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text: reply }])
       // Backend returns authoritative BPMN XML; refresh diagram from this payload.

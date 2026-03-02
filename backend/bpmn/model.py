@@ -38,6 +38,16 @@ def default_task(task_id: str, name: str, lane_id: str) -> dict[str, Any]:
     }
 
 
+def default_call_activity(call_id: str, name: str, called_element: str, lane_id: str) -> dict[str, Any]:
+    return {
+        "id": call_id,
+        "name": name,
+        "called_element": called_element,
+        "lane_id": lane_id,
+        "extension": default_extension(),
+    }
+
+
 def default_lane(lane_id: str, name: str, description: str = "") -> dict[str, Any]:
     return {
         "id": lane_id,
@@ -82,6 +92,7 @@ class BpmnModel:
         process_name: str = "Process",
         lanes: list[dict] | None = None,
         tasks: list[dict] | None = None,
+        call_activities: list[dict] | None = None,
         start_events: list[dict] | None = None,
         end_events: list[dict] | None = None,
         gateways: list[dict] | None = None,
@@ -91,6 +102,7 @@ class BpmnModel:
         self.process_name = process_name
         self.lanes = list(lanes) if lanes else []
         self.tasks = list(tasks) if tasks else []
+        self.call_activities = list(call_activities) if call_activities else []
         self.start_events = list(start_events) if start_events else []
         self.end_events = list(end_events) if end_events else []
         self.gateways = list(gateways) if gateways else []
@@ -103,6 +115,7 @@ class BpmnModel:
             process_name=self.process_name,
             lanes=copy_mod.deepcopy(self.lanes),
             tasks=copy_mod.deepcopy(self.tasks),
+            call_activities=copy_mod.deepcopy(self.call_activities),
             start_events=copy_mod.deepcopy(self.start_events),
             end_events=copy_mod.deepcopy(self.end_events),
             gateways=copy_mod.deepcopy(self.gateways),
@@ -113,6 +126,12 @@ class BpmnModel:
         for t in self.tasks:
             if t["id"] == task_id:
                 return t
+        return None
+
+    def get_call_activity(self, node_id: str) -> dict | None:
+        for c in self.call_activities:
+            if c["id"] == node_id:
+                return c
         return None
 
     def get_lane(self, lane_id: str) -> dict | None:
@@ -130,9 +149,13 @@ class BpmnModel:
     def task_ids(self) -> set[str]:
         return {t["id"] for t in self.tasks}
 
+    def call_activity_ids(self) -> set[str]:
+        return {c["id"] for c in self.call_activities}
+
     def all_flow_node_ids(self) -> set[str]:
         """All flow node ids (tasks, start/end events, gateways) for validation and layout."""
         out = set(self.task_ids())
+        out.update(self.call_activity_ids())
         for e in self.start_events:
             out.add(e["id"])
         for e in self.end_events:
@@ -142,9 +165,11 @@ class BpmnModel:
         return out
 
     def flow_node_type(self, node_id: str) -> str:
-        """Return 'task'|'startEvent'|'endEvent'|'exclusiveGateway' for layout."""
+        """Return 'task'|'callActivity'|'startEvent'|'endEvent'|'exclusiveGateway' for layout."""
         if any(t["id"] == node_id for t in self.tasks):
             return "task"
+        if any(c["id"] == node_id for c in self.call_activities):
+            return "callActivity"
         if any(e["id"] == node_id for e in self.start_events):
             return "startEvent"
         if any(e["id"] == node_id for e in self.end_events):

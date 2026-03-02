@@ -30,12 +30,16 @@ All operations mutate session state in the BPMN store and are keyed by `session_
 ## 3. Agent runtime and tools
 
 - `agent/runtime.py` builds context using `get_graph_summary(session_id)`.
-- `agent/tools.py` keeps tool name `get_graph` for compatibility, but returns BPMN XML (canonical format).
+- `agent/tools.py` exposes BPMN-capable tools:
+  - **Access**: `get_graph` (full BPMN XML), `get_graph_summary` (phases + step IDs), `get_node`, `get_edges`
+  - **Modify nodes**: `update_node` (name, actor, duration_min, description, inputs, outputs, risks, automation_potential, automation_notes), `add_node`, `delete_node`
+  - **Modify edges**: `add_edge`, `update_edge`, `delete_edge`
+  - **Bulk / validation**: `set_graph(bpmn_xml)` (replace session with BPMN XML), `validate_graph`
 - `agent/fallback.py` no longer reads legacy graph dict; it uses:
   - `get_task_ids(session_id)` for valid node IDs
   - `get_edges(session_id)` for edge existence checks
 
-This removes all production dependencies on legacy graph JSON.
+This removes all production dependencies on legacy graph JSON. The agent can fully read and modify the graph in BPMN terms.
 
 ---
 
@@ -53,16 +57,15 @@ This removes all production dependencies on legacy graph JSON.
 
 ## 5. Frontend behavior
 
-- Dashboard is BPMN-only (no React Flow process view).
-- `BpmnViewer` renders XML from:
-  - `getBpmnXml(sessionId)`, or
-  - `data.bpmn_xml` returned by chat.
-- Chat refreshes the diagram using BPMN XML payloads.
+- Dashboard offers two view modes: **Process** (React Flow, graph JSON) and **BPMN** (bpmn-js, BPMN XML).
+- **Process view** (`ProcessGraphViewer`): uses `getGraphJson(sessionId)` → `GET /api/graph/json?session_id=...`; refreshes on `refreshTrigger` and after chat updates that propagate to the canvas.
+- **BPMN view** (`BpmnViewer`): uses `getBpmnXml(sessionId)` or `getBaselineBpmnXml()`, and `data.bpmn_xml` returned by chat; renders via bpmn-js.
+- Chat returns `bpmn_xml`; the frontend refreshes the diagram (both views) using that payload or a refetch.
 
 ---
 
 ## 6. Verification checklist
 
 - Backend tests pass with BPMN-only responses.
-- Frontend builds and lints after removing React Flow.
+- Frontend builds and lints; Process view uses React Flow with graph JSON; BPMN view uses bpmn-js with BPMN XML.
 - Docs and API references align to BPMN-only contracts.

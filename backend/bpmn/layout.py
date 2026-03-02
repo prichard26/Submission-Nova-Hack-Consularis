@@ -21,7 +21,7 @@ GAP_X = 140
 def node_size(model: "BpmnModel", node_id: str) -> tuple[int, int]:
     """Return (width, height) for a flow node."""
     kind = model.flow_node_type(node_id)
-    if kind == "task":
+    if kind in ("task", "callActivity"):
         return (TASK_WIDTH, TASK_HEIGHT)
     if kind in ("startEvent", "endEvent"):
         return (EVENT_SIZE, EVENT_SIZE)

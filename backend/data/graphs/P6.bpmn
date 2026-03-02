@@ -1,0 +1,93 @@
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+  <ns0:process id="Process_P6" name="Administration" isExecutable="false">
+    <ns0:laneSet id="LaneSet_1">
+      <ns0:lane id="P6" name="Administration">
+        <ns0:flowNodeRef>Start_P6</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P6.1</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P6.2</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P6.3</ns0:flowNodeRef>
+        <ns0:flowNodeRef>End_P6</ns0:flowNodeRef>
+      </ns0:lane>
+    </ns0:laneSet>
+    <ns0:startEvent id="Start_P6" name="Start" />
+    <ns0:endEvent id="End_P6" name="End" />
+    <ns0:task id="P6.1" name="Prepare for Administration">
+      <ns0:extensionElements>
+        <ns1:actor>Nurse</ns1:actor>
+        <ns1:durationMin>3–5 min</ns1:durationMin>
+        <ns1:description>Retrieve medication from ward stock or ADC. Verify the '5 Rights': right patient, right drug, right dose, right route, right time.</ns1:description>
+        <ns1:inputs>["Ward stock", "MAR (Medication Administration Record)", "Patient ID"]</ns1:inputs>
+        <ns1:outputs>["Medication ready for administration"]</ns1:outputs>
+        <ns1:risks>["Wrong patient", "Wrong time", "Omission"]</ns1:risks>
+        <ns1:automationPotential>high</ns1:automationPotential>
+        <ns1:automationNotes>Bedside barcode scanning, eMAR integration, smart pumps</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:task id="P6.2" name="Administer to Patient">
+      <ns0:extensionElements>
+        <ns1:actor>Nurse / Physician</ns1:actor>
+        <ns1:durationMin>2–10 min</ns1:durationMin>
+        <ns1:description>Give medication to patient via prescribed route (oral, IV, IM, topical, etc.). Monitor for immediate adverse reactions.</ns1:description>
+        <ns1:inputs>["Prepared medication", "Patient"]</ns1:inputs>
+        <ns1:outputs>["Administered medication"]</ns1:outputs>
+        <ns1:risks>["Wrong route", "Adverse reaction", "Extravasation (IV)"]</ns1:risks>
+        <ns1:automationPotential>low</ns1:automationPotential>
+        <ns1:automationNotes>Smart IV pumps with dose-error reduction, automated documentation</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:task id="P6.3" name="Document Administration">
+      <ns0:extensionElements>
+        <ns1:actor>Nurse</ns1:actor>
+        <ns1:durationMin>2–3 min</ns1:durationMin>
+        <ns1:description>Record administration in patient's MAR: drug, dose, time, route, administering nurse. Note any patient reactions.</ns1:description>
+        <ns1:inputs>["Administration details"]</ns1:inputs>
+        <ns1:outputs>["Updated MAR", "Incident report (if adverse event)"]</ns1:outputs>
+        <ns1:risks>["Late documentation", "Missing record", "Inaccurate entry"]</ns1:risks>
+        <ns1:automationPotential>high</ns1:automationPotential>
+        <ns1:automationNotes>Auto-populated eMAR from barcode scan, voice-to-text notes</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:sequenceFlow id="flow_Start_P6_P6.1" sourceRef="Start_P6" targetRef="P6.1" name="Start" />
+    <ns0:sequenceFlow id="flow_P6.3_End_P6" sourceRef="P6.3" targetRef="End_P6" name="Complete" />
+    <ns0:sequenceFlow id="flow_P6.1_P6.2_17" sourceRef="P6.1" targetRef="P6.2" name="5 Rights verified" />
+    <ns0:sequenceFlow id="flow_P6.2_P6.3_18" sourceRef="P6.2" targetRef="P6.3" name="Medication given" />
+  </ns0:process>
+  <ns2:BPMNDiagram id="BPMNDiagram_1">
+    <ns2:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_P6">
+      <ns2:BPMNShape id="BPMNShape_P6" bpmnElement="P6">
+        <ns3:Bounds x="0" y="0" width="1708" height="200" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Start_P6" bpmnElement="Start_P6">
+        <ns3:Bounds x="280" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P6.1" bpmnElement="P6.1">
+        <ns3:Bounds x="464" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P6.2" bpmnElement="P6.2">
+        <ns3:Bounds x="824" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P6.3" bpmnElement="P6.3">
+        <ns3:Bounds x="1184" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_End_P6" bpmnElement="End_P6">
+        <ns3:Bounds x="1544" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Start_P6_P6.1" bpmnElement="flow_Start_P6_P6.1">
+        <ns4:waypoint x="324" y="100" />
+        <ns4:waypoint x="464" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P6.3_End_P6" bpmnElement="flow_P6.3_End_P6">
+        <ns4:waypoint x="1404" y="100" />
+        <ns4:waypoint x="1544" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P6.1_P6.2_17" bpmnElement="flow_P6.1_P6.2_17">
+        <ns4:waypoint x="684" y="100" />
+        <ns4:waypoint x="824" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P6.2_P6.3_18" bpmnElement="flow_P6.2_P6.3_18">
+        <ns4:waypoint x="1044" y="100" />
+        <ns4:waypoint x="1184" y="100" />
+      </ns2:BPMNEdge>
+    </ns2:BPMNPlane>
+  </ns2:BPMNDiagram>
+</ns0:definitions>

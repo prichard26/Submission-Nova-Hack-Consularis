@@ -7,6 +7,7 @@ from pathlib import Path
 
 from bpmn.model import (
     BpmnModel,
+    default_call_activity,
     default_extension,
     default_end_event,
     default_gateway,
@@ -90,6 +91,7 @@ def parse_bpmn_xml(xml_content: str | Path) -> BpmnModel:
     lane_refs: dict[str, list[str]] = {}  # lane_id -> [node_id] in order
     node_to_lane: dict[str, str] = {}
     tasks: list[dict] = []
+    call_activities: list[dict] = []
     start_events: list[dict] = []
     end_events: list[dict] = []
     gateways: list[dict] = []
@@ -118,6 +120,14 @@ def parse_bpmn_xml(xml_content: str | Path) -> BpmnModel:
             ext = _parse_extension(_find(elem, BPMN_NS, "extensionElements"))
             tasks.append(default_task(task_id, task_name, lane_id))
             tasks[-1]["extension"] = ext
+        elif tag == _tag(BPMN_NS, "callActivity"):
+            call_id = _get(elem, "id")
+            call_name = _get(elem, "name")
+            called_element = _get(elem, "calledElement")
+            lane_id = node_to_lane.get(call_id, "")
+            ext = _parse_extension(_find(elem, BPMN_NS, "extensionElements"))
+            call_activities.append(default_call_activity(call_id, call_name, called_element, lane_id))
+            call_activities[-1]["extension"] = ext
         elif tag == _tag(BPMN_NS, "startEvent"):
             ev_id = _get(elem, "id")
             ev_name = _get(elem, "name", "Start")
@@ -149,6 +159,7 @@ def parse_bpmn_xml(xml_content: str | Path) -> BpmnModel:
         process_name=process_name,
         lanes=lanes,
         tasks=tasks,
+        call_activities=call_activities,
         start_events=start_events,
         end_events=end_events,
         gateways=gateways,

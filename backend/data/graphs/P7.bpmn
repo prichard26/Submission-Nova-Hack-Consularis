@@ -1,0 +1,97 @@
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+  <ns0:process id="Process_P7" name="Monitoring and Waste Management" isExecutable="false">
+    <ns0:laneSet id="LaneSet_1">
+      <ns0:lane id="P7" name="Monitoring and Waste Management">
+        <ns0:flowNodeRef>Start_P7</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P7.1</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P7.2</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P7.3</ns0:flowNodeRef>
+        <ns0:flowNodeRef>End_1</ns0:flowNodeRef>
+        <ns0:flowNodeRef>End_P7</ns0:flowNodeRef>
+      </ns0:lane>
+    </ns0:laneSet>
+    <ns0:startEvent id="Start_P7" name="Start" />
+    <ns0:endEvent id="End_P7" name="End" />
+    <ns0:task id="P7.1" name="Monitor Patient Response">
+      <ns0:extensionElements>
+        <ns1:actor>Nurse / Physician</ns1:actor>
+        <ns1:durationMin>ongoing</ns1:durationMin>
+        <ns1:description>Observe and document patient response to medication. Assess efficacy and side effects. Adjust treatment as needed.</ns1:description>
+        <ns1:inputs>["Patient vitals", "Lab results", "Patient feedback"]</ns1:inputs>
+        <ns1:outputs>["Treatment efficacy assessment", "Dosage adjustment order"]</ns1:outputs>
+        <ns1:risks>["Delayed detection of adverse effect", "Non-adherence"]</ns1:risks>
+        <ns1:automationPotential>medium</ns1:automationPotential>
+        <ns1:automationNotes>Clinical decision support alerts, remote monitoring, AI-based adverse event detection</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:task id="P7.2" name="Handle Returns and Expired Stock">
+      <ns0:extensionElements>
+        <ns1:actor>Pharmacy Technician</ns1:actor>
+        <ns1:durationMin>varies</ns1:durationMin>
+        <ns1:description>Collect unused or expired medications from wards and patients. Segregate for destruction or return to supplier.</ns1:description>
+        <ns1:inputs>["Expired stock list", "Ward returns"]</ns1:inputs>
+        <ns1:outputs>["Destruction records", "Credit notes from supplier"]</ns1:outputs>
+        <ns1:risks>["Expired drugs re-entering stock", "Controlled substance diversion"]</ns1:risks>
+        <ns1:automationPotential>medium</ns1:automationPotential>
+        <ns1:automationNotes>FEFO alerts, automated expiry tracking, secure destruction logging</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:task id="P7.3" name="Regulatory Reporting">
+      <ns0:extensionElements>
+        <ns1:actor>Pharmacist / QA</ns1:actor>
+        <ns1:durationMin>periodic</ns1:durationMin>
+        <ns1:description>Compile and submit required reports: controlled substance logs, adverse event reports, cold chain compliance, inventory audits.</ns1:description>
+        <ns1:inputs>["Logs", "Incident reports", "Audit data"]</ns1:inputs>
+        <ns1:outputs>["Regulatory submissions", "Compliance certificates"]</ns1:outputs>
+        <ns1:risks>["Non-compliance", "Missing data", "Late submission"]</ns1:risks>
+        <ns1:automationPotential>high</ns1:automationPotential>
+        <ns1:automationNotes>Automated report generation, dashboard-based compliance monitoring</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:sequenceFlow id="flow_Start_P7_P7.1" sourceRef="Start_P7" targetRef="P7.1" name="Start" />
+    <ns0:sequenceFlow id="flow_End_1_End_P7" sourceRef="End_1" targetRef="End_P7" name="Complete" />
+    <ns0:sequenceFlow id="flow_P7.2_P7.3_22" sourceRef="P7.2" targetRef="P7.3" name="Destruction logged" />
+    <ns0:sequenceFlow id="flow_P7.3_End" sourceRef="P7.3" targetRef="End_1" name="Process complete" />
+  </ns0:process>
+  <ns2:BPMNDiagram id="BPMNDiagram_1">
+    <ns2:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_P7">
+      <ns2:BPMNShape id="BPMNShape_P7" bpmnElement="P7">
+        <ns3:Bounds x="0" y="0" width="2068" height="200" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Start_P7" bpmnElement="Start_P7">
+        <ns3:Bounds x="280" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P7.1" bpmnElement="P7.1">
+        <ns3:Bounds x="464" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P7.2" bpmnElement="P7.2">
+        <ns3:Bounds x="824" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P7.3" bpmnElement="P7.3">
+        <ns3:Bounds x="1184" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_End_1" bpmnElement="End_1">
+        <ns3:Bounds x="1544" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_End_P7" bpmnElement="End_P7">
+        <ns3:Bounds x="1904" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Start_P7_P7.1" bpmnElement="flow_Start_P7_P7.1">
+        <ns4:waypoint x="324" y="100" />
+        <ns4:waypoint x="464" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_End_1_End_P7" bpmnElement="flow_End_1_End_P7">
+        <ns4:waypoint x="1764" y="100" />
+        <ns4:waypoint x="1904" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P7.2_P7.3_22" bpmnElement="flow_P7.2_P7.3_22">
+        <ns4:waypoint x="1044" y="100" />
+        <ns4:waypoint x="1184" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P7.3_End" bpmnElement="flow_P7.3_End">
+        <ns4:waypoint x="1404" y="100" />
+        <ns4:waypoint x="1544" y="100" />
+      </ns2:BPMNEdge>
+    </ns2:BPMNPlane>
+  </ns2:BPMNDiagram>
+</ns0:definitions>

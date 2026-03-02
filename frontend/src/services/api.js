@@ -43,7 +43,9 @@ async function request(path, options = {}) {
  * @returns {Promise<string>} BPMN XML string
  */
 export function getBaselineBpmnXml(options = {}) {
-  return request('/api/graph/baseline', { ...options, parseAs: 'text' })
+  const { processId, ...rest } = options
+  const pid = processId ? `?process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/baseline${pid}`, { ...rest, parseAs: 'text' })
 }
 
 /**
@@ -52,8 +54,10 @@ export function getBaselineBpmnXml(options = {}) {
  * @returns {Promise<string>} BPMN XML string
  */
 export function getBpmnXml(sessionId, options = {}) {
+  const { processId, ...rest } = options
   const sid = encodeURIComponent(sessionId)
-  return request(`/api/graph/export?session_id=${sid}`, { ...options, parseAs: 'text' })
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/export?session_id=${sid}${pid}`, { ...rest, parseAs: 'text' })
 }
 
 /**
@@ -62,8 +66,23 @@ export function getBpmnXml(sessionId, options = {}) {
  * @returns {Promise<object>} graph payload with lanes, nodes, edges, and layout
  */
 export function getGraphJson(sessionId, options = {}) {
+  const { processId, ...rest } = options
   const sid = encodeURIComponent(sessionId)
-  return request(`/api/graph/json?session_id=${sid}`, options)
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/json?session_id=${sid}${pid}`, rest)
+}
+
+export function getProcessTree(sessionId, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  return request(`/api/graph/processes?session_id=${sid}`, options)
+}
+
+export function resolveGraphStep(sessionId, name, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const q = encodeURIComponent(name)
+  const { processId, ...rest } = options
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/resolve?session_id=${sid}&name=${q}${pid}`, rest)
 }
 
 /**
@@ -73,9 +92,10 @@ export function getGraphJson(sessionId, options = {}) {
  * @returns {Promise<{ message: string, bpmn_xml: string, meta: object }>}
  */
 export function sendChat(sessionId, message, options = {}) {
+  const { processId, ...rest } = options
   return request('/api/chat', {
-    ...options,
+    ...rest,
     method: 'POST',
-    body: JSON.stringify({ session_id: sessionId, message }),
+    body: JSON.stringify({ session_id: sessionId, message, process_id: processId || null }),
   })
 }

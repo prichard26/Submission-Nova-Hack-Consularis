@@ -21,13 +21,14 @@ def test_run_chat_returns_tools_used_flag():
 
 
 def test_api_chat_returns_meta(client):
-    resp = client.post("/api/chat", json={"session_id": "meta-test-session", "message": "Hello"})
+    resp = client.post("/api/chat", json={"session_id": "meta-test-session", "process_id": "Process_P1", "message": "Hello"})
     assert resp.status_code == 200
     data = resp.json()
     assert "message" in data
     assert "bpmn_xml" in data
     assert "meta" in data
     assert data["meta"]["session_id"] == "meta-test-session"
+    assert data["meta"]["process_id"] == "Process_P1"
     assert "tools_used" in data["meta"]
     assert "fallback_used" in data["meta"]
 

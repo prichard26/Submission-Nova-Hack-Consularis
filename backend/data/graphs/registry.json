@@ -1,0 +1,52 @@
+{
+  "processes": [
+    {
+      "process_id": "Process_Global",
+      "name": "Pharmacy medication circuit",
+      "parent_id": null,
+      "bpmn_file": "global.bpmn"
+    },
+    {
+      "process_id": "Process_P1",
+      "name": "Prescription",
+      "parent_id": "Process_Global",
+      "bpmn_file": "P1.bpmn"
+    },
+    {
+      "process_id": "Process_P2",
+      "name": "Selection, Acquisition, and Reception",
+      "parent_id": "Process_Global",
+      "bpmn_file": "P2.bpmn"
+    },
+    {
+      "process_id": "Process_P3",
+      "name": "Storage and Storage Management",
+      "parent_id": "Process_Global",
+      "bpmn_file": "P3.bpmn"
+    },
+    {
+      "process_id": "Process_P4",
+      "name": "Distribution",
+      "parent_id": "Process_Global",
+      "bpmn_file": "P4.bpmn"
+    },
+    {
+      "process_id": "Process_P5",
+      "name": "Dispensing and Preparation",
+      "parent_id": "Process_Global",
+      "bpmn_file": "P5.bpmn"
+    },
+    {
+      "process_id": "Process_P6",
+      "name": "Administration",
+      "parent_id": "Process_Global",
+      "bpmn_file": "P6.bpmn"
+    },
+    {
+      "process_id": "Process_P7",
+      "name": "Monitoring and Waste Management",
+      "parent_id": "Process_Global",
+      "bpmn_file": "P7.bpmn"
+    }
+  ]
+}

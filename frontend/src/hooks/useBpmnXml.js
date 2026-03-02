@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getBaselineBpmnXml, getBpmnXml } from '../services/api'
 
-export function useBpmnXml(sessionId, refreshTrigger = 0, xmlOverride = '') {
+export function useBpmnXml(sessionId, processId = 'Process_Global', refreshTrigger = 0, xmlOverride = '') {
   const [state, setState] = useState({ xml: '', loading: true, error: null })
 
   useEffect(() => {
@@ -22,10 +22,10 @@ export function useBpmnXml(sessionId, refreshTrigger = 0, xmlOverride = '') {
       }
     })
 
-    getBpmnXml(sessionId, { signal: controller.signal })
+    getBpmnXml(sessionId, { processId, signal: controller.signal })
       .catch((err) => {
         if (err?.name === 'AbortError') throw err
-        return getBaselineBpmnXml({ signal: controller.signal })
+        return getBaselineBpmnXml({ processId, signal: controller.signal })
       })
       .then((nextXml) => {
         if (controller.signal.aborted) return
@@ -43,7 +43,7 @@ export function useBpmnXml(sessionId, refreshTrigger = 0, xmlOverride = '') {
     return () => {
       controller.abort()
     }
-  }, [sessionId, refreshTrigger, xmlOverride])
+  }, [sessionId, processId, refreshTrigger, xmlOverride])
 
   if (!sessionId) {
     return { xml: '', loading: false, error: 'No session' }

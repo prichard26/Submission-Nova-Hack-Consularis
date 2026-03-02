@@ -7,8 +7,10 @@ def reset_graph_store():
     """Reset in-memory session state so tests don't leak between runs."""
     from bpmn import store as bpmn_store
     bpmn_store._sessions.clear()
+    bpmn_store._session_registries.clear()
     yield
     bpmn_store._sessions.clear()
+    bpmn_store._session_registries.clear()
 
 
 @pytest.fixture(autouse=True)

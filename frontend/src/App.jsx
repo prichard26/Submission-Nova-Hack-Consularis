@@ -43,7 +43,16 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Landing onSubmit={updateSession} />} />
+      <Route
+        path="/"
+        element={
+          safeSession ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Landing onSubmit={updateSession} />
+          )
+        }
+      />
       <Route path="/dashboard" element={<SessionRoutes session={safeSession} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

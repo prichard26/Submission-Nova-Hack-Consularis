@@ -1,0 +1,102 @@
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+  <ns0:process id="Process_P1" name="Prescription" isExecutable="false">
+    <ns0:laneSet id="LaneSet_1">
+      <ns0:lane id="P1" name="Prescription">
+        <ns0:flowNodeRef>Start_P1</ns0:flowNodeRef>
+        <ns0:flowNodeRef>Start_1</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P1.1</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P1.2</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P1.3</ns0:flowNodeRef>
+        <ns0:flowNodeRef>End_P1</ns0:flowNodeRef>
+      </ns0:lane>
+    </ns0:laneSet>
+    <ns0:startEvent id="Start_P1" name="Start" />
+    <ns0:endEvent id="End_P1" name="End" />
+    <ns0:task id="P1.1" name="Prescribe Medication">
+      <ns0:extensionElements>
+        <ns1:actor>Physician</ns1:actor>
+        <ns1:durationMin>5–10 min</ns1:durationMin>
+        <ns1:description>Doctor writes or enters a prescription with drug name, dosage form, strength, frequency, and duration.</ns1:description>
+        <ns1:inputs>["Patient diagnosis", "Medical history", "Drug formulary"]</ns1:inputs>
+        <ns1:outputs>["Prescription order"]</ns1:outputs>
+        <ns1:risks>["Prescribing error", "Drug interaction", "Wrong dosage"]</ns1:risks>
+        <ns1:automationPotential>high</ns1:automationPotential>
+        <ns1:automationNotes>E-prescribing systems, clinical decision support (CDS), drug interaction alerts</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:task id="P1.2" name="Verify Prescription">
+      <ns0:extensionElements>
+        <ns1:actor>Pharmacist</ns1:actor>
+        <ns1:durationMin>5–10 min</ns1:durationMin>
+        <ns1:description>Review prescription for compliance with medical standards, hospital policies, drug interactions, and patient allergies.</ns1:description>
+        <ns1:inputs>["Prescription order", "Patient allergy record", "Formulary"]</ns1:inputs>
+        <ns1:outputs>["Verified prescription"]</ns1:outputs>
+        <ns1:risks>["Missed interaction", "Allergy oversight", "Illegible handwriting"]</ns1:risks>
+        <ns1:automationPotential>high</ns1:automationPotential>
+        <ns1:automationNotes>Automated drug-drug / drug-allergy checks, barcode verification</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:task id="P1.3" name="Approve Prescription">
+      <ns0:extensionElements>
+        <ns1:actor>Pharmacist</ns1:actor>
+        <ns1:durationMin>3–5 min</ns1:durationMin>
+        <ns1:description>Authorize prescription for dispensation after confirming safety, appropriateness, and formulary compliance.</ns1:description>
+        <ns1:inputs>["Verified prescription"]</ns1:inputs>
+        <ns1:outputs>["Approved prescription"]</ns1:outputs>
+        <ns1:risks>["Delay in approval", "Unauthorized override"]</ns1:risks>
+        <ns1:automationPotential>medium</ns1:automationPotential>
+        <ns1:automationNotes>Auto-approval for standard formulary items with no flags</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:sequenceFlow id="flow_Start_P1_Start_1" sourceRef="Start_P1" targetRef="Start_1" name="Start" />
+    <ns0:sequenceFlow id="flow_P1.3_End_P1" sourceRef="P1.3" targetRef="End_P1" name="Complete" />
+    <ns0:sequenceFlow id="flow_Start_P1.1" sourceRef="Start_1" targetRef="P1.1" name="Process starts" />
+    <ns0:sequenceFlow id="flow_P1.1_P1.2_0" sourceRef="P1.1" targetRef="P1.2" name="Prescription submitted" />
+    <ns0:sequenceFlow id="flow_P1.2_P1.3_1" sourceRef="P1.2" targetRef="P1.3" name="Prescription verified" />
+  </ns0:process>
+  <ns2:BPMNDiagram id="BPMNDiagram_1">
+    <ns2:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_P1">
+      <ns2:BPMNShape id="BPMNShape_P1" bpmnElement="P1">
+        <ns3:Bounds x="0" y="0" width="2068" height="200" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Start_P1" bpmnElement="Start_P1">
+        <ns3:Bounds x="280" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Start_1" bpmnElement="Start_1">
+        <ns3:Bounds x="464" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P1.1" bpmnElement="P1.1">
+        <ns3:Bounds x="824" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P1.2" bpmnElement="P1.2">
+        <ns3:Bounds x="1184" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P1.3" bpmnElement="P1.3">
+        <ns3:Bounds x="1544" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_End_P1" bpmnElement="End_P1">
+        <ns3:Bounds x="1904" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Start_P1_Start_1" bpmnElement="flow_Start_P1_Start_1">
+        <ns4:waypoint x="324" y="100" />
+        <ns4:waypoint x="464" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P1.3_End_P1" bpmnElement="flow_P1.3_End_P1">
+        <ns4:waypoint x="1764" y="100" />
+        <ns4:waypoint x="1904" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Start_P1.1" bpmnElement="flow_Start_P1.1">
+        <ns4:waypoint x="684" y="100" />
+        <ns4:waypoint x="824" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P1.1_P1.2_0" bpmnElement="flow_P1.1_P1.2_0">
+        <ns4:waypoint x="1044" y="100" />
+        <ns4:waypoint x="1184" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P1.2_P1.3_1" bpmnElement="flow_P1.2_P1.3_1">
+        <ns4:waypoint x="1404" y="100" />
+        <ns4:waypoint x="1544" y="100" />
+      </ns2:BPMNEdge>
+    </ns2:BPMNPlane>
+  </ns2:BPMNDiagram>
+</ns0:definitions>

@@ -36,8 +36,8 @@ const nodeTypes = {
  * - Accepts { sessionId, refreshTrigger } like BpmnViewer.
  * - Refreshes on either prop change so chat edits appear immediately.
  */
-export default function ProcessGraphViewer({ sessionId, refreshTrigger = 0 }) {
-  const { graph, loading, error } = useGraphJson(sessionId, refreshTrigger)
+export default function ProcessGraphViewer({ sessionId, processId = 'Process_Global', refreshTrigger = 0 }) {
+  const { graph, loading, error } = useGraphJson(sessionId, processId, refreshTrigger)
 
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] }

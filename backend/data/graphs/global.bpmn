@@ -1,0 +1,128 @@
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+  <ns0:process id="Process_Global" name="Pharmacy medication circuit" isExecutable="false">
+    <ns0:laneSet id="LaneSet_1">
+      <ns0:lane id="GLOBAL" name="Global map">
+        <ns0:flowNodeRef>Start_Global</ns0:flowNodeRef>
+        <ns0:flowNodeRef>Call_P1</ns0:flowNodeRef>
+        <ns0:flowNodeRef>Call_P2</ns0:flowNodeRef>
+        <ns0:flowNodeRef>Call_P3</ns0:flowNodeRef>
+        <ns0:flowNodeRef>Call_P4</ns0:flowNodeRef>
+        <ns0:flowNodeRef>Call_P5</ns0:flowNodeRef>
+        <ns0:flowNodeRef>Call_P6</ns0:flowNodeRef>
+        <ns0:flowNodeRef>Call_P7</ns0:flowNodeRef>
+        <ns0:flowNodeRef>End_Global</ns0:flowNodeRef>
+      </ns0:lane>
+    </ns0:laneSet>
+    <ns0:startEvent id="Start_Global" name="Start" />
+    <ns0:endEvent id="End_Global" name="End" />
+    <ns0:callActivity id="Call_P1" name="Prescription" calledElement="Process_P1">
+      <ns0:extensionElements>
+        <ns1:durationMin>—</ns1:durationMin>
+      </ns0:extensionElements>
+    </ns0:callActivity>
+    <ns0:callActivity id="Call_P2" name="Selection, Acquisition, and Reception" calledElement="Process_P2">
+      <ns0:extensionElements>
+        <ns1:durationMin>—</ns1:durationMin>
+      </ns0:extensionElements>
+    </ns0:callActivity>
+    <ns0:callActivity id="Call_P3" name="Storage and Storage Management" calledElement="Process_P3">
+      <ns0:extensionElements>
+        <ns1:durationMin>—</ns1:durationMin>
+      </ns0:extensionElements>
+    </ns0:callActivity>
+    <ns0:callActivity id="Call_P4" name="Distribution" calledElement="Process_P4">
+      <ns0:extensionElements>
+        <ns1:durationMin>—</ns1:durationMin>
+      </ns0:extensionElements>
+    </ns0:callActivity>
+    <ns0:callActivity id="Call_P5" name="Dispensing and Preparation" calledElement="Process_P5">
+      <ns0:extensionElements>
+        <ns1:durationMin>—</ns1:durationMin>
+      </ns0:extensionElements>
+    </ns0:callActivity>
+    <ns0:callActivity id="Call_P6" name="Administration" calledElement="Process_P6">
+      <ns0:extensionElements>
+        <ns1:durationMin>—</ns1:durationMin>
+      </ns0:extensionElements>
+    </ns0:callActivity>
+    <ns0:callActivity id="Call_P7" name="Monitoring and Waste Management" calledElement="Process_P7">
+      <ns0:extensionElements>
+        <ns1:durationMin>—</ns1:durationMin>
+      </ns0:extensionElements>
+    </ns0:callActivity>
+    <ns0:sequenceFlow id="flow_Start_Global_Call_P1" sourceRef="Start_Global" targetRef="Call_P1" name="Start" />
+    <ns0:sequenceFlow id="flow_Call_P1_Call_P2" sourceRef="Call_P1" targetRef="Call_P2" name="" />
+    <ns0:sequenceFlow id="flow_Call_P2_Call_P3" sourceRef="Call_P2" targetRef="Call_P3" name="" />
+    <ns0:sequenceFlow id="flow_Call_P3_Call_P4" sourceRef="Call_P3" targetRef="Call_P4" name="" />
+    <ns0:sequenceFlow id="flow_Call_P4_Call_P5" sourceRef="Call_P4" targetRef="Call_P5" name="" />
+    <ns0:sequenceFlow id="flow_Call_P5_Call_P6" sourceRef="Call_P5" targetRef="Call_P6" name="" />
+    <ns0:sequenceFlow id="flow_Call_P6_Call_P7" sourceRef="Call_P6" targetRef="Call_P7" name="" />
+    <ns0:sequenceFlow id="flow_Call_P7_End_Global" sourceRef="Call_P7" targetRef="End_Global" name="Complete" />
+  </ns0:process>
+  <ns2:BPMNDiagram id="BPMNDiagram_1">
+    <ns2:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Global">
+      <ns2:BPMNShape id="BPMNShape_GLOBAL" bpmnElement="GLOBAL">
+        <ns3:Bounds x="0" y="0" width="3148" height="200" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Start_Global" bpmnElement="Start_Global">
+        <ns3:Bounds x="280" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Call_P1" bpmnElement="Call_P1">
+        <ns3:Bounds x="464" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Call_P2" bpmnElement="Call_P2">
+        <ns3:Bounds x="824" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Call_P3" bpmnElement="Call_P3">
+        <ns3:Bounds x="1184" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Call_P4" bpmnElement="Call_P4">
+        <ns3:Bounds x="1544" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Call_P5" bpmnElement="Call_P5">
+        <ns3:Bounds x="1904" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Call_P6" bpmnElement="Call_P6">
+        <ns3:Bounds x="2264" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Call_P7" bpmnElement="Call_P7">
+        <ns3:Bounds x="2624" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_End_Global" bpmnElement="End_Global">
+        <ns3:Bounds x="2984" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Start_Global_Call_P1" bpmnElement="flow_Start_Global_Call_P1">
+        <ns4:waypoint x="324" y="100" />
+        <ns4:waypoint x="464" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Call_P1_Call_P2" bpmnElement="flow_Call_P1_Call_P2">
+        <ns4:waypoint x="684" y="100" />
+        <ns4:waypoint x="824" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Call_P2_Call_P3" bpmnElement="flow_Call_P2_Call_P3">
+        <ns4:waypoint x="1044" y="100" />
+        <ns4:waypoint x="1184" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Call_P3_Call_P4" bpmnElement="flow_Call_P3_Call_P4">
+        <ns4:waypoint x="1404" y="100" />
+        <ns4:waypoint x="1544" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Call_P4_Call_P5" bpmnElement="flow_Call_P4_Call_P5">
+        <ns4:waypoint x="1764" y="100" />
+        <ns4:waypoint x="1904" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Call_P5_Call_P6" bpmnElement="flow_Call_P5_Call_P6">
+        <ns4:waypoint x="2124" y="100" />
+        <ns4:waypoint x="2264" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Call_P6_Call_P7" bpmnElement="flow_Call_P6_Call_P7">
+        <ns4:waypoint x="2484" y="100" />
+        <ns4:waypoint x="2624" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Call_P7_End_Global" bpmnElement="flow_Call_P7_End_Global">
+        <ns4:waypoint x="2844" y="100" />
+        <ns4:waypoint x="2984" y="100" />
+      </ns2:BPMNEdge>
+    </ns2:BPMNPlane>
+  </ns2:BPMNDiagram>
+</ns0:definitions>

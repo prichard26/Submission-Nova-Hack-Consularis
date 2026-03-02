@@ -42,8 +42,11 @@ flowchart TB
 
 ## Request path
 
-- **GET /api/graph/export**: main validates `session_id` → store.ensure_session(session_id) → returns BPMN XML for that session.
-- **POST /api/chat**: main validates body → append user message → run_chat(history) → if no tools used, try_apply_message_update (fallback) → append assistant message → return message + BPMN XML + meta. The chat handler runs under a per-session lock so concurrent requests for the same session do not interleave.
+- **GET /health**: Health check; no store or session.
+- **GET /api/graph/baseline**: Serves the baseline BPMN XML from file (no session). Used by the frontend to show the default graph.
+- **GET /api/graph/export**: Validates `session_id` → store.ensure_session(session_id) → returns BPMN XML for that session.
+- **GET /api/graph/json**: Validates `session_id` → store.ensure_session(session_id) → returns session graph as JSON (lanes, nodes, edges, layout) for the Process view.
+- **POST /api/chat**: Validates body → append user message → run_chat(history) → if no tools used, try_apply_message_update (fallback) → append assistant message → return message + BPMN XML + meta. The chat handler runs under a per-session lock so concurrent requests for the same session do not interleave.
 
 ## State location: backend only, frontend is view
 

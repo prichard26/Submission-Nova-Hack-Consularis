@@ -1,0 +1,103 @@
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+  <ns0:process id="Process_P3" name="Storage and Storage Management" isExecutable="false">
+    <ns0:laneSet id="LaneSet_1">
+      <ns0:lane id="P3" name="Storage and Storage Management">
+        <ns0:flowNodeRef>Start_P3</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P3.1</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P3.2</ns0:flowNodeRef>
+        <ns0:flowNodeRef>P3.3</ns0:flowNodeRef>
+        <ns0:flowNodeRef>G3</ns0:flowNodeRef>
+        <ns0:flowNodeRef>End_P3</ns0:flowNodeRef>
+      </ns0:lane>
+    </ns0:laneSet>
+    <ns0:startEvent id="Start_P3" name="Start" />
+    <ns0:endEvent id="End_P3" name="End" />
+    <ns0:exclusiveGateway id="G3" name="Inventory decision" />
+    <ns0:task id="P3.1" name="Classify and Shelve">
+      <ns0:extensionElements>
+        <ns1:actor>Pharmacy Technician</ns1:actor>
+        <ns1:durationMin>15–30 min per batch</ns1:durationMin>
+        <ns1:description>Classify medications by category (therapeutic class, controlled substance schedule, temperature requirements) and place on appropriate shelves or in refrigerators/safes.</ns1:description>
+        <ns1:inputs>["Verified inventory"]</ns1:inputs>
+        <ns1:outputs>["Stored medications"]</ns1:outputs>
+        <ns1:risks>["Misplacement", "Wrong storage conditions", "FIFO violation"]</ns1:risks>
+        <ns1:automationPotential>high</ns1:automationPotential>
+        <ns1:automationNotes>Automated dispensing cabinets (ADCs), carousel systems, pharmacy robots</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:task id="P3.2" name="Monitor Storage Conditions">
+      <ns0:extensionElements>
+        <ns1:actor>Pharmacy Technician / System</ns1:actor>
+        <ns1:durationMin>continuous</ns1:durationMin>
+        <ns1:description>Monitor temperature, humidity, and security for storage areas. Log conditions for compliance.</ns1:description>
+        <ns1:inputs>["Environmental sensors", "Regulatory requirements"]</ns1:inputs>
+        <ns1:outputs>["Compliance logs", "Alerts on excursion"]</ns1:outputs>
+        <ns1:risks>["Temperature excursion undetected", "Controlled substance diversion"]</ns1:risks>
+        <ns1:automationPotential>high</ns1:automationPotential>
+        <ns1:automationNotes>IoT sensors, automated alerting, continuous logging systems</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:task id="P3.3" name="Inventory Management">
+      <ns0:extensionElements>
+        <ns1:actor>Pharmacist / System</ns1:actor>
+        <ns1:durationMin>daily cycle counts + periodic full inventory</ns1:durationMin>
+        <ns1:description>Track stock levels, manage expiry dates (FEFO), conduct cycle counts, and trigger reorder points.</ns1:description>
+        <ns1:inputs>["Current stock data", "Usage history", "Expiry dates"]</ns1:inputs>
+        <ns1:outputs>["Reorder triggers", "Expiry removal list", "Inventory report"]</ns1:outputs>
+        <ns1:risks>["Stockout", "Expired stock dispensed", "Overstock / waste"]</ns1:risks>
+        <ns1:automationPotential>high</ns1:automationPotential>
+        <ns1:automationNotes>ERP/WMS integration, perpetual inventory systems, AI-based demand forecasting</ns1:automationNotes>
+      </ns0:extensionElements>
+    </ns0:task>
+    <ns0:sequenceFlow id="flow_Start_P3_P3.1" sourceRef="Start_P3" targetRef="P3.1" name="Start" />
+    <ns0:sequenceFlow id="flow_G3_End_P3" sourceRef="G3" targetRef="End_P3" name="Complete" />
+    <ns0:sequenceFlow id="flow_P3.1_P3.2_8a" sourceRef="P3.1" targetRef="P3.2" name="Stored, monitor conditions" />
+    <ns0:sequenceFlow id="flow_P3.2_P3.3_8b" sourceRef="P3.2" targetRef="P3.3" name="Conditions OK, track inventory" />
+    <ns0:sequenceFlow id="flow_P3.3_G3" sourceRef="P3.3" targetRef="G3" name="P3.3 → G3" />
+  </ns0:process>
+  <ns2:BPMNDiagram id="BPMNDiagram_1">
+    <ns2:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_P3">
+      <ns2:BPMNShape id="BPMNShape_P3" bpmnElement="P3">
+        <ns3:Bounds x="0" y="0" width="1904" height="200" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_Start_P3" bpmnElement="Start_P3">
+        <ns3:Bounds x="280" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P3.1" bpmnElement="P3.1">
+        <ns3:Bounds x="464" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P3.2" bpmnElement="P3.2">
+        <ns3:Bounds x="824" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_P3.3" bpmnElement="P3.3">
+        <ns3:Bounds x="1184" y="44" width="220" height="112" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_G3" bpmnElement="G3">
+        <ns3:Bounds x="1544" y="72" width="56" height="56" />
+      </ns2:BPMNShape>
+      <ns2:BPMNShape id="BPMNShape_End_P3" bpmnElement="End_P3">
+        <ns3:Bounds x="1740" y="78" width="44" height="44" />
+      </ns2:BPMNShape>
+      <ns2:BPMNEdge id="BPMNEdge_flow_Start_P3_P3.1" bpmnElement="flow_Start_P3_P3.1">
+        <ns4:waypoint x="324" y="100" />
+        <ns4:waypoint x="464" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_G3_End_P3" bpmnElement="flow_G3_End_P3">
+        <ns4:waypoint x="1600" y="100" />
+        <ns4:waypoint x="1740" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P3.1_P3.2_8a" bpmnElement="flow_P3.1_P3.2_8a">
+        <ns4:waypoint x="684" y="100" />
+        <ns4:waypoint x="824" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P3.2_P3.3_8b" bpmnElement="flow_P3.2_P3.3_8b">
+        <ns4:waypoint x="1044" y="100" />
+        <ns4:waypoint x="1184" y="100" />
+      </ns2:BPMNEdge>
+      <ns2:BPMNEdge id="BPMNEdge_flow_P3.3_G3" bpmnElement="flow_P3.3_G3">
+        <ns4:waypoint x="1404" y="100" />
+        <ns4:waypoint x="1544" y="100" />
+      </ns2:BPMNEdge>
+    </ns2:BPMNPlane>
+  </ns2:BPMNDiagram>
+</ns0:definitions>

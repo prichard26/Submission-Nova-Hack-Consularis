@@ -9,10 +9,10 @@ def test_bpmn_roundtrip():
     init_baseline()
     sid = "test-roundtrip"
     get_or_create_session(sid)
-    xml = get_bpmn_xml(sid)
+    xml = get_bpmn_xml(sid, process_id="Process_P1")
     assert isinstance(xml, str)
     assert "bpmn:process" in xml or "process" in xml
     model = parse_bpmn_xml(xml)
     assert len(model.lanes) > 0
-    assert len(model.tasks) > 0
+    assert len(model.tasks) > 0 or len(model.call_activities) > 0
     assert len(model.sequence_flows) > 0

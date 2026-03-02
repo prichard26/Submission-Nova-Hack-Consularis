@@ -21,6 +21,14 @@ BASELINE_GRAPH_PATH: Path = Path(_baseline_env) if _baseline_env else _default_b
 if not BASELINE_GRAPH_PATH.is_absolute():
     BASELINE_GRAPH_PATH = _BACKEND_DIR / BASELINE_GRAPH_PATH
 
+_graphs_dir_env = os.getenv("BASELINE_GRAPHS_DIR", "")
+BASELINE_GRAPHS_DIR: Path = Path(_graphs_dir_env) if _graphs_dir_env else _BACKEND_DIR / "data" / "graphs"
+if not BASELINE_GRAPHS_DIR.is_absolute():
+    BASELINE_GRAPHS_DIR = _BACKEND_DIR / BASELINE_GRAPHS_DIR
+
+BASELINE_GRAPH_REGISTRY_PATH: Path = BASELINE_GRAPHS_DIR / "registry.json"
+DEFAULT_PROCESS_ID: str = os.getenv("DEFAULT_PROCESS_ID", "Process_Global")
+
 # Agent
 MAX_TOOL_ROUNDS: int = int(os.getenv("MAX_TOOL_ROUNDS", "10"))
 GROQ_TIMEOUT: float = float(os.getenv("GROQ_TIMEOUT", "60"))

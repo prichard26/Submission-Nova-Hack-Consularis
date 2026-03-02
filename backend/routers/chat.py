@@ -40,6 +40,7 @@ router = APIRouter(prefix="/api", tags=["chat"])
 class ChatRequest(BaseModel):
     session_id: str
     message: str
+    process_id: str | None = None
 
     @field_validator("session_id")
     @classmethod
@@ -55,6 +56,7 @@ class ChatResponseMeta(BaseModel):
     tools_used: bool
     fallback_used: bool
     session_id: str
+    process_id: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -77,10 +79,10 @@ async def api_chat(
     lock = _lock_for_session(session_id)
     with lock:
         message, bpmn_xml, meta = await asyncio.to_thread(
-            handle_chat_turn, store, session_id, req.message
+            handle_chat_turn, store, session_id, req.message, req.process_id
         )
         logger.info(
-            "chat session_id=%s tools_used=%s fallback_used=%s",
-            session_id, meta["tools_used"], meta["fallback_used"],
+            "chat session_id=%s process_id=%s tools_used=%s fallback_used=%s",
+            session_id, req.process_id, meta["tools_used"], meta["fallback_used"],
         )
         return {"message": message, "bpmn_xml": bpmn_xml, "meta": meta}

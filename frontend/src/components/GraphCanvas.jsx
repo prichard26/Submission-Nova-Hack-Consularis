@@ -9,17 +9,21 @@ import ProcessGraphViewer from './ProcessGraphViewer'
 function GraphCanvas({
   viewMode,
   sessionId,
+  processId = 'Process_Global',
   refreshTrigger = 0,
   xmlOverride = '',
   panelFooter,
+  onDrillDown,
 }) {
   if (viewMode === 'bpmn') {
     return (
       <BpmnViewer
         sessionId={sessionId}
+        processId={processId}
         refreshTrigger={refreshTrigger}
         xmlOverride={xmlOverride}
         panelFooter={panelFooter}
+        onDrillDown={onDrillDown}
       />
     )
   }
@@ -27,6 +31,7 @@ function GraphCanvas({
   return (
     <ProcessGraphViewer
       sessionId={sessionId}
+      processId={processId}
       refreshTrigger={refreshTrigger}
     />
   )

@@ -46,7 +46,14 @@ That kills any process listening on port **5173** (frontend) and **8000** (backe
 | Frontend | http://localhost:5173 | `npm run dev` (Vite) in `frontend/` |
 | Backend  | http://localhost:8000 | `uvicorn main:app` in `backend/`    |
 
-The frontend talks to the backend for the domain-selection API (`POST /api/select-domain`).
+The frontend uses these backend APIs:
+
+- **GET /api/graph/baseline** — baseline BPMN XML (no session)
+- **GET /api/graph/export?session_id=…** — session graph as BPMN XML
+- **GET /api/graph/json?session_id=…** — session graph as JSON (for Process view)
+- **POST /api/chat** — send message; returns assistant reply and updated `bpmn_xml`
+
+Optional: **POST /api/select-domain** (domain + company name) is available for future use; the landing page currently stores session in the browser and does not call it.
 
 ## Manual setup (optional)
 
@@ -80,6 +87,6 @@ cd backend && source .venv/bin/activate && pytest -v
 - `docs/` – architecture and data-flow docs
 - `reference/` – source and reference data only (databases, datasets); app does not read from here
 - `run.sh` – one-shot setup and run
-- `stop.sh` – stop dev servers on 5173, 5174, 8000
+- `stop.sh` – stop dev servers on ports 5173, 5174, 5175, 8000
 
-Data flow and state: see [DATA_FLOW.md](docs/DATA_FLOW.md).
+Documentation: [docs/README.md](docs/README.md) (index). Data flow and state: [docs/DATA_FLOW.md](docs/DATA_FLOW.md).

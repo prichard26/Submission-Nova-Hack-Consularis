@@ -12,6 +12,7 @@ def handle_chat_turn(
     store: SessionStore,
     session_id: str,
     user_message: str,
+    process_id: str | None = None,
 ) -> tuple[str, str, dict[str, Any]]:
     """
     Append user message, run agent (or fallback), append assistant message.
@@ -19,11 +20,11 @@ def handle_chat_turn(
     """
     store.append_chat_message(session_id, "user", user_message)
 
-    message, bpmn_xml, tools_used = run_chat(session_id, store.get_chat_history(session_id))
+    message, bpmn_xml, tools_used = run_chat(session_id, store.get_chat_history(session_id), process_id=process_id)
     fallback_used = False
     if not tools_used:
-        fallback_used = try_apply_message_update(session_id, user_message)
-        bpmn_xml = store.get_bpmn_xml(session_id)
+        fallback_used = try_apply_message_update(session_id, user_message, process_id=process_id)
+        bpmn_xml = store.get_bpmn_xml(session_id, process_id=process_id)
 
     store.append_chat_message(session_id, "assistant", message)
 
@@ -31,5 +32,6 @@ def handle_chat_turn(
         "tools_used": tools_used,
         "fallback_used": fallback_used,
         "session_id": session_id,
+        "process_id": process_id,
     }
     return message, bpmn_xml, meta

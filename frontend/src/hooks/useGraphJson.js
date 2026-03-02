@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getGraphJson } from '../services/api'
 
-export function useGraphJson(sessionId, refreshTrigger = 0) {
+export function useGraphJson(sessionId, processId = 'Process_Global', refreshTrigger = 0) {
   const [state, setState] = useState({ graph: null, loading: true, error: '' })
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export function useGraphJson(sessionId, refreshTrigger = 0) {
       }
     })
 
-    getGraphJson(sessionId, { signal: controller.signal })
+    getGraphJson(sessionId, { processId, signal: controller.signal })
       .then((payload) => {
         setState({ graph: payload, loading: false, error: '' })
       })
@@ -26,7 +26,7 @@ export function useGraphJson(sessionId, refreshTrigger = 0) {
     return () => {
       controller.abort()
     }
-  }, [sessionId, refreshTrigger])
+  }, [sessionId, processId, refreshTrigger])
 
   if (!sessionId) {
     return { graph: null, loading: false, error: 'No session' }

@@ -13,7 +13,14 @@ import DataViewState from './DataViewState'
  * Toolbar: zoom, fit, download PNG, export BPMN XML.
  * @see https://github.com/bpmn-io/bpmn-js
  */
-export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride = '', panelFooter }) {
+export default function BpmnViewer({
+  sessionId,
+  processId = 'Process_Global',
+  refreshTrigger = 0,
+  xmlOverride = '',
+  panelFooter,
+  onDrillDown,
+}) {
   const containerRef = useRef(null)
   const paletteContainerRef = useRef(null)
   const modelerRef = useRef(null)
@@ -21,7 +28,7 @@ export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride 
   const [viewerError, setViewerError] = useState(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
-  const { xml, loading: xmlLoading, error: xmlError } = useBpmnXml(sessionId, refreshTrigger, xmlOverride)
+  const { xml, loading: xmlLoading, error: xmlError } = useBpmnXml(sessionId, processId, refreshTrigger, xmlOverride)
 
   const getModeler = useCallback(() => modelerRef.current, [])
 
@@ -228,6 +235,15 @@ export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride 
         setCanUndo(modeler.get('commandStack').canUndo())
         setCanRedo(modeler.get('commandStack').canRedo())
 
+        const onElementDblClick = (event) => {
+          const bo = event?.element?.businessObject
+          if (!bo || bo.$type !== 'bpmn:CallActivity') return
+          const targetProcess = bo.calledElement
+          if (targetProcess && onDrillDown) onDrillDown(targetProcess)
+        }
+        modeler._onElementDblClick = onElementDblClick
+        modeler.on('element.dblclick', onElementDblClick)
+
         syncPaletteIntoPanel()
         const observer = new MutationObserver(syncPaletteIntoPanel)
         const canvasContainer = containerRef.current
@@ -256,6 +272,10 @@ export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride 
           modeler.off('commandStack.changed', modeler._commandStackHandler)
           modeler._commandStackHandler = null
         }
+        if (modeler._onElementDblClick) {
+          modeler.off('element.dblclick', modeler._onElementDblClick)
+          modeler._onElementDblClick = null
+        }
         modeler.destroy()
       }
       if (paletteContainer) {
@@ -263,7 +283,7 @@ export default function BpmnViewer({ sessionId, refreshTrigger = 0, xmlOverride 
       }
       modelerRef.current = null
     }
-  }, [xml, xmlLoading, xmlError])
+  }, [xml, xmlLoading, xmlError, onDrillDown])
 
   const loading = xmlLoading || initializing
   const error = xmlError || viewerError

@@ -192,7 +192,6 @@ def serialize_bpmn_xml(model: "BpmnModel") -> str:
     definitions = _elem("definitions")
     definitions.set("xmlns:bpmn", BPMN_NS)
     definitions.set("xmlns:consularis", CONSULARIS_NS)
-    definitions.set("xmlns:xsi", XSI_NS)
     definitions.set("id", "Definitions_1")
     definitions.set("targetNamespace", "http://bpmn.io/schema/bpmn")
 
@@ -230,6 +229,19 @@ def serialize_bpmn_xml(model: "BpmnModel") -> str:
         ext_el = _extension_elements(task)
         if ext_el is not None:
             task_el.append(ext_el)
+
+    # Call activities (hierarchical process links)
+    for call in model.call_activities:
+        call_el = _sub(
+            process,
+            "callActivity",
+            id=call["id"],
+            name=call.get("name", ""),
+            calledElement=call.get("called_element", ""),
+        )
+        ext_el = _extension_elements(call)
+        if ext_el is not None:
+            call_el.append(ext_el)
 
     # Sequence flows
     for flow in model.sequence_flows:
