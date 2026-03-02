@@ -17,7 +17,6 @@ export default function BpmnViewer({
   sessionId,
   processId = 'Process_Global',
   refreshTrigger = 0,
-  xmlOverride = '',
   panelFooter,
   onDrillDown,
 }) {
@@ -28,7 +27,7 @@ export default function BpmnViewer({
   const [viewerError, setViewerError] = useState(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
-  const { xml, loading: xmlLoading, error: xmlError } = useBpmnXml(sessionId, processId, refreshTrigger, xmlOverride)
+  const { xml, loading: xmlLoading, error: xmlError } = useBpmnXml(sessionId, processId, refreshTrigger)
 
   const getModeler = useCallback(() => modelerRef.current, [])
 

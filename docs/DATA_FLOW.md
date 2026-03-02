@@ -2,65 +2,81 @@
 
 This document describes how requests flow through the Consularis backend and where graph and chat state live. It is the single reference for "who owns what."
 
-## Backend structure
+## Backend module map
 
 ```mermaid
 flowchart TB
   subgraph backend [Backend]
     Main[main.py]
     Config[config.py]
-    Store[storage.memory]
-    StoreBase[storage.base]
-    GraphStore[graph_store]
+    DB[db.py – SQLite]
+    BpmnStore[bpmn.store]
     AgentRun[agent.runtime]
     AgentPrompt[agent.prompt]
     AgentTools[agent.tools]
-    AgentFallback[agent.fallback]
   end
   Main --> Config
-  Main --> Store
-  Main --> AgentRun
-  Store --> StoreBase
-  Store --> GraphStore
+  Main --> DB
+  Main --> BpmnStore
+  BpmnStore --> DB
   AgentRun --> AgentPrompt
   AgentRun --> AgentTools
-  AgentRun --> GraphStore
-  AgentFallback --> GraphStore
+  AgentRun --> BpmnStore
 ```
 
-- **main.py**: Routes only; one global `store`; validates `session_id`; single fallback path when no tools.
-- **config.py**: Single place for env and constants.
-- **storage**: Protocol in base, in-memory/file implementations; chat in `_chat`, BPMN graph delegated to graph_store.
-- **graph_store**: Session-scoped BPMN graph (`BpmnModel` per `session_id`); baseline from config; all graph CRUD and validation (risk dedupe, no duplicate edges).
-- **agent**: Split into prompt, tools, fallback, runtime; tools and fallback call graph_store by `session_id`.
+- **main.py**: FastAPI app, lifespan (init DB + seed baseline), CORS, router registration.
+- **config.py**: Single place for env and constants (`GROQ_KEY`, `BASELINE_GRAPHS_DIR`, `DEFAULT_PROCESS_ID`, limits).
+- **db.py**: In-memory SQLite singleton. Three tables: `baseline_processes`, `session_processes`, `chat_messages`. All persistence reads and writes go through this module.
+- **bpmn.store**: Session-scoped BPMN graph CRUD. Keeps a parsed `BpmnModel` cache keyed by `(session_id, process_id)`. Every mutation triggers a `_persist` call that serializes the model back to SQLite. Multi-process: each session can have many processes (global + subprocesses).
+- **agent**: Prompt, tools, runtime. Tools call `bpmn.store` by `session_id` and `process_id`.
 
 ## Where state lives
 
-- **Graph**: Lives in `graph_store._sessions` (keyed by `session_id`) as BPMN in-memory model. All writes go through graph_store (tools and fallback).
-- **Chat**: Lives in the store’s `_chat` dict (e.g. `storage/memory.py`), keyed by `session_id`.
-- **Conceptually**: One session = one BPMN graph (in graph_store) + one chat history (in store). Implemented in two modules for separation of concerns; the store interface (`get_bpmn_xml`, `get_chat_history`, `append_chat_message`) is the single abstraction used by main and agent.
+| State | Location | Key |
+|-------|----------|-----|
+| **Baseline processes** | `db.baseline_processes` table | `process_id` |
+| **Session graphs** | `db.session_processes` table | `(session_id, process_id)` |
+| **Chat history** | `db.chat_messages` table | `session_id` |
+| **Parsed models (cache)** | `bpmn.store._cache` dict | `(session_id, process_id)` |
+
+All state lives in a single in-memory SQLite connection (`:memory:`). Data is structured via SQL but ephemeral — it is lost on process restart. The cache layer avoids re-parsing BPMN XML on every request within a session.
 
 ## Request path
 
-- **GET /health**: Health check; no store or session.
-- **GET /api/graph/baseline**: Serves the baseline BPMN XML from file (no session). Used by the frontend to show the default graph.
-- **GET /api/graph/export**: Validates `session_id` → store.ensure_session(session_id) → returns BPMN XML for that session.
-- **GET /api/graph/json**: Validates `session_id` → store.ensure_session(session_id) → returns session graph as JSON (lanes, nodes, edges, layout) for the Process view.
-- **POST /api/chat**: Validates body → append user message → run_chat(history) → if no tools used, try_apply_message_update (fallback) → append assistant message → return message + BPMN XML + meta. The chat handler runs under a per-session lock so concurrent requests for the same session do not interleave.
+- **GET /health**: Health check; no DB or session.
+- **GET /api/graph/baseline?process_id=…**: Serves baseline BPMN XML from SQLite. No session required. Defaults to `Process_Global`.
+- **GET /api/graph/export?session_id=…&process_id=…**: Returns session BPMN XML. If the session doesn't exist yet, clones baseline into a new session automatically.
+- **GET /api/graph/resolve?session_id=…&name=…&process_id=…**: Fuzzy-matches a step/lane/process name fragment to technical IDs. Used by the agent for name-based resolution.
+- **POST /api/chat**: Validates body → `db.append_chat_message(user)` → `run_chat(history)` → `db.append_chat_message(assistant)` → returns `{ message, bpmn_xml, meta }`. Chat runs under a per-session lock so concurrent requests for the same session do not interleave.
 
-## State location: backend only, frontend is view
+## State ownership: backend only, frontend is view
 
-- **Single source of truth**: The graph and chat live only in the backend. The backend is the only place that mutates or persists state.
+- **Single source of truth**: The graph and chat live only in the backend (SQLite). The backend is the only place that mutates or persists state.
 - **Frontend**: Holds a view of BPMN XML for rendering only. It is not authoritative. The frontend refreshes from backend BPMN XML after chat updates and on explicit export fetches.
 
-## Where the original graph is kept
+## Where the baseline comes from
 
-- The **baseline** graph is the file at `BASELINE_GRAPH_PATH` (default: `backend/data/pharmacy_circuit.bpmn`). It is loaded once at startup and cached; the file is read-only and never modified by the app.
-- **New sessions**: When a new session is created, the backend uses `copy.deepcopy(cached_baseline)` and stores that copy in the session. Every user/session starts from the same initial graph; each session then has its own copy that can be personalized by chat. The baseline itself stays unchanged.
-- **With persistence**: The baseline (or its cached copy) remains the template. New sessions are still created by cloning that baseline; only the **session** data (personalized graph + chat) is persisted.
+The baseline is defined by a **process registry** and a set of **BPMN files**:
+
+```
+backend/data/graphs/
+├── registry.json       # Process tree: ids, names, parent-child, file paths
+├── global.bpmn         # Root process with call activities to P1-P7
+├── P1.bpmn             # Prescription subprocess
+├── P2.bpmn             # Selection, Acquisition, and Reception
+├── P3.bpmn             # Storage and Storage Management
+├── P4.bpmn             # Distribution
+├── P5.bpmn             # Dispensing and Preparation
+├── P6.bpmn             # Administration
+└── P7.bpmn             # Monitoring and Waste Management
+```
+
+At startup, `db.seed_baseline()` reads `registry.json`, loads each BPMN file, and inserts rows into the `baseline_processes` table. The baseline is read-only after startup.
+
+**New sessions**: When a session first accesses a process, `db.clone_baseline_to_session()` copies all baseline rows into `session_processes`. Each session starts from the same initial graph; each session then has its own copy that can be personalized by chat. The baseline stays unchanged.
 
 ## Graph format contract
 
-- Canonical graph format is BPMN 2.0 XML.
+- Canonical graph format is **BPMN 2.0 XML**.
 - API and frontend graph exchange uses BPMN XML only.
-- Legacy `{ phases, flow_connections }` is retained only for backward migration of older persisted sessions.
+- Custom metadata is stored in BPMN extension elements under the `http://consularis.example/bpmn` namespace.

@@ -1,101 +1,198 @@
 # Graph structure
 
-The process graph is stored and exchanged as **BPMN 2.0 XML** with a **hierarchical process tree**.
+The process graph is stored and exchanged as **BPMN 2.0 XML**, organized as a **hierarchical process tree** backed by **in-memory SQLite**.
 
-## 1. Hierarchical model (digital twin)
+## 1. Process tree
 
-Instead of one giant BPMN, the application manages many processes:
+The system models processes as a tree of arbitrary depth. Each node in the tree is one BPMN diagram (one `BpmnModel`). Parent processes link to children via **call activities** (`<bpmn:callActivity calledElement="Process_P1">`).
 
-- A root process (default: `Process_Global`) gives the global view.
-- Child processes represent subgraphs (department/process/phase).
-- Parent -> child links use `bpmn:callActivity` (`calledElement=<child_process_id>`).
-- The process tree is declared by `backend/data/graphs/registry.json`.
+```
+Process_Global (Pharmacy medication circuit)
+├── Process_P1  (Prescription)
+├── Process_P2  (Selection, Acquisition, and Reception)
+├── Process_P3  (Storage and Storage Management)
+├── Process_P4  (Distribution)
+├── Process_P5  (Dispensing and Preparation)
+├── Process_P6  (Administration)
+└── Process_P7  (Monitoring and Waste Management)
+```
 
-Baseline files live in `backend/data/graphs/`:
+The tree is defined by a **process registry** (`registry.json`), not hardcoded. Adding more depth requires only a new BPMN file and a registry entry — no code changes.
 
-- `global.bpmn`
-- `P1.bpmn` ... `P7.bpmn`
-- `registry.json`
+## 2. Process registry
 
-If no registry exists, the app falls back to `BASELINE_GRAPH_PATH` single-process mode.
-
-## 2. IDs vs names
-
-Keep stable technical IDs and expose human names:
-
-- **Technical IDs** (stable): `Process_P1`, `P1.2`, `Call_P1`.
-- **Human names** (display/chat): `Prescription`, `Verify Prescription`.
-
-Chat remains name-friendly because:
-
-- Graph summary includes both IDs and names.
-- Process list endpoint returns process names.
-- Step resolution endpoint maps name fragments to IDs.
-
-## 3. In-memory store shape
-
-Store state in `backend/bpmn/store.py`:
-
-- Baseline:
-  - `_baseline_models: dict[process_id, BpmnModel]`
-  - `_baseline_registry: list[dict]`
-- Session:
-  - `_sessions: dict[session_id, dict[process_id, BpmnModel]]`
-  - `_session_registries: dict[session_id, list[dict]]`
-
-So one session contains **multiple BPMN models**, one per process.
-
-## 4. BPMN node types
-
-`BpmnModel` now supports:
-
-- `tasks`
-- `call_activities`
-- `start_events`
-- `end_events`
-- `gateways`
-- `sequence_flows`
-
-`call_activities` are serialized as `<bpmn:callActivity ... calledElement="...">`.
-
-## 5. API contracts
-
-Graph endpoints are process-scoped:
-
-- `GET /api/graph/baseline?process_id=Process_Global`
-- `GET /api/graph/export?session_id=...&process_id=Process_P1`
-- `GET /api/graph/json?session_id=...&process_id=Process_P1`
-- `GET /api/graph/processes?session_id=...`
-- `GET /api/graph/resolve?session_id=...&name=Verify&process_id=Process_P1` (optional process scope)
-
-Chat is process-scoped:
-
-- `POST /api/chat` request supports `process_id`.
-- Response `meta` includes `process_id`.
-
-## 6. Persistence format
-
-File session storage uses multi-process payload:
+**File**: `backend/data/graphs/registry.json`
 
 ```json
 {
-  "registry": [{"process_id": "Process_Global", "name": "Global", "parent_id": null}],
-  "graphs": {
-    "Process_Global": "<bpmn xml>",
-    "Process_P1": "<bpmn xml>"
-  },
-  "chat": [{"role": "user", "content": "..."}]
+  "processes": [
+    {
+      "process_id": "Process_Global",
+      "name": "Pharmacy medication circuit",
+      "parent_id": null,
+      "bpmn_file": "global.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "clinical",
+      "criticality": "high"
+    },
+    {
+      "process_id": "Process_P1",
+      "name": "Prescription",
+      "parent_id": "Process_Global",
+      "bpmn_file": "P1.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "clinical",
+      "criticality": "high"
+    }
+  ]
 }
 ```
 
-Legacy `{ "graph": "<xml>" }` is still migrated/accepted.
+Each entry includes:
 
-## 7. Frontend behavior
+| Field | Purpose |
+|-------|---------|
+| `process_id` | Stable technical ID (machine use) |
+| `name` | Human-readable display name |
+| `parent_id` | Parent process ID (`null` = root) |
+| `bpmn_file` | Filename in `backend/data/graphs/` |
+| `owner` | Department or team that owns this process |
+| `category` | Process classification (clinical, logistics, supply_chain, compliance) |
+| `criticality` | Risk level (critical, high, medium, low) |
 
-- Viewer state tracks current `processId`.
-- Process tree is fetched from `/api/graph/processes`.
-- Breadcrumb + selector switch process context.
-- Double-clicking a call activity in BPMN view drills down into `calledElement`.
-- Chat messages include current `processId`.
+## 3. IDs vs names
 
-This structure keeps very large enterprise maps readable while preserving a global-to-detailed navigation model.
+**Principle**: IDs are for machines; names are for humans.
+
+- **Technical IDs** (stable): `Process_P1`, `P1.2`, `Call_P1`, `G2`.
+- **Human names** (display/chat): `Prescription`, `Verify Prescription`.
+
+| Surface | What is shown |
+|---------|---------------|
+| BPMN diagram labels | Task/lane **name** |
+| Agent graph summary (LLM context) | `P1 Prescription: P1.1 (Prescribe Medication), P1.2 (Verify Prescription)` |
+| Agent tool calls | **node_id** / **process_id** (resolved from name) |
+| API query params | `process_id=Process_P1` (stable slug) |
+| Chat with user | User says "Verify Prescription"; agent resolves to `P1.2` via `resolve_step` |
+
+## 4. Persistence: in-memory SQLite
+
+All state lives in a single in-memory SQLite connection (`:memory:`), managed by `backend/db.py`.
+
+### Schema
+
+```sql
+CREATE TABLE baseline_processes (
+    process_id TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    parent_id  TEXT,
+    bpmn_xml   TEXT NOT NULL
+);
+
+CREATE TABLE session_processes (
+    session_id TEXT NOT NULL,
+    process_id TEXT NOT NULL,
+    bpmn_xml   TEXT NOT NULL,
+    PRIMARY KEY (session_id, process_id)
+);
+
+CREATE TABLE chat_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    role       TEXT NOT NULL,
+    content    TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Lifecycle
+
+1. **Startup**: `db.seed_baseline()` reads `registry.json` and all BPMN files into `baseline_processes`.
+2. **New session**: On first access, `db.clone_baseline_to_session()` copies all baseline rows into `session_processes`.
+3. **Mutations**: `bpmn.store` modifies the cached `BpmnModel`, then calls `db.upsert_session_xml()` to persist the serialized XML.
+4. **Reads**: `bpmn.store._get_model()` checks the in-memory cache first; on miss, loads from `session_processes` (or clones baseline).
+
+The SQLite database is ephemeral (`:memory:`) — data is lost on process restart. This provides structured SQL access without file I/O overhead.
+
+## 5. In-memory cache
+
+`bpmn.store` maintains a dict cache:
+
+```python
+_cache: dict[tuple[str, str], BpmnModel]  # (session_id, process_id) -> parsed model
+```
+
+This avoids re-parsing BPMN XML on every request. Cache entries are created on first access and updated on mutation.
+
+## 6. BPMN node types
+
+`BpmnModel` supports:
+
+| Type | BPMN element | Usage |
+|------|-------------|-------|
+| `tasks` | `<bpmn:task>` | Process steps with metadata |
+| `call_activities` | `<bpmn:callActivity>` | Links to child processes |
+| `start_events` | `<bpmn:startEvent>` | Process entry point |
+| `end_events` | `<bpmn:endEvent>` | Process exit point |
+| `gateways` | `<bpmn:exclusiveGateway>` | Decision/routing points |
+| `sequence_flows` | `<bpmn:sequenceFlow>` | Connections between nodes |
+| `lanes` | `<bpmn:lane>` | Phases/groupings |
+
+## 7. Extension metadata
+
+Tasks carry rich metadata via BPMN extension elements under the `http://consularis.example/bpmn` namespace. There are 19 extension fields:
+
+### Core fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `actor` | string | Who performs the task |
+| `duration_min` | string | Estimated duration |
+| `description` | string | What the task does |
+| `inputs` | list | What the task receives |
+| `outputs` | list | What the task produces |
+| `risks` | list | Associated risks |
+| `automation_potential` | string | How automatable (high/medium/low) |
+| `automation_notes` | string | Notes on automation feasibility |
+
+### Operational data fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `current_state` | string | How the task is currently performed (manual/semi-automated/automated) |
+| `frequency` | string | How often (e.g. "200/day", "weekly") |
+| `annual_volume` | string | Yearly execution count |
+| `error_rate_percent` | string | Current error rate |
+| `cost_per_execution` | string | Cost per execution in currency |
+| `current_systems` | list | IT systems currently used |
+| `data_format` | string | Primary data format (paper/electronic/mixed) |
+| `external_dependencies` | list | External systems or parties |
+| `regulatory_constraints` | list | Regulatory requirements |
+| `sla_target` | string | Target SLA |
+| `pain_points` | list | Known problems or friction |
+
+List-type fields are serialized as JSON arrays in the BPMN XML extension elements.
+
+## 8. API contracts
+
+### Graph endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/graph/baseline` | GET | Baseline BPMN XML. `?process_id=` (default `Process_Global`) |
+| `/api/graph/export` | GET | Session graph as BPMN XML. `?session_id=…&process_id=…` |
+| `/api/graph/resolve` | GET | Fuzzy name → ID resolution. `?session_id=…&name=…&process_id=…` |
+
+### Chat
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat` | POST | `{ session_id, message, process_id? }` → `{ message, bpmn_xml, meta }` |
+
+`meta` includes `tools_used`, `session_id`, and `process_id`.
+
+## 9. Frontend behavior
+
+- Dashboard shows one BPMN view (bpmn-js). XML is fetched via `/api/graph/export` or `/api/graph/baseline`.
+- Chat returns updated `bpmn_xml` and the diagram refreshes after each turn.
+- `process_id` can be included in chat requests to scope agent operations to a specific subprocess.

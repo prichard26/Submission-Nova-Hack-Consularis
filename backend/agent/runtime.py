@@ -7,9 +7,9 @@ import time
 from groq import Groq
 
 from config import GROQ_KEY, MAX_TOOL_ROUNDS, GROQ_TIMEOUT, GROQ_MAX_RETRIES
-from graph_store import get_bpmn_xml, get_graph_summary
+from bpmn.store import get_bpmn_xml, get_graph_summary
 from agent.prompt import SYSTEM_PROMPT
-from agent.tools import TOOLS, run_tool, set_active_process, get_active_process
+from agent.tools import TOOLS, run_tool
 
 logger = logging.getLogger("consularis.agent")
 
@@ -45,7 +45,6 @@ def run_chat(
             False,
         )
 
-    set_active_process(session_id, process_id)
     client = Groq(api_key=GROQ_KEY, timeout=GROQ_TIMEOUT)
     graph_context = "Current process summary (use resolve_step to map names to IDs): " + get_graph_summary(session_id, process_id=process_id)
 
@@ -112,7 +111,7 @@ def run_chat(
             except json.JSONDecodeError:
                 args = {}
                 logger.warning("[AGENT] session_id=%s tool=%s invalid JSON arguments, using {}", session_id, name)
-            result = run_tool(session_id, name, args)
+            result = run_tool(session_id, name, args, process_id=process_id)
             full_messages.append({"role": "tool", "tool_call_id": tc.id, "name": name, "content": result})
         logger.info("[AGENT] session_id=%s round complete, tools_used=True", session_id)
 
@@ -122,5 +121,4 @@ def run_chat(
         final_message = "I did not quite understand. Please say which step or phase you mean and what you would like to change."
 
     final_message = _sanitize_reply(final_message)
-    final_process_id = get_active_process(session_id)
-    return final_message, get_bpmn_xml(session_id, process_id=final_process_id), tools_used
+    return final_message, get_bpmn_xml(session_id, process_id=process_id), tools_used

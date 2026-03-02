@@ -4,49 +4,73 @@
       "process_id": "Process_Global",
       "name": "Pharmacy medication circuit",
       "parent_id": null,
-      "bpmn_file": "global.bpmn"
+      "bpmn_file": "global.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "clinical",
+      "criticality": "high"
     },
     {
       "process_id": "Process_P1",
       "name": "Prescription",
       "parent_id": "Process_Global",
-      "bpmn_file": "P1.bpmn"
+      "bpmn_file": "P1.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "clinical",
+      "criticality": "high"
     },
     {
       "process_id": "Process_P2",
       "name": "Selection, Acquisition, and Reception",
       "parent_id": "Process_Global",
-      "bpmn_file": "P2.bpmn"
+      "bpmn_file": "P2.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "supply_chain",
+      "criticality": "high"
     },
     {
       "process_id": "Process_P3",
       "name": "Storage and Storage Management",
       "parent_id": "Process_Global",
-      "bpmn_file": "P3.bpmn"
+      "bpmn_file": "P3.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "logistics",
+      "criticality": "medium"
     },
     {
       "process_id": "Process_P4",
       "name": "Distribution",
       "parent_id": "Process_Global",
-      "bpmn_file": "P4.bpmn"
+      "bpmn_file": "P4.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "logistics",
+      "criticality": "high"
     },
     {
       "process_id": "Process_P5",
       "name": "Dispensing and Preparation",
       "parent_id": "Process_Global",
-      "bpmn_file": "P5.bpmn"
+      "bpmn_file": "P5.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "clinical",
+      "criticality": "high"
     },
     {
       "process_id": "Process_P6",
       "name": "Administration",
       "parent_id": "Process_Global",
-      "bpmn_file": "P6.bpmn"
+      "bpmn_file": "P6.bpmn",
+      "owner": "Nursing Department",
+      "category": "clinical",
+      "criticality": "critical"
     },
     {
       "process_id": "Process_P7",
       "name": "Monitoring and Waste Management",
       "parent_id": "Process_Global",
-      "bpmn_file": "P7.bpmn"
+      "bpmn_file": "P7.bpmn",
+      "owner": "Pharmacy Department",
+      "category": "compliance",
+      "criticality": "high"
     }
   ]
 }

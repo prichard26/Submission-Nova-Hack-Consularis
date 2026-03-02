@@ -1,6 +1,6 @@
 # Consularis Backend
 
-FastAPI API for the Consularis app: Aurelius chat (Groq + tools), session-scoped BPMN graph, and session persistence.
+FastAPI API for the Consularis app: Aurelius chat (Groq + tools), hierarchical BPMN process store, and in-memory SQLite persistence.
 
 ## Run
 
@@ -20,74 +20,76 @@ uvicorn main:app --reload --port 8000
 
 ```
 backend/
-├── main.py              # FastAPI app, lifespan, CORS, router registration
-├── config.py            # Env and constants (GROQ_KEY, paths, CORS, storage)
-├── deps.py              # get_session_store() — used by routers and overridable in tests
-├── graph_store.py       # Facade over bpmn.store (session BPMN + graph ops)
+├── main.py              # FastAPI app, lifespan (init DB + seed baseline), CORS, routers
+├── config.py            # Env and constants (GROQ_KEY, paths, CORS, limits)
+├── db.py                # In-memory SQLite: baseline_processes, session_processes, chat_messages
 ├── requirements.txt
 ├── env.example          # Template for .env
 │
 ├── routers/             # HTTP routes by feature
 │   ├── health.py        # GET /health
-│   ├── domain.py        # POST /api/select-domain
 │   ├── chat.py          # OPTIONS + POST /api/chat
-│   └── graph.py         # GET /api/graph/baseline, /export, /json
-│
-├── services/            # Application services
-│   └── chat.py          # handle_chat_turn (append → run_chat/fallback → append → return)
+│   └── graph.py         # GET /api/graph/baseline, /export, /resolve
 │
 ├── agent/               # Aurelius chat + tools
 │   ├── runtime.py       # run_chat loop (Groq, tool rounds, timeout/retries)
 │   ├── tools.py         # Tool schemas + registry, run_tool dispatch
-│   ├── fallback.py      # try_apply_message_update when LLM didn’t use tools
 │   └── prompt.py        # SYSTEM_PROMPT
 │
 ├── bpmn/                # BPMN 2.0 domain
-│   ├── model.py         # BpmnModel, lanes, tasks, flows, extension keys
+│   ├── model.py         # BpmnModel, lanes, tasks, flows, 19 extension keys
 │   ├── parser.py        # parse_bpmn_xml (file or string)
 │   ├── serializer.py    # serialize_bpmn_xml (with diagram interchange for bpmn-js)
-│   ├── layout.py        # Layout constants and layout_bounds() for JSON + DI
-│   ├── store.py         # Session-scoped in-memory BPMN store
-│   └── adapter.py       # legacy_to_model (legacy JSON → BpmnModel, used by FileSessionStore)
+│   ├── layout.py        # Layout constants and layout_bounds() for diagram
+│   └── store.py         # Session-scoped BPMN store with SQLite backing + in-memory cache
 │
-├── storage/             # Session persistence
-│   ├── base.py          # SessionStore protocol
-│   ├── memory.py        # InMemorySessionStore (chat + graph via graph_store)
-│   └── file.py          # FileSessionStore (one JSON file per session)
+├── services/            # Business logic helpers
+│   └── chat.py          # Chat orchestration
 │
 ├── data/                # Runtime data
-│   ├── pharmacy_circuit.bpmn   # Baseline BPMN (required at startup)
-│   └── sessions/               # Session JSON files when STORAGE=file
+│   └── graphs/          # Baseline BPMN hierarchy (read-only at runtime)
+│       ├── registry.json    # Process tree: ids, names, parent-child, ownership
+│       ├── global.bpmn      # Root process with call activities to P1-P7
+│       ├── P1.bpmn          # Prescription
+│       ├── P2.bpmn          # Selection, Acquisition, and Reception
+│       ├── P3.bpmn          # Storage and Storage Management
+│       ├── P4.bpmn          # Distribution
+│       ├── P5.bpmn          # Dispensing and Preparation
+│       ├── P6.bpmn          # Administration
+│       └── P7.bpmn          # Monitoring and Waste Management
 │
 └── tests/
-    ├── conftest.py      # reset_graph_store, force_missing_groq_key, test_store, client (DI)
+    ├── conftest.py          # reset_db fixture (init SQLite, seed baseline, cleanup)
     ├── test_chat_flow.py
     ├── test_graph_idempotency.py
+    ├── test_hierarchy.py
     └── test_bpmn_roundtrip.py
 ```
 
-### What each folder does
+### What each module does
 
-**routers/** — HTTP endpoints. Each file groups routes for one area: health check, domain selection, chat, and graph (baseline BPMN, export XML, export JSON). The app in main.py mounts these routers so all URLs are defined here, not in main.
+**main.py** — App entry point. The `lifespan` initializes the SQLite database (`db.get_conn()`), seeds the baseline from `registry.json` + BPMN files (`bpmn.store.init_baseline()`), and logs Groq key status.
 
-**services/** — Application logic that coordinates several steps. The chat service runs a full chat turn: save the user message, call the agent (or fallback), save the assistant reply, and return the result. Routes call services so HTTP handling stays thin.
+**config.py** — All env vars and constants. Key settings: `GROQ_KEY`, `BASELINE_GRAPHS_DIR`, `DEFAULT_PROCESS_ID`, `MAX_TOOL_ROUNDS`, `GROQ_TIMEOUT`, `ALLOWED_CORS_ORIGINS`, `SESSION_ID_MAX_LEN`.
 
-**agent/** — The Aurelius assistant. Runtime runs the Groq chat loop with tools (with timeout and retries). Tools define what the LLM can do on the graph (get/update nodes and edges) and run those actions. Fallback applies simple edits from the user message when the LLM does not use tools. Prompt holds the system instructions for the assistant.
+**db.py** — Singleton in-memory SQLite connection (`:memory:`). Three tables: `baseline_processes` (seeded from files), `session_processes` (per-session graph copies), `chat_messages`. All persistence reads/writes go through this module. Data is ephemeral — lost on restart.
 
-**bpmn/** — Everything about the process graph format. Model is the in-memory shape (lanes, tasks, flows). Parser reads BPMN XML from a file or string. Serializer writes BPMN XML (including diagram layout for the frontend). Layout holds shared sizes and positions for the diagram. Store keeps one graph per session in memory. Adapter converts old JSON session format into the current model (used when loading file-backed sessions).
+**routers/** — HTTP endpoints. Health check, chat (with per-session locking), and graph (baseline XML, session export, name resolution).
 
-**storage/** — Where session data lives. The protocol says each session has a graph and a chat history. Memory storage keeps both in RAM (graph via graph_store). File storage writes one JSON file per session under data/sessions when you set STORAGE=file.
+**agent/** — The Aurelius assistant. Runtime runs the Groq chat loop with tools (timeout and retries). Tools define what the LLM can do on the graph (get/update/add/delete nodes and edges, validate, resolve names, navigate processes). Prompt holds the system instructions.
 
-**data/** — Files the app reads or writes at runtime. The baseline BPMN file is the default process graph loaded for every new session. The sessions subfolder is where file storage puts session JSON files (only used when STORAGE=file).
+**bpmn/** — Process graph domain. Model defines the in-memory `BpmnModel` with 19 extension metadata fields. Parser reads BPMN XML into models. Serializer writes models back to XML with diagram interchange. Layout computes positions. Store provides session-scoped CRUD with an LRU cache of parsed models backed by SQLite.
 
-**tests/** — Pytest tests. Conftest sets up fixtures: reset the in-memory graph store between tests, force no Groq key so tests don’t call the API, and provide a test client that uses a dedicated session store. The test files cover chat flow, graph behaviour, and BPMN round-trip.
+**data/graphs/** — Baseline BPMN hierarchy loaded at startup. The registry defines the process tree; each `.bpmn` file is a self-contained subprocess with start/end events, tasks, gateways, and sequence flows.
+
+**tests/** — Pytest tests. The `reset_db` fixture in conftest initializes a fresh SQLite database and seeds the baseline before each test, then cleans up tables and cache after.
 
 ## Conventions
 
-### Error and “not found”
+### Error and "not found"
 
 - **BPMN store** (`bpmn/store.py`): Returns `None` or `False` when an entity is not found. Callers check these values.
-- **Agent tools** (`agent/tools.py`): Convert store results to JSON for the LLM: success as entity or `{"deleted": true}`; “not found”/errors as `{"error": "..."}`.
+- **Agent tools** (`agent/tools.py`): Convert store results to JSON for the LLM: success as entity or `{"deleted": true}`; "not found"/errors as `{"error": "..."}`.
 
 ### Configuration
 

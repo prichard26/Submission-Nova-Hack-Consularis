@@ -13,7 +13,24 @@ EXTENSION_KEYS = (
     "risks",
     "automation_potential",
     "automation_notes",
+    "current_state",
+    "frequency",
+    "annual_volume",
+    "error_rate_percent",
+    "cost_per_execution",
+    "current_systems",
+    "data_format",
+    "external_dependencies",
+    "regulatory_constraints",
+    "sla_target",
+    "pain_points",
 )
+
+LIST_EXTENSION_KEYS = frozenset({
+    "inputs", "outputs", "risks",
+    "current_systems", "external_dependencies",
+    "regulatory_constraints", "pain_points",
+})
 
 
 def default_extension() -> dict[str, Any]:
@@ -26,6 +43,17 @@ def default_extension() -> dict[str, Any]:
         "risks": [],
         "automation_potential": "",
         "automation_notes": "",
+        "current_state": "",
+        "frequency": "",
+        "annual_volume": "",
+        "error_rate_percent": "",
+        "cost_per_execution": "",
+        "current_systems": [],
+        "data_format": "",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "",
+        "pain_points": [],
     }
 
 

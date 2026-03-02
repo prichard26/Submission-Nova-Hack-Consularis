@@ -1,19 +1,11 @@
 import { useEffect, useState } from 'react'
 import { getBaselineBpmnXml, getBpmnXml } from '../services/api'
 
-export function useBpmnXml(sessionId, processId = 'Process_Global', refreshTrigger = 0, xmlOverride = '') {
+export function useBpmnXml(sessionId, processId = 'Process_Global', refreshTrigger = 0) {
   const [state, setState] = useState({ xml: '', loading: true, error: null })
 
   useEffect(() => {
     if (!sessionId) return
-
-    const override = xmlOverride?.trim()
-    if (override) {
-      queueMicrotask(() => {
-        setState({ xml: override, loading: false, error: null })
-      })
-      return
-    }
 
     const controller = new AbortController()
     queueMicrotask(() => {
@@ -43,7 +35,7 @@ export function useBpmnXml(sessionId, processId = 'Process_Global', refreshTrigg
     return () => {
       controller.abort()
     }
-  }, [sessionId, processId, refreshTrigger, xmlOverride])
+  }, [sessionId, processId, refreshTrigger])
 
   if (!sessionId) {
     return { xml: '', loading: false, error: 'No session' }

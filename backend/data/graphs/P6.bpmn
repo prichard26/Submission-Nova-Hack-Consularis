@@ -1,4 +1,4 @@
-<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <ns0:process id="Process_P6" name="Administration" isExecutable="false">
     <ns0:laneSet id="LaneSet_1">
       <ns0:lane id="P6" name="Administration">
@@ -21,6 +21,17 @@
         <ns1:risks>["Wrong patient", "Wrong time", "Omission"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>Bedside barcode scanning, eMAR integration, smart pumps</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>200/day</ns1:frequency>
+        <ns1:annualVolume>73000</ns1:annualVolume>
+        <ns1:errorRatePercent>1.8</ns1:errorRatePercent>
+        <ns1:costPerExecution>4.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["eMAR", "ADC", "Barcode scanner"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>[]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["5 Rights verification", "Patient safety standards"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 5 min</ns1:slaTarget>
+        <ns1:painPoints>["Scanner unavailable", "Wrong-patient near-misses"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P6.2" name="Administer to Patient">
@@ -33,6 +44,17 @@
         <ns1:risks>["Wrong route", "Adverse reaction", "Extravasation (IV)"]</ns1:risks>
         <ns1:automationPotential>low</ns1:automationPotential>
         <ns1:automationNotes>Smart IV pumps with dose-error reduction, automated documentation</ns1:automationNotes>
+        <ns1:currentState>manual</ns1:currentState>
+        <ns1:frequency>200/day</ns1:frequency>
+        <ns1:annualVolume>73000</ns1:annualVolume>
+        <ns1:errorRatePercent>0.5</ns1:errorRatePercent>
+        <ns1:costPerExecution>6.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["Smart IV pump", "eMAR"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>[]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Administration safety protocols"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 10 min</ns1:slaTarget>
+        <ns1:painPoints>["IV access difficulties", "Adverse reactions"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P6.3" name="Document Administration">
@@ -45,6 +67,17 @@
         <ns1:risks>["Late documentation", "Missing record", "Inaccurate entry"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>Auto-populated eMAR from barcode scan, voice-to-text notes</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>200/day</ns1:frequency>
+        <ns1:annualVolume>73000</ns1:annualVolume>
+        <ns1:errorRatePercent>4.5</ns1:errorRatePercent>
+        <ns1:costPerExecution>3.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["eMAR"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>[]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Documentation standards", "Incident reporting requirements"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 3 min</ns1:slaTarget>
+        <ns1:painPoints>["Late documentation", "Forgetting to document"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:sequenceFlow id="flow_Start_P6_P6.1" sourceRef="Start_P6" targetRef="P6.1" name="Start" />

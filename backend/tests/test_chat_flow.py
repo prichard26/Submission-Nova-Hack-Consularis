@@ -1,22 +1,18 @@
 """Chat flow: run_chat returns (message, bpmn_xml, tools_used); API returns meta."""
 import os
 
-# Force no Groq key so run_chat returns without calling API
 os.environ["GROQ_KEY"] = "missing"
 
 
 def test_run_chat_returns_tools_used_flag():
     from agent.runtime import run_chat
-    from graph_store import get_or_create_session
 
     sid = "test-returns-three"
-    get_or_create_session(sid)
     msg, bpmn_xml, tools_used = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}], max_rounds=1)
     assert isinstance(msg, str)
     assert isinstance(bpmn_xml, str)
-    assert "process" in bpmn_xml
+    assert "process" in bpmn_xml.lower()
     assert isinstance(tools_used, bool)
-    # Without real Groq, we get the "GROQ_KEY is not set" message and no tools run
     assert tools_used is False
 
 
@@ -30,12 +26,11 @@ def test_api_chat_returns_meta(client):
     assert data["meta"]["session_id"] == "meta-test-session"
     assert data["meta"]["process_id"] == "Process_P1"
     assert "tools_used" in data["meta"]
-    assert "fallback_used" in data["meta"]
 
 
 def test_api_chat_rejects_empty_session_id(client):
     resp = client.post("/api/chat", json={"session_id": "", "message": "Hi"})
-    assert resp.status_code == 422  # validation error
+    assert resp.status_code == 422
 
 
 def test_api_graph_endpoint_removed(client):

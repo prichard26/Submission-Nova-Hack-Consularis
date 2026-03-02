@@ -1,9 +1,8 @@
-<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <ns0:process id="Process_P1" name="Prescription" isExecutable="false">
     <ns0:laneSet id="LaneSet_1">
       <ns0:lane id="P1" name="Prescription">
         <ns0:flowNodeRef>Start_P1</ns0:flowNodeRef>
-        <ns0:flowNodeRef>Start_1</ns0:flowNodeRef>
         <ns0:flowNodeRef>P1.1</ns0:flowNodeRef>
         <ns0:flowNodeRef>P1.2</ns0:flowNodeRef>
         <ns0:flowNodeRef>P1.3</ns0:flowNodeRef>
@@ -22,6 +21,17 @@
         <ns1:risks>["Prescribing error", "Drug interaction", "Wrong dosage"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>E-prescribing systems, clinical decision support (CDS), drug interaction alerts</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>150/day</ns1:frequency>
+        <ns1:annualVolume>54750</ns1:annualVolume>
+        <ns1:errorRatePercent>3.2</ns1:errorRatePercent>
+        <ns1:costPerExecution>8.50 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["EHR", "Paper prescription pad"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_unstructured</ns1:dataFormat>
+        <ns1:externalDependencies>["Drug formulary DB"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Prescription regulations", "Controlled substance laws"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 10 min</ns1:slaTarget>
+        <ns1:painPoints>["Illegible handwriting", "Missing allergy data"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P1.2" name="Verify Prescription">
@@ -34,6 +44,17 @@
         <ns1:risks>["Missed interaction", "Allergy oversight", "Illegible handwriting"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>Automated drug-drug / drug-allergy checks, barcode verification</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>150/day</ns1:frequency>
+        <ns1:annualVolume>54750</ns1:annualVolume>
+        <ns1:errorRatePercent>2.1</ns1:errorRatePercent>
+        <ns1:costPerExecution>6.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["EHR", "Drug interaction checker"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>["Drug interaction DB", "Allergy registry"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Pharmacovigilance regulations"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 10 min</ns1:slaTarget>
+        <ns1:painPoints>["Illegible prescriptions", "Incomplete patient records"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P1.3" name="Approve Prescription">
@@ -46,54 +67,57 @@
         <ns1:risks>["Delay in approval", "Unauthorized override"]</ns1:risks>
         <ns1:automationPotential>medium</ns1:automationPotential>
         <ns1:automationNotes>Auto-approval for standard formulary items with no flags</ns1:automationNotes>
+        <ns1:currentState>manual</ns1:currentState>
+        <ns1:frequency>140/day</ns1:frequency>
+        <ns1:annualVolume>51100</ns1:annualVolume>
+        <ns1:errorRatePercent>0.8</ns1:errorRatePercent>
+        <ns1:costPerExecution>4.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["EHR"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>[]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Formulary compliance policies"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 5 min</ns1:slaTarget>
+        <ns1:painPoints>["Bottleneck during peak hours", "Senior pharmacist dependency"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
-    <ns0:sequenceFlow id="flow_Start_P1_Start_1" sourceRef="Start_P1" targetRef="Start_1" name="Start" />
-    <ns0:sequenceFlow id="flow_P1.3_End_P1" sourceRef="P1.3" targetRef="End_P1" name="Complete" />
-    <ns0:sequenceFlow id="flow_Start_P1.1" sourceRef="Start_1" targetRef="P1.1" name="Process starts" />
+    <ns0:sequenceFlow id="flow_Start_P1_P1.1" sourceRef="Start_P1" targetRef="P1.1" name="Process starts" />
     <ns0:sequenceFlow id="flow_P1.1_P1.2_0" sourceRef="P1.1" targetRef="P1.2" name="Prescription submitted" />
     <ns0:sequenceFlow id="flow_P1.2_P1.3_1" sourceRef="P1.2" targetRef="P1.3" name="Prescription verified" />
+    <ns0:sequenceFlow id="flow_P1.3_End_P1" sourceRef="P1.3" targetRef="End_P1" name="Complete" />
   </ns0:process>
   <ns2:BPMNDiagram id="BPMNDiagram_1">
     <ns2:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_P1">
       <ns2:BPMNShape id="BPMNShape_P1" bpmnElement="P1">
-        <ns3:Bounds x="0" y="0" width="2068" height="200" />
+        <ns3:Bounds x="0" y="0" width="1708" height="200" />
       </ns2:BPMNShape>
       <ns2:BPMNShape id="BPMNShape_Start_P1" bpmnElement="Start_P1">
         <ns3:Bounds x="280" y="78" width="44" height="44" />
       </ns2:BPMNShape>
-      <ns2:BPMNShape id="BPMNShape_Start_1" bpmnElement="Start_1">
+      <ns2:BPMNShape id="BPMNShape_P1.1" bpmnElement="P1.1">
         <ns3:Bounds x="464" y="44" width="220" height="112" />
       </ns2:BPMNShape>
-      <ns2:BPMNShape id="BPMNShape_P1.1" bpmnElement="P1.1">
+      <ns2:BPMNShape id="BPMNShape_P1.2" bpmnElement="P1.2">
         <ns3:Bounds x="824" y="44" width="220" height="112" />
       </ns2:BPMNShape>
-      <ns2:BPMNShape id="BPMNShape_P1.2" bpmnElement="P1.2">
+      <ns2:BPMNShape id="BPMNShape_P1.3" bpmnElement="P1.3">
         <ns3:Bounds x="1184" y="44" width="220" height="112" />
       </ns2:BPMNShape>
-      <ns2:BPMNShape id="BPMNShape_P1.3" bpmnElement="P1.3">
-        <ns3:Bounds x="1544" y="44" width="220" height="112" />
-      </ns2:BPMNShape>
       <ns2:BPMNShape id="BPMNShape_End_P1" bpmnElement="End_P1">
-        <ns3:Bounds x="1904" y="78" width="44" height="44" />
+        <ns3:Bounds x="1544" y="78" width="44" height="44" />
       </ns2:BPMNShape>
-      <ns2:BPMNEdge id="BPMNEdge_flow_Start_P1_Start_1" bpmnElement="flow_Start_P1_Start_1">
+      <ns2:BPMNEdge id="BPMNEdge_flow_Start_P1_P1.1" bpmnElement="flow_Start_P1_P1.1">
         <ns4:waypoint x="324" y="100" />
         <ns4:waypoint x="464" y="100" />
       </ns2:BPMNEdge>
-      <ns2:BPMNEdge id="BPMNEdge_flow_P1.3_End_P1" bpmnElement="flow_P1.3_End_P1">
-        <ns4:waypoint x="1764" y="100" />
-        <ns4:waypoint x="1904" y="100" />
-      </ns2:BPMNEdge>
-      <ns2:BPMNEdge id="BPMNEdge_flow_Start_P1.1" bpmnElement="flow_Start_P1.1">
+      <ns2:BPMNEdge id="BPMNEdge_flow_P1.1_P1.2_0" bpmnElement="flow_P1.1_P1.2_0">
         <ns4:waypoint x="684" y="100" />
         <ns4:waypoint x="824" y="100" />
       </ns2:BPMNEdge>
-      <ns2:BPMNEdge id="BPMNEdge_flow_P1.1_P1.2_0" bpmnElement="flow_P1.1_P1.2_0">
+      <ns2:BPMNEdge id="BPMNEdge_flow_P1.2_P1.3_1" bpmnElement="flow_P1.2_P1.3_1">
         <ns4:waypoint x="1044" y="100" />
         <ns4:waypoint x="1184" y="100" />
       </ns2:BPMNEdge>
-      <ns2:BPMNEdge id="BPMNEdge_flow_P1.2_P1.3_1" bpmnElement="flow_P1.2_P1.3_1">
+      <ns2:BPMNEdge id="BPMNEdge_flow_P1.3_End_P1" bpmnElement="flow_P1.3_End_P1">
         <ns4:waypoint x="1404" y="100" />
         <ns4:waypoint x="1544" y="100" />
       </ns2:BPMNEdge>

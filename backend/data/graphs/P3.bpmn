@@ -1,4 +1,4 @@
-<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <ns0:process id="Process_P3" name="Storage and Storage Management" isExecutable="false">
     <ns0:laneSet id="LaneSet_1">
       <ns0:lane id="P3" name="Storage and Storage Management">
@@ -23,6 +23,17 @@
         <ns1:risks>["Misplacement", "Wrong storage conditions", "FIFO violation"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>Automated dispensing cabinets (ADCs), carousel systems, pharmacy robots</ns1:automationNotes>
+        <ns1:currentState>manual</ns1:currentState>
+        <ns1:frequency>10/day</ns1:frequency>
+        <ns1:annualVolume>3650</ns1:annualVolume>
+        <ns1:errorRatePercent>4.2</ns1:errorRatePercent>
+        <ns1:costPerExecution>10.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["Manual shelving", "Label printer"]</ns1:currentSystems>
+        <ns1:dataFormat>paper</ns1:dataFormat>
+        <ns1:externalDependencies>[]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Storage classification standards", "Controlled substance storage"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 30 min per batch</ns1:slaTarget>
+        <ns1:painPoints>["Misplacement", "FIFO violations", "Overcrowded shelves"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P3.2" name="Monitor Storage Conditions">
@@ -35,6 +46,17 @@
         <ns1:risks>["Temperature excursion undetected", "Controlled substance diversion"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>IoT sensors, automated alerting, continuous logging systems</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>continuous</ns1:frequency>
+        <ns1:annualVolume>365</ns1:annualVolume>
+        <ns1:errorRatePercent>0.5</ns1:errorRatePercent>
+        <ns1:costPerExecution>2.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["IoT sensors", "SCADA"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>["IoT platform"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Cold chain compliance", "GDP guidelines"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>real-time alerting</ns1:slaTarget>
+        <ns1:painPoints>["Sensor calibration", "Alert fatigue"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P3.3" name="Inventory Management">
@@ -47,10 +69,21 @@
         <ns1:risks>["Stockout", "Expired stock dispensed", "Overstock / waste"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>ERP/WMS integration, perpetual inventory systems, AI-based demand forecasting</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>daily</ns1:frequency>
+        <ns1:annualVolume>365</ns1:annualVolume>
+        <ns1:errorRatePercent>2.8</ns1:errorRatePercent>
+        <ns1:costPerExecution>20.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["ERP", "Spreadsheets"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_unstructured</ns1:dataFormat>
+        <ns1:externalDependencies>["ERP inventory module"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Inventory audit requirements", "Controlled substance tracking"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>daily reconciliation</ns1:slaTarget>
+        <ns1:painPoints>["Manual cycle counts", "ERP sync delays", "Expiry oversight"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:sequenceFlow id="flow_Start_P3_P3.1" sourceRef="Start_P3" targetRef="P3.1" name="Start" />
-    <ns0:sequenceFlow id="flow_G3_End_P3" sourceRef="G3" targetRef="End_P3" name="Complete" />
+    <ns0:sequenceFlow id="flow_G3_End_P3" sourceRef="G3" targetRef="End_P3" name="Phase complete" />
     <ns0:sequenceFlow id="flow_P3.1_P3.2_8a" sourceRef="P3.1" targetRef="P3.2" name="Stored, monitor conditions" />
     <ns0:sequenceFlow id="flow_P3.2_P3.3_8b" sourceRef="P3.2" targetRef="P3.3" name="Conditions OK, track inventory" />
     <ns0:sequenceFlow id="flow_P3.3_G3" sourceRef="P3.3" targetRef="G3" name="P3.3 → G3" />

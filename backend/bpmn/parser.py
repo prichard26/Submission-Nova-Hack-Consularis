@@ -7,6 +7,7 @@ from pathlib import Path
 
 from bpmn.model import (
     BpmnModel,
+    LIST_EXTENSION_KEYS,
     default_call_activity,
     default_extension,
     default_end_event,
@@ -42,7 +43,6 @@ def _parse_extension(ext_el: ET.Element | None) -> dict:
     out = {k: None for k in EXTENSION_KEYS}
     if ext_el is None:
         return out
-    # consularis:actor, consularis:durationMin (camelCase in XML), etc.
     map_xml_to_key = {
         "actor": "actor",
         "durationMin": "duration_min",
@@ -52,6 +52,17 @@ def _parse_extension(ext_el: ET.Element | None) -> dict:
         "risks": "risks",
         "automationPotential": "automation_potential",
         "automationNotes": "automation_notes",
+        "currentState": "current_state",
+        "frequency": "frequency",
+        "annualVolume": "annual_volume",
+        "errorRatePercent": "error_rate_percent",
+        "costPerExecution": "cost_per_execution",
+        "currentSystems": "current_systems",
+        "dataFormat": "data_format",
+        "externalDependencies": "external_dependencies",
+        "regulatoryConstraints": "regulatory_constraints",
+        "slaTarget": "sla_target",
+        "painPoints": "pain_points",
     }
     for child in ext_el:
         if child.tag.startswith("{" + CONSULARIS_NS + "}"):
@@ -59,7 +70,7 @@ def _parse_extension(ext_el: ET.Element | None) -> dict:
             key = map_xml_to_key.get(local)
             if key:
                 text = (child.text or "").strip()
-                if key in ("inputs", "outputs", "risks") and text:
+                if key in LIST_EXTENSION_KEYS and text:
                     try:
                         out[key] = json.loads(text)
                     except json.JSONDecodeError:

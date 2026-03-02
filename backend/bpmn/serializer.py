@@ -5,7 +5,7 @@ import json
 import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 
-from bpmn.model import EXTENSION_KEYS
+from bpmn.model import EXTENSION_KEYS, LIST_EXTENSION_KEYS
 from bpmn.layout import (
     GAP_X,
     GAP_Y,
@@ -53,12 +53,23 @@ def _extension_elements(task: dict) -> ET.Element | None:
         "risks": "risks",
         "automation_potential": "automationPotential",
         "automation_notes": "automationNotes",
+        "current_state": "currentState",
+        "frequency": "frequency",
+        "annual_volume": "annualVolume",
+        "error_rate_percent": "errorRatePercent",
+        "cost_per_execution": "costPerExecution",
+        "current_systems": "currentSystems",
+        "data_format": "dataFormat",
+        "external_dependencies": "externalDependencies",
+        "regulatory_constraints": "regulatoryConstraints",
+        "sla_target": "slaTarget",
+        "pain_points": "painPoints",
     }
     for key in EXTENSION_KEYS:
         val = ext.get(key)
         if val is None:
             continue
-        if key in ("inputs", "outputs", "risks"):
+        if key in LIST_EXTENSION_KEYS:
             if isinstance(val, list):
                 val = json.dumps(val) if val else ""
             else:

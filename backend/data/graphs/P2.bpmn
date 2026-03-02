@@ -1,4 +1,4 @@
-<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns3="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns5="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns3="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns5="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <ns0:process id="Process_P2" name="Selection, Acquisition, and Reception" isExecutable="false">
     <ns0:laneSet id="LaneSet_1">
       <ns0:lane id="P2" name="Selection, Acquisition, and Reception">
@@ -24,6 +24,17 @@
         <ns1:risks>["Stock-out", "Wrong therapeutic equivalent"]</ns1:risks>
         <ns1:automationPotential>medium</ns1:automationPotential>
         <ns1:automationNotes>ERP-linked formulary lookup, auto-substitution suggestions</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>120/day</ns1:frequency>
+        <ns1:annualVolume>43800</ns1:annualVolume>
+        <ns1:errorRatePercent>1.5</ns1:errorRatePercent>
+        <ns1:costPerExecution>5.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["ERP", "Formulary system"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>["Formulary DB", "Inventory system"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Therapeutic substitution policies"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 15 min</ns1:slaTarget>
+        <ns1:painPoints>["Frequent stock-outs", "Manual formulary lookups"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P2.2" name="Acquire Medication">
@@ -36,6 +47,17 @@
         <ns1:risks>["Supply shortage", "Price volatility", "Supplier reliability"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>Automated reorder points, EDI with suppliers, demand forecasting</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>15/day</ns1:frequency>
+        <ns1:annualVolume>5475</ns1:annualVolume>
+        <ns1:errorRatePercent>2.0</ns1:errorRatePercent>
+        <ns1:costPerExecution>25.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["ERP", "Supplier portal"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>["Supplier EDI", "GPO contracts"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Procurement regulations", "Controlled substance ordering"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 24 hours</ns1:slaTarget>
+        <ns1:painPoints>["Manual PO creation", "Price discrepancy resolution"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P2.3" name="Receive Shipment">
@@ -48,6 +70,17 @@
         <ns1:risks>["Damaged goods", "Wrong delivery", "Temperature excursion"]</ns1:risks>
         <ns1:automationPotential>medium</ns1:automationPotential>
         <ns1:automationNotes>Barcode/RFID scanning at receiving dock</ns1:automationNotes>
+        <ns1:currentState>manual</ns1:currentState>
+        <ns1:frequency>8/day</ns1:frequency>
+        <ns1:annualVolume>2920</ns1:annualVolume>
+        <ns1:errorRatePercent>3.5</ns1:errorRatePercent>
+        <ns1:costPerExecution>15.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["Paper logs", "ERP"]</ns1:currentSystems>
+        <ns1:dataFormat>paper</ns1:dataFormat>
+        <ns1:externalDependencies>["Supplier logistics"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Cold chain regulations", "Controlled substance receiving"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 30 min per shipment</ns1:slaTarget>
+        <ns1:painPoints>["Manual counting", "Temperature verification delays"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P2.4" name="Verify Shipment">
@@ -60,6 +93,17 @@
         <ns1:risks>["Expired products accepted", "Counterfeit drugs", "Quantity mismatch"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>Automated lot/expiry scanning, serialization verification</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>8/day</ns1:frequency>
+        <ns1:annualVolume>2920</ns1:annualVolume>
+        <ns1:errorRatePercent>1.8</ns1:errorRatePercent>
+        <ns1:costPerExecution>12.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["Barcode scanner", "ERP"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>["Serialization DB"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Drug serialization laws", "Expiry management"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 20 min per shipment</ns1:slaTarget>
+        <ns1:painPoints>["Lot number entry errors", "Slow barcode reads"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:sequenceFlow id="flow_Start_P2_P2.1" sourceRef="Start_P2" targetRef="P2.1" name="Start" />

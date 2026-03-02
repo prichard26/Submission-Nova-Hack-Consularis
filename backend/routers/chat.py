@@ -3,20 +3,27 @@ import asyncio
 import logging
 import threading
 from collections import OrderedDict
-from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import Response
 from pydantic import BaseModel, field_validator
 
+import db
+from agent import run_chat
 from config import SESSION_ID_MAX_LEN
-from deps import get_session_store
-from storage.base import SessionStore
-from services.chat import handle_chat_turn
 
 logger = logging.getLogger("consularis")
 
-# Per-session lock: at most one chat request at a time per session (bounded cache)
+
+def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None):
+    """Append user message, run agent, append assistant message. Returns (message, bpmn_xml, meta)."""
+    db.append_chat_message(session_id, "user", user_message)
+    message, bpmn_xml, tools_used = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id)
+    db.append_chat_message(session_id, "assistant", message)
+    meta = {"tools_used": tools_used, "session_id": session_id, "process_id": process_id}
+    return message, bpmn_xml, meta
+
+
 MAX_SESSION_LOCKS = 500
 _session_locks: OrderedDict[str, threading.Lock] = OrderedDict()
 _locks_guard = threading.Lock()
@@ -54,7 +61,6 @@ class ChatRequest(BaseModel):
 
 class ChatResponseMeta(BaseModel):
     tools_used: bool
-    fallback_used: bool
     session_id: str
     process_id: str | None = None
 
@@ -71,18 +77,15 @@ def options_chat():
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def api_chat(
-    req: ChatRequest,
-    store: Annotated[SessionStore, Depends(get_session_store)],
-):
+async def api_chat(req: ChatRequest):
     session_id = req.session_id
     lock = _lock_for_session(session_id)
     with lock:
         message, bpmn_xml, meta = await asyncio.to_thread(
-            handle_chat_turn, store, session_id, req.message, req.process_id
+            _handle_chat_turn, session_id, req.message, req.process_id
         )
         logger.info(
-            "chat session_id=%s process_id=%s tools_used=%s fallback_used=%s",
-            session_id, req.process_id, meta["tools_used"], meta["fallback_used"],
+            "chat session_id=%s process_id=%s tools_used=%s",
+            session_id, req.process_id, meta["tools_used"],
         )
         return {"message": message, "bpmn_xml": bpmn_xml, "meta": meta}

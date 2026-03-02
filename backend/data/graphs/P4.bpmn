@@ -1,4 +1,4 @@
-<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:consularis="http://consularis.example/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+<ns0:definitions xmlns:ns0="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:ns1="http://consularis.example/bpmn" xmlns:ns2="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <ns0:process id="Process_P4" name="Distribution" isExecutable="false">
     <ns0:laneSet id="LaneSet_1">
       <ns0:lane id="P4" name="Distribution">
@@ -21,6 +21,17 @@
         <ns1:risks>["Pick error", "Wrong patient allocation", "Incomplete cart"]</ns1:risks>
         <ns1:automationPotential>high</ns1:automationPotential>
         <ns1:automationNotes>Pharmacy robots, pick-to-light, automated cart fill</ns1:automationNotes>
+        <ns1:currentState>manual</ns1:currentState>
+        <ns1:frequency>30/day</ns1:frequency>
+        <ns1:annualVolume>10950</ns1:annualVolume>
+        <ns1:errorRatePercent>3.0</ns1:errorRatePercent>
+        <ns1:costPerExecution>12.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["Paper pick lists", "ADC"]</ns1:currentSystems>
+        <ns1:dataFormat>paper</ns1:dataFormat>
+        <ns1:externalDependencies>[]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Patient safety standards"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 45 min per round</ns1:slaTarget>
+        <ns1:painPoints>["Pick errors", "Incomplete carts", "Manual double-checking"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P4.2" name="Transport to Care Unit">
@@ -33,6 +44,17 @@
         <ns1:risks>["Delay", "Damage in transit", "Temperature excursion for cold chain"]</ns1:risks>
         <ns1:automationPotential>medium</ns1:automationPotential>
         <ns1:automationNotes>AGVs, pneumatic tubes, delivery tracking systems</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>20/day</ns1:frequency>
+        <ns1:annualVolume>7300</ns1:annualVolume>
+        <ns1:errorRatePercent>1.0</ns1:errorRatePercent>
+        <ns1:costPerExecution>8.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["Pneumatic tube", "Porter service"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>["Transport logistics"]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Cold chain transport", "Controlled substance chain of custody"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 30 min</ns1:slaTarget>
+        <ns1:painPoints>["Delivery delays", "Cold chain breaks"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:task id="P4.3" name="Stock Care Unit">
@@ -45,6 +67,17 @@
         <ns1:risks>["Wrong ward", "Receiving error", "ADC load error"]</ns1:risks>
         <ns1:automationPotential>medium</ns1:automationPotential>
         <ns1:automationNotes>ADC with barcode verification, nurse confirmation scan</ns1:automationNotes>
+        <ns1:currentState>semi_automated</ns1:currentState>
+        <ns1:frequency>20/day</ns1:frequency>
+        <ns1:annualVolume>7300</ns1:annualVolume>
+        <ns1:errorRatePercent>2.5</ns1:errorRatePercent>
+        <ns1:costPerExecution>7.00 EUR</ns1:costPerExecution>
+        <ns1:currentSystems>["ADC", "Barcode scanner"]</ns1:currentSystems>
+        <ns1:dataFormat>digital_structured</ns1:dataFormat>
+        <ns1:externalDependencies>[]</ns1:externalDependencies>
+        <ns1:regulatoryConstraints>["Ward stock management policies"]</ns1:regulatoryConstraints>
+        <ns1:slaTarget>&lt; 20 min</ns1:slaTarget>
+        <ns1:painPoints>["ADC load errors", "Wrong ward deliveries"]</ns1:painPoints>
       </ns0:extensionElements>
     </ns0:task>
     <ns0:sequenceFlow id="flow_Start_P4_P4.1" sourceRef="Start_P4" targetRef="P4.1" name="Start" />

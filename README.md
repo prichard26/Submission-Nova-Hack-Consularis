@@ -41,19 +41,17 @@ That kills any process listening on port **5173** (frontend) and **8000** (backe
 
 ## Where things run
 
-| Service   | URL                  | Started by                          |
+| Service  | URL                  | Started by                          |
 |----------|----------------------|-------------------------------------|
 | Frontend | http://localhost:5173 | `npm run dev` (Vite) in `frontend/` |
 | Backend  | http://localhost:8000 | `uvicorn main:app` in `backend/`    |
 
 The frontend uses these backend APIs:
 
-- **GET /api/graph/baseline** — baseline BPMN XML (no session)
-- **GET /api/graph/export?session_id=…** — session graph as BPMN XML
-- **GET /api/graph/json?session_id=…** — session graph as JSON (for Process view)
-- **POST /api/chat** — send message; returns assistant reply and updated `bpmn_xml`
-
-Optional: **POST /api/select-domain** (domain + company name) is available for future use; the landing page currently stores session in the browser and does not call it.
+- **GET /api/graph/baseline?process_id=…** — baseline BPMN XML (no session needed, default `Process_Global`)
+- **GET /api/graph/export?session_id=…&process_id=…** — session graph as BPMN XML
+- **GET /api/graph/resolve?session_id=…&name=…** — fuzzy name-to-ID resolution
+- **POST /api/chat** — send message; returns assistant reply, updated `bpmn_xml`, and meta
 
 ## Manual setup (optional)
 
@@ -73,20 +71,48 @@ cd backend && source .venv/bin/activate && pytest -v
 
 ## How the agent works
 
-1. **Session:** Each company name is a `session_id`. The backend keeps one BPMN 2.0 process graph per session.
-2. **Chat:** When you send a message, the backend calls Groq (Llama 3.3 70B) with a system prompt (Aurelius personality + “if unclear, ask to repeat”) and **tools**: `get_graph`, `get_node`, `update_node`, `add_node`, `delete_node`, `get_edges`, `update_edge`, `add_edge`, `validate_graph`.
-3. **Tool loop:** If the model returns tool calls (e.g. “update P1.2 duration to 10 min”), the backend runs the tool on the session graph, appends the result to the conversation, and calls the model again. This repeats until the model replies with plain text and no tool calls.
-4. **Validation:** Every tool call is validated (node/edge exists, IDs from the graph only). Invalid calls return an error to the model so it can say “Please repeat” or correct.
+1. **Session:** Each company name is a `session_id`. The backend keeps a set of BPMN 2.0 process graphs per session (hierarchical: global map + subprocesses), backed by in-memory SQLite.
+2. **Chat:** When you send a message, the backend calls Groq (Llama 3.3 70B) with a system prompt (Aurelius personality + "if unclear, ask to repeat") and **tools**: `get_graph`, `get_node`, `update_node`, `add_node`, `delete_node`, `get_edges`, `update_edge`, `add_edge`, `validate_graph`, plus hierarchy tools (`resolve_step`, `list_processes`, `navigate_process`).
+3. **Tool loop:** If the model returns tool calls (e.g. "update P1.2 duration to 10 min"), the backend runs the tool on the session graph, appends the result to the conversation, and calls the model again. This repeats until the model replies with plain text and no tool calls.
+4. **Validation:** Every tool call is validated (node/edge exists, IDs from the graph only). Invalid calls return an error to the model so it can self-correct.
 5. **Live graph:** The API returns `{ message, bpmn_xml, meta }`. The frontend updates the BPMN diagram from `bpmn_xml` so edits appear immediately.
+
+## Architecture
+
+The system uses a **hierarchical process tree** stored in **BPMN 2.0 XML** and backed by **in-memory SQLite**:
+
+- A **process registry** (`registry.json`) defines the tree structure.
+- Each process is a separate BPMN file (`global.bpmn`, `P1.bpmn`–`P7.bpmn`).
+- Parent processes link to children via **call activities**.
+- Tasks carry 19 metadata fields (actor, duration, risks, operational data like frequency, costs, SLA targets).
+- Sessions get a deep copy of the baseline; each session evolves independently.
 
 ## Project structure
 
-- `backend/` – FastAPI (BPMN store, Groq agent with tools, `/api/chat`, `/api/graph/export`)
-- `frontend/` – React + Vite app (Aurelius robot, BPMN viewer, chat)
-- `backend/data/` – baseline graph (`pharmacy_circuit.bpmn`) and optional session persistence
-- `docs/` – architecture and data-flow docs
-- `reference/` – source and reference data only (databases, datasets); app does not read from here
-- `run.sh` – one-shot setup and run
-- `stop.sh` – stop dev servers on ports 5173, 5174, 5175, 8000
+```
+├── backend/                  FastAPI app
+│   ├── main.py               App entry, lifespan, CORS, routers
+│   ├── config.py             Env and constants
+│   ├── db.py                 In-memory SQLite (baseline, sessions, chat)
+│   ├── routers/              HTTP endpoints (health, chat, graph)
+│   ├── agent/                Aurelius: runtime, tools, prompt
+│   ├── bpmn/                 BPMN domain: model, parser, serializer, layout, store
+│   ├── services/             Chat orchestration
+│   ├── data/
+│   │   └── graphs/           Baseline BPMN hierarchy
+│   │       ├── registry.json
+│   │       ├── global.bpmn
+│   │       └── P1-P7.bpmn
+│   └── tests/
+├── frontend/                 React + Vite app
+│   └── src/
+│       ├── components/       BpmnViewer, AureliusChat, Robot, etc.
+│       ├── hooks/            useBpmnXml
+│       ├── pages/            Landing, Dashboard
+│       └── services/         API client
+├── docs/                     Architecture and reference docs
+├── run.sh                    One-shot setup and run
+└── stop.sh                   Stop dev servers
+```
 
-Documentation: [docs/README.md](docs/README.md) (index). Data flow and state: [docs/DATA_FLOW.md](docs/DATA_FLOW.md).
+Documentation: [docs/README.md](docs/README.md) (index). Data flow and state: [docs/DATA_FLOW.md](docs/DATA_FLOW.md). Graph structure: [docs/GRAPH_STRUCTURE.md](docs/GRAPH_STRUCTURE.md).

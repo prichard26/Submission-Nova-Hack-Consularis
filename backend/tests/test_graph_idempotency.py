@@ -1,13 +1,10 @@
 """Graph store: duplicate risks and session validation."""
-import pytest
 
-from graph_store import get_or_create_session, update_node, get_node, add_edge
+from bpmn.store import update_node, get_node, add_edge
 
 
 def test_update_node_risks_dedupe():
     sid = "test-dedupe"
-    get_or_create_session(sid)
-    # Add duplicate risks; update_node should store unique only
     update_node(sid, "P1.1", {"risks": ["a", "b", "a", "b", "c"]}, process_id="Process_P1")
     node = get_node(sid, "P1.1", process_id="Process_P1")
     assert node is not None
@@ -16,15 +13,14 @@ def test_update_node_risks_dedupe():
 
 def test_add_edge_idempotent():
     """Second add_edge for same (from, to) returns existing edge; no duplicate."""
-    from graph_store import get_edges
+    from bpmn.store import get_edges
 
     sid = "test-edge-idempotent"
-    get_or_create_session(sid)
-    e1 = add_edge(sid, "P1.1", "P1.2", "first", process_id="Process_P1")  # may already exist in baseline
-    e2 = add_edge(sid, "P1.1", "P1.2", "second", process_id="Process_P1")  # same (from, to) -> returns existing, no new edge
+    e1 = add_edge(sid, "P1.1", "P1.2", "first", process_id="Process_P1")
+    e2 = add_edge(sid, "P1.1", "P1.2", "second", process_id="Process_P1")
     assert e1 is not None
     assert e2 is not None
     assert e1["from"] == e2["from"] and e1["to"] == e2["to"]
     edges = get_edges(sid, "P1.1", process_id="Process_P1")
     from_p1_1 = [x for x in edges if x["from"] == "P1.1" and x["to"] == "P1.2"]
-    assert len(from_p1_1) == 1  # no duplicate
+    assert len(from_p1_1) == 1

@@ -8,7 +8,6 @@ React + Vite frontend for process mapping and BPMN editing.
 - Vite 7
 - React Router
 - bpmn-js
-- React Flow (`@xyflow/react`) for Process view
 - ESLint
 
 ## Quick Start
@@ -26,7 +25,7 @@ App runs on the Vite dev URL (typically `http://localhost:5173`).
 
 Frontend API base: `VITE_API_BASE` when set, otherwise `http://localhost:8000`.
 
-The app calls: `GET /api/graph/baseline`, `GET /api/graph/export`, `GET /api/graph/json`, and `POST /api/chat` (see [src/services/api.js](src/services/api.js)).
+The app calls: `GET /api/graph/baseline`, `GET /api/graph/export`, and `POST /api/chat` (see [src/services/api.js](src/services/api.js)).
 
 Example `.env` (frontend):
 
@@ -44,7 +43,7 @@ VITE_API_BASE=http://localhost:8000
 ## Routes
 
 - `/` - Landing page (company input + sector tiles)
-- `/dashboard` - Graph workspace (process view, BPMN view, chat)
+- `/dashboard` - Graph workspace (BPMN view, chat)
 
 Session is persisted in `sessionStorage` under `consularis_session`.
 
@@ -58,12 +57,9 @@ frontend/
       AureliusChat.jsx         # Chat assistant panel
       BpmnViewer.jsx           # bpmn-js modeler wrapper
       DataViewState.jsx        # Shared loading/error state UI
-      GraphCanvas.jsx          # Switches between process and BPMN viewers
-      ProcessGraphViewer.jsx   # React Flow renderer
       Robot.jsx                # Landing mascot component
     hooks/
       useBpmnXml.js            # Fetch BPMN XML with fallback + cancellation
-      useGraphJson.js          # Fetch graph JSON + cancellation
     pages/
       Landing.jsx
       Dashboard.jsx
@@ -77,10 +73,8 @@ frontend/
 ## Data Flow
 
 1. User starts on `/` and submits a company name (and sector; only Pharmacy is active). Session is stored in `sessionStorage` and user is routed to `/dashboard`.
-2. Dashboard shows a view toggle: **Process** (React Flow) or **BPMN** (bpmn-js).
-3. **Process view** (`ProcessGraphViewer`): fetches graph via `GET /api/graph/json?session_id=...`; displays lanes, nodes, and edges with React Flow.
-4. **BPMN view** (`BpmnViewer`): fetches session graph via `GET /api/graph/export?session_id=...` (or baseline via `GET /api/graph/baseline`); renders with bpmn-js. Chat panel can be shown in the footer; chat returns `bpmn_xml` and triggers a diagram refresh.
-5. **Aurelius chat** (`POST /api/chat`): sends message, receives assistant reply and updated `bpmn_xml`; both Process and BPMN views can refresh after a chat turn.
+2. Dashboard shows the **BPMN view** (`BpmnViewer`): fetches session graph via `GET /api/graph/export?session_id=...` (or baseline via `GET /api/graph/baseline`); renders with bpmn-js. Chat panel can be shown in the footer.
+3. **Aurelius chat** (`POST /api/chat`): sends message, receives assistant reply and updated `bpmn_xml`; the diagram refreshes after a chat turn.
 
 ## Notes
 

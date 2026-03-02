@@ -53,88 +53,6 @@
   color: #e85d04;
 }
 
-.dashboard__view-toggle {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-  padding: 3px;
-  border: 1px solid #2e2820;
-  border-radius: 9px;
-  background: #17130f;
-}
-
-.view-toggle-btn {
-  padding: 0.33rem 0.72rem;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #9a8c7a;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.view-toggle-btn:hover {
-  color: #d2c5b5;
-  border-color: #4a3f30;
-  background: #231d17;
-}
-
-.view-toggle-btn--active {
-  background: rgba(232, 93, 4, 0.15);
-  border-color: rgba(232, 93, 4, 0.4);
-  color: #e85d04;
-}
-
-/* ── Phase tabs ── */
-.dashboard__phases {
-  display: flex;
-  gap: 2px;
-  flex: 1;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 0 0.5rem;
-}
-.dashboard__phases::-webkit-scrollbar { display: none; }
-
-.phase-tab {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.3rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: none;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: #7a6f60;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.phase-tab:hover {
-  color: #c9bfb0;
-  background: #1e1914;
-}
-
-.phase-tab--active {
-  color: #e85d04;
-  background: rgba(232, 93, 4, 0.1);
-  border-color: rgba(232, 93, 4, 0.25);
-}
-
-.phase-tab__id {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: inherit;
-  opacity: 0.7;
-}
-
 /* ── Chat toggle ── */
 .dashboard__chat-toggle {
   flex-shrink: 0;
@@ -170,15 +88,3 @@
   position: relative;
   overflow: hidden;
 }
-
-/* Override React Flow defaults to match dark theme */
-.react-flow__controls button {
-  background: #1e1914 !important;
-  border-color: #2e2820 !important;
-  color: #a09080 !important;
-}
-.react-flow__controls button:hover {
-  background: #2a2218 !important;
-  color: #e85d04 !important;
-}
-.react-flow__controls svg { fill: currentColor !important; }
