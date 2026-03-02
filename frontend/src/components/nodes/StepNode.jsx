@@ -1,14 +1,30 @@
 import { Handle, Position } from '@xyflow/react'
 import './StepNode.css'
 
-export default function StepNode({ data }) {
+const HANDLES = [
+  { position: Position.Left, id: 'left' },
+  { position: Position.Right, id: 'right' },
+  { position: Position.Top, id: 'top' },
+  { position: Position.Bottom, id: 'bottom' },
+]
+const TARGET_ORDER = ['left', 'right', 'top', 'bottom']
+const SOURCE_ORDER = ['right', 'left', 'top', 'bottom']
+
+export default function StepNode({ data, selected }) {
   const errRate = parseFloat(data.error_rate_percent)
   const hasHighError = !isNaN(errRate) && errRate > 5
   const autoPotential = (data.automation_potential || '').toLowerCase()
 
   return (
-    <div className={`step-node ${hasHighError ? 'step-node--high-error' : ''}`}>
-      <Handle type="target" position={Position.Left} />
+    <div className={`step-node ${hasHighError ? 'step-node--high-error' : ''} ${selected ? 'step-node--selected' : ''}`}>
+      {TARGET_ORDER.map((id) => {
+        const { position } = HANDLES.find((h) => h.id === id)
+        return <Handle key={`${id}-target`} type="target" position={position} id={`${id}-target`} />
+      })}
+      {SOURCE_ORDER.map((id) => {
+        const { position } = HANDLES.find((h) => h.id === id)
+        return <Handle key={`${id}-source`} type="source" position={position} id={`${id}-source`} />
+      })}
       <div className="step-node__header">
         <span className="step-node__name">{data.name}</span>
         {data.actor && <span className="step-node__actor">{data.actor}</span>}
@@ -35,7 +51,6 @@ export default function StepNode({ data }) {
       {data.risks && data.risks.length > 0 && (
         <div className="step-node__risk-indicator" title={data.risks.join(', ')}>⚠</div>
       )}
-      <Handle type="source" position={Position.Right} />
     </div>
   )
 }

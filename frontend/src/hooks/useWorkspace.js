@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getWorkspace } from '../services/api'
 
-export function useWorkspace(sessionId) {
+export function useWorkspace(sessionId, refreshTrigger = 0) {
   const [state, setState] = useState({ workspace: null, loading: true, error: null })
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export function useWorkspace(sessionId) {
       })
 
     return () => controller.abort()
-  }, [sessionId])
+  }, [sessionId, refreshTrigger])
 
   if (!sessionId) {
     return { workspace: null, loading: false, error: 'No session' }

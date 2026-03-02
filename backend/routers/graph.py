@@ -16,6 +16,9 @@ from graph.store import (
     update_node,
     delete_node,
     add_node,
+    add_edge,
+    update_edge,
+    delete_edge,
     update_positions,
 )
 from graph.bpmn_export import export_bpmn_xml
@@ -55,7 +58,15 @@ def api_workspace(
 ):
     """Return the workspace manifest JSON."""
     _validate_session_id(session_id)
-    ws_json = get_workspace_json(session_id)
+    try:
+        ws_json = get_workspace_json(session_id)
+    except RuntimeError as e:
+        if "No workspace manifest found" in str(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Workspace not ready. Ensure backend/data/workspace.json exists and retry.",
+            ) from e
+        raise
     return Response(content=ws_json, media_type="application/json")
 
 
@@ -123,6 +134,75 @@ def api_delete_node(
 
 class PositionUpdateRequest(BaseModel):
     positions: dict[str, dict]
+
+
+class EdgeCreateRequest(BaseModel):
+    source: str
+    target: str
+    label: str = ""
+    condition: str | None = None
+
+
+class EdgeUpdateRequest(BaseModel):
+    source: str
+    target: str
+    label: str | None = None
+    condition: str | None = None
+
+
+@router.post("/edge")
+def api_create_edge(
+    req: EdgeCreateRequest,
+    session_id: str = Query(..., description="Session id"),
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
+):
+    """Create an edge (flow) between two nodes."""
+    _validate_session_id(session_id)
+    result = add_edge(
+        session_id,
+        req.source,
+        req.target,
+        label=req.label or "",
+        condition=req.condition,
+        process_id=process_id,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Source or target node not found, or invalid edge")
+    return result
+
+
+@router.put("/edge")
+def api_update_edge(
+    req: EdgeUpdateRequest,
+    session_id: str = Query(..., description="Session id"),
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
+):
+    """Update an existing edge's label or condition."""
+    _validate_session_id(session_id)
+    updates = {}
+    if req.label is not None:
+        updates["label"] = req.label
+    if req.condition is not None:
+        updates["condition"] = req.condition
+    result = update_edge(session_id, req.source, req.target, updates, process_id=process_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Edge not found")
+    return result
+
+
+@router.delete("/edge")
+def api_delete_edge(
+    session_id: str = Query(..., description="Session id"),
+    source: str = Query(..., description="Source node id"),
+    target: str = Query(..., description="Target node id"),
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
+):
+    """Delete an edge between two nodes."""
+    _validate_session_id(session_id)
+    ok = delete_edge(session_id, source, target, process_id=process_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Edge not found")
+    return {"deleted": True}
 
 
 @router.post("/position")

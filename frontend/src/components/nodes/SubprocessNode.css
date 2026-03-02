@@ -18,6 +18,11 @@
   box-shadow: 0 0 0 2px var(--accent, #e85d04), 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.subprocess-node--selected {
+  box-shadow: 0 0 0 3px var(--accent, #e85d04), 0 4px 16px rgba(232, 93, 4, 0.3);
+  border-color: var(--accent, #e85d04);
+}
+
 .subprocess-node__icon {
   font-size: 12px;
   opacity: 0.6;

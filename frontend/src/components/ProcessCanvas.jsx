@@ -7,13 +7,14 @@ import {
   useNodesState,
   useEdgesState,
   ReactFlowProvider,
+  MarkerType,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toPng } from 'html-to-image'
 import { useProcessGraph } from '../hooks/useProcessGraph'
-import { toReactFlowData } from '../services/graphTransform'
+import { toReactFlowData, autoArrangeNodes } from '../services/graphTransform'
 import { nodeTypes } from './nodes/nodeTypes'
-import { undoGraph, updatePositions, createNode, exportBpmnXml } from '../services/api'
+import { undoGraph, updatePositions, createNode, createEdge, deleteEdge, exportBpmnXml } from '../services/api'
 import DataViewState from './DataViewState'
 import './ProcessCanvas.css'
 
@@ -29,9 +30,33 @@ function Canvas({
 }) {
   const { graph, loading, error } = useProcessGraph(sessionId, processId, refreshTrigger)
   const [undoBotPending, setUndoBotPending] = useState(false)
+  const [panelWidth, setPanelWidth] = useState(380)
+  const [resizing, setResizing] = useState(false)
   const flowWrapper = useRef(null)
+  const panelRef = useRef(null)
   const posTimerRef = useRef(null)
   const pendingPositions = useRef({})
+
+  useEffect(() => {
+    if (!resizing) return
+    function onMove(e) {
+      if (!panelRef.current) return
+      const container = panelRef.current.parentElement
+      if (!container) return
+      const rect = container.getBoundingClientRect()
+      const newWidth = rect.right - e.clientX
+      setPanelWidth((w) => Math.min(720, Math.max(280, newWidth)))
+    }
+    function onUp() {
+      setResizing(false)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [resizing])
 
   const { initialNodes, initialEdges } = useMemo(() => {
     if (!graph) return { initialNodes: [], initialEdges: [] }
@@ -42,7 +67,6 @@ function Canvas({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
-  // Sync when graph data changes
   useEffect(() => {
     setNodes(initialNodes)
     setEdges(initialEdges)
@@ -112,6 +136,59 @@ function Canvas({
     [graph, sessionId, processId, onRequestRefresh],
   )
 
+  const handleAutoArrange = useCallback(async () => {
+    const { nodes: nextNodes, positions } = autoArrangeNodes(nodes, edges)
+    if (Object.keys(positions).length === 0) return
+    setNodes(nextNodes)
+    try {
+      await updatePositions(sessionId, processId, positions)
+      onRequestRefresh?.()
+    } catch (err) {
+      console.warn('Auto-arrange position update failed', err)
+    }
+  }, [nodes, edges, sessionId, processId, setNodes, onRequestRefresh])
+
+  const handleConnect = useCallback(
+    async (connection) => {
+      if (!connection?.source || !connection?.target) return
+      try {
+        await createEdge(sessionId, processId, connection.source, connection.target, '')
+        onRequestRefresh?.()
+      } catch (err) {
+        console.warn('Create edge failed', err)
+      }
+    },
+    [sessionId, processId, onRequestRefresh],
+  )
+
+  const handleEdgesDelete = useCallback(
+    async (deletedEdges) => {
+      for (const edge of deletedEdges) {
+        try {
+          await deleteEdge(sessionId, processId, edge.source, edge.target)
+        } catch (err) {
+          console.warn('Delete edge failed', err)
+        }
+      }
+      onRequestRefresh?.()
+    },
+    [sessionId, processId, onRequestRefresh],
+  )
+
+  const handleReconnect = useCallback(
+    async (oldEdge, newConnection) => {
+      if (!newConnection?.source || !newConnection?.target) return
+      try {
+        await deleteEdge(sessionId, processId, oldEdge.source, oldEdge.target)
+        await createEdge(sessionId, processId, newConnection.source, newConnection.target, '')
+        onRequestRefresh?.()
+      } catch (err) {
+        console.warn('Reconnect edge failed', err)
+      }
+    },
+    [sessionId, processId, onRequestRefresh],
+  )
+
   const handleExportPng = useCallback(async () => {
     if (!flowWrapper.current) return
     try {
@@ -140,40 +217,33 @@ function Canvas({
     }
   }, [sessionId, processId])
 
+  const disabled = loading || !!error
+
   return (
     <div className="process-canvas">
-      <aside className="process-canvas__panel">
+      <div
+        className="process-canvas__resize-handle"
+        onMouseDown={() => setResizing(true)}
+        title="Drag to resize panel"
+        aria-label="Resize panel"
+      />
+      <aside
+        ref={panelRef}
+        className="process-canvas__panel"
+        style={{ width: panelWidth, minWidth: panelWidth }}
+      >
         <div className="process-canvas__panel-inner">
           <div className="process-canvas__toolbar" role="toolbar">
-            <span className="process-canvas__toolbar-title">Process Canvas</span>
-            <div className="process-canvas__toolbar-group">
-              <span className="process-canvas__toolbar-label">Add</span>
-              <div className="process-canvas__toolbar-actions">
-                <button type="button" onClick={() => handleAddNode('step')} disabled={loading || !!error} title="Add Step">+ Step</button>
-                <button type="button" onClick={() => handleAddNode('decision')} disabled={loading || !!error} title="Add Decision">+ Decision</button>
-                <button type="button" onClick={() => handleAddNode('subprocess')} disabled={loading || !!error} title="Add Subprocess">+ Sub</button>
-              </div>
-            </div>
-            <div className="process-canvas__toolbar-group">
-              <span className="process-canvas__toolbar-label">Export</span>
-              <div className="process-canvas__toolbar-actions">
-                <button type="button" onClick={handleExportPng} disabled={loading || !!error} title="Export PNG">PNG</button>
-                <button type="button" onClick={handleExportBpmn} disabled={loading || !!error} title="Export BPMN XML">BPMN</button>
-              </div>
-            </div>
-            <div className="process-canvas__toolbar-group">
-              <span className="process-canvas__toolbar-label">Actions</span>
-              <div className="process-canvas__toolbar-actions">
-                <button
-                  type="button"
-                  onClick={handleUndoBot}
-                  title="Undo last bot change"
-                  disabled={loading || !!error || undoBotPending || !onRequestRefresh}
-                >
-                  Undo (bot)
-                </button>
-              </div>
-            </div>
+            <span className="process-canvas__toolbar-title">Canvas</span>
+            <button type="button" onClick={() => handleAddNode('step')} disabled={disabled} title="Add Step">+ Step</button>
+            <button type="button" onClick={() => handleAddNode('decision')} disabled={disabled} title="Add Decision">+ Decision</button>
+            <button type="button" onClick={() => handleAddNode('subprocess')} disabled={disabled} title="Add Subprocess">+ Sub</button>
+            <span className="process-canvas__toolbar-sep" />
+            <button type="button" onClick={handleAutoArrange} disabled={disabled || !onRequestRefresh} title="Auto-arrange nodes">Arrange</button>
+            <button type="button" onClick={handleUndoBot} disabled={disabled || undoBotPending || !onRequestRefresh} title="Undo last bot change">Undo</button>
+            <span className="process-canvas__toolbar-sep" />
+            <button type="button" onClick={handleExportPng} disabled={disabled} title="Export as PNG">PNG</button>
+            <button type="button" onClick={handleExportBpmn} disabled={disabled} title="Export as BPMN XML">BPMN</button>
           </div>
           {panelFooter && <div className="process-canvas__panel-footer">{panelFooter}</div>}
         </div>
@@ -195,13 +265,21 @@ function Canvas({
           edges={edges}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
+          onConnect={handleConnect}
+          onEdgesDelete={handleEdgesDelete}
+          onReconnect={handleReconnect}
           onNodeClick={handleNodeClick}
           nodeTypes={nodeTypes}
           fitView
           minZoom={0.1}
           maxZoom={4}
-          defaultEdgeOptions={{ type: 'smoothstep' }}
+          edgesReconnectable
+          defaultEdgeOptions={{
+            type: 'smoothstep',
+            markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-stroke, #c97d3a)' },
+          }}
           proOptions={{ hideAttribution: true }}
+          deleteKeyCode={['Backspace', 'Delete']}
         >
           <Controls position="bottom-left" />
           <MiniMap

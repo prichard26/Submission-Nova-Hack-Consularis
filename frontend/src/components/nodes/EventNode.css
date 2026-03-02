@@ -18,6 +18,11 @@
   border: 3px solid var(--node-stroke, #c97d3a);
 }
 
+.event-node--selected {
+  box-shadow: 0 0 0 3px var(--accent, #e85d04), 0 4px 16px rgba(232, 93, 4, 0.3);
+  border-color: var(--accent, #e85d04);
+}
+
 .event-node__label {
   font-size: 9px;
   font-weight: 700;

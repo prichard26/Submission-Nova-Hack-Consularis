@@ -77,6 +77,26 @@ def _persist(session_id: str, process_id: str | None = None, *, skip_history: bo
     db.upsert_session_json(session_id, pid, graph.to_json())
 
 
+def _refresh_workspace_summary(session_id: str, process_id: str | None = None) -> None:
+    """Recompute step/subprocess counts from the graph and update the workspace manifest."""
+    pid = _normalize_process_id(process_id)
+    try:
+        graph = _get_graph(session_id, pid)
+    except RuntimeError:
+        return
+    ws = _get_workspace(session_id)
+    info = ws.get_process_info(pid)
+    if info is None:
+        return
+    step_count = sum(1 for s in graph.steps if s.get("type") not in ("start", "end"))
+    subprocess_count = sum(1 for s in graph.steps if s.get("type") == "subprocess")
+    summary = dict(info.get("summary") or {})
+    summary["step_count"] = step_count
+    summary["subprocess_count"] = subprocess_count
+    info["summary"] = summary
+    db.upsert_session_workspace(session_id, ws.to_json())
+
+
 def _get_workspace(session_id: str) -> WorkspaceManifest:
     if session_id in _ws_cache:
         return _ws_cache[session_id]
@@ -86,6 +106,16 @@ def _get_workspace(session_id: str) -> WorkspaceManifest:
         ws_json = db.get_session_workspace(session_id)
     if ws_json is None:
         ws_json = db.get_baseline_workspace()
+    if ws_json is None:
+        # One-time retry: baseline may not be seeded yet (e.g. request before lifespan finished).
+        try:
+            init_baseline()
+            ws_json = db.get_baseline_workspace()
+            if ws_json:
+                db.clone_baseline_to_session(session_id)
+                ws_json = db.get_session_workspace(session_id) or ws_json
+        except FileNotFoundError:
+            pass
     if ws_json is None:
         raise RuntimeError("No workspace manifest found")
     ws = WorkspaceManifest.from_json(ws_json)
@@ -324,7 +354,19 @@ def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | N
 
     graph.steps.append(new_step)
     lane["node_refs"] = list(refs) + [new_id]
+
+    # Optionally insert new node into flow chain just before the End event of this lane
+    end_step = next((s for s in graph.steps if s.get("lane_id") == lane_id and s.get("type") == "end"), None)
+    if end_step:
+        end_id = end_step.get("id")
+        incoming = next((f for f in graph.flows if f.get("to") == end_id), None)
+        if incoming:
+            prev_id = incoming["from"]
+            incoming["to"] = new_id
+            graph.flows.append({"from": new_id, "to": end_id})
+
     _persist(session_id, process_id)
+    _refresh_workspace_summary(session_id, process_id)
     return get_node(session_id, new_id, process_id=process_id)
 
 
@@ -344,6 +386,7 @@ def delete_node(session_id: str, node_id: str, process_id: str | None = None) ->
         if f.get("from") != node_id and f.get("to") != node_id
     ]
     _persist(session_id, process_id)
+    _refresh_workspace_summary(session_id, process_id)
     return True
 
 

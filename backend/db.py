@@ -79,7 +79,8 @@ def _init_schema(conn: sqlite3.Connection) -> None:
 def seed_baseline(workspace_path: Path, graphs_dir: Path) -> None:
     """Read workspace.json + graph JSON files and insert into baseline tables."""
     conn = get_conn()
-    if conn.execute("SELECT count(*) FROM baseline_processes").fetchone()[0] > 0:
+    row = conn.execute("SELECT count(*) FROM baseline_processes").fetchone()
+    if row is not None and (row[0] or 0) > 0:
         return
 
     workspace = json.loads(workspace_path.read_text(encoding="utf-8"))
@@ -137,9 +138,10 @@ def get_baseline_workspace() -> str | None:
 def clone_baseline_to_session(session_id: str) -> None:
     """Copy all baseline rows into session tables for the given session."""
     conn = get_conn()
-    existing = conn.execute(
+    row = conn.execute(
         "SELECT count(*) FROM session_processes WHERE session_id = ?", (session_id,)
-    ).fetchone()[0]
+    ).fetchone()
+    existing = (row[0] if row is not None else 0)
     if existing > 0:
         return
     conn.execute(

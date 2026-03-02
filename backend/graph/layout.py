@@ -16,14 +16,15 @@ GATEWAY_SIZE = 56
 
 
 def auto_position(graph: "ProcessGraph", lane_id: str) -> dict:
-    """Compute position for a new node appended to a lane."""
+    """Compute position for a new node appended to a lane (right of the rightmost positioned node)."""
     lane_steps = graph.steps_in_lane(lane_id)
     positioned = [s for s in lane_steps if s.get("position")]
     if not positioned:
         return {"x": DEFAULT_X, "y": DEFAULT_Y}
-    last = positioned[-1]
-    last_pos = last["position"]
-    return {"x": last_pos["x"] + GAP_X, "y": last_pos["y"]}
+    rightmost = max(positioned, key=lambda s: s["position"]["x"])
+    pos = rightmost["position"]
+    w, _ = step_size(rightmost)
+    return {"x": pos["x"] + w + 80, "y": pos["y"]}
 
 
 def step_size(step: dict) -> tuple[int, int]:

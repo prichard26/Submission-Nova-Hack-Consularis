@@ -12,7 +12,6 @@ const DEFAULT_PROCESS_ID = 'Process_Global'
 
 export default function Dashboard({ companyName, sector = 'pharmacy' }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [chatOpen, setChatOpen] = useState(false)
   const [activeProcessId, setActiveProcessId] = useState(DEFAULT_PROCESS_ID)
   const [selectedStep, setSelectedStep] = useState(null)
   const [viewMode, setViewMode] = useState('detail')
@@ -22,7 +21,7 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
 
-  const { workspace } = useWorkspace(companyName)
+  const { workspace } = useWorkspace(companyName, refreshTrigger)
 
   const sectorLabel = `${sector.charAt(0).toUpperCase()}${sector.slice(1)}`
 
@@ -71,20 +70,17 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
     [companyName, activeProcessId, handleExternalGraphUpdate],
   )
 
-  const sharedChatProps = {
-    sessionId: companyName,
-    processId: activeProcessId,
-    onGraphUpdate: handleExternalGraphUpdate,
-    onClose: () => setChatOpen(false),
-    messages: chatMessages,
-    onSend: handleChatSend,
-    input: chatInput,
-    onInputChange: setChatInput,
-    loading: chatLoading,
-  }
-
   const panelFooter = (
-    <AureliusChat {...sharedChatProps} />
+    <AureliusChat
+      sessionId={companyName}
+      processId={activeProcessId}
+      onGraphUpdate={handleExternalGraphUpdate}
+      messages={chatMessages}
+      onSend={handleChatSend}
+      input={chatInput}
+      onInputChange={setChatInput}
+      loading={chatLoading}
+    />
   )
 
   useEffect(() => {
@@ -92,17 +88,14 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
       if (e.key !== 'Escape') return
       if (selectedStep) {
         setSelectedStep(null)
-        return
       }
-      if (chatOpen) setChatOpen(false)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedStep, chatOpen])
+  }, [selectedStep])
 
   return (
     <div className="dashboard">
-      {/* ── Top bar ── */}
       <header className="dashboard__topbar">
         <div className="dashboard__topbar-left">
           <span className="dashboard__logo">
@@ -119,16 +112,9 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
           >
             {viewMode === 'landscape' ? 'Process View' : 'Landscape'}
           </button>
-          <button
-            className={`dashboard__chat-toggle ${chatOpen ? 'dashboard__chat-toggle--active' : ''}`}
-            onClick={() => setChatOpen(o => !o)}
-          >
-            <span>🤖</span> Aurelius
-          </button>
         </div>
       </header>
 
-      {/* ── Breadcrumb ── */}
       {viewMode === 'detail' && (
         <ProcessBreadcrumb
           workspaceProcesses={workspaceProcesses}
@@ -137,7 +123,6 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
         />
       )}
 
-      {/* ── Main content ── */}
       <div className="dashboard__canvas">
         {viewMode === 'landscape' ? (
           <LandscapeView
@@ -159,7 +144,6 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
         )}
       </div>
 
-      {/* ── Detail Panel slide-in ── */}
       {selectedStep && (
         <>
           <div className="dashboard__backdrop" onClick={handleCloseDetail} aria-hidden />
@@ -170,16 +154,6 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
             onClose={handleCloseDetail}
             onUpdate={handleStepUpdate}
           />
-        </>
-      )}
-
-      {/* ── Aurelius chat overlay ── */}
-      {chatOpen && (
-        <>
-          <div className="dashboard__backdrop" onClick={() => setChatOpen(false)} aria-hidden />
-          <div className="dashboard__overlay-wrap">
-            <AureliusChat {...sharedChatProps} isOverlay />
-          </div>
         </>
       )}
     </div>

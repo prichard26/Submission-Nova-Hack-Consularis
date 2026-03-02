@@ -110,6 +110,11 @@
   opacity: 0.7;
 }
 
+.step-node--selected {
+  box-shadow: 0 0 0 3px var(--accent, #e85d04), 0 4px 16px rgba(232, 93, 4, 0.3);
+  border-color: var(--accent, #e85d04);
+}
+
 .step-node__risk-indicator {
   position: absolute;
   top: -6px;

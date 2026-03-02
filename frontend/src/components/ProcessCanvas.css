@@ -9,6 +9,34 @@
 .process-canvas__flow {
   flex: 1;
   height: 100%;
+  min-width: 0;
+}
+
+/* Resize handle between flow and panel */
+.process-canvas__resize-handle {
+  flex-shrink: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  order: 1;
+}
+.process-canvas__resize-handle:hover,
+.process-canvas__resize-handle:active {
+  background: var(--border-accent, rgba(232, 93, 4, 0.2));
+}
+.process-canvas__resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border, #2e2820);
+  border-radius: 1px;
+}
+.process-canvas__resize-handle:hover::after {
+  background: var(--accent, #e85d04);
 }
 
 /* React Flow overrides */
@@ -44,14 +72,28 @@
   stroke-width: 2;
 }
 
+.process-canvas .react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent, #e85d04);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 4px rgba(232, 93, 4, 0.5));
+}
+
+.process-canvas .react-flow__edge.selected .react-flow__edge-textbg {
+  fill: var(--accent, #e85d04);
+  fill-opacity: 0.15;
+}
+
+.process-canvas .react-flow__edge.selected .react-flow__edge-text {
+  fill: var(--accent, #e85d04);
+}
+
 .process-canvas .react-flow__edge-text {
   font-size: 11px;
 }
 
 /* Right panel */
 .process-canvas__panel {
-  width: 280px;
-  min-width: 280px;
+  flex-shrink: 0;
   background: var(--bg-secondary, #1a1510);
   border-left: 1px solid var(--border, #2e2820);
   display: flex;
@@ -64,66 +106,59 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
+/* Compact toolbar */
 .process-canvas__toolbar {
-  padding: 12px;
+  padding: 10px 12px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   border-bottom: 1px solid var(--border, #2e2820);
+  flex-shrink: 0;
 }
 
 .process-canvas__toolbar-title {
   font-family: var(--font-sans, 'Outfit', sans-serif);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary, #fbf9f1);
+  margin-right: auto;
 }
 
-.process-canvas__toolbar-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.process-canvas__toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border, #2e2820);
+  flex-shrink: 0;
 }
 
-.process-canvas__toolbar-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted, #7a6f60);
-  font-weight: 600;
-}
-
-.process-canvas__toolbar-actions {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.process-canvas__toolbar-actions button {
+.process-canvas__toolbar button {
   background: var(--bg-card, #1e1914);
   border: 1px solid var(--border, #2e2820);
   color: var(--text-secondary, #c9bfb0);
   font: inherit;
-  font-size: 12px;
-  padding: 4px 10px;
+  font-size: 11px;
+  padding: 4px 8px;
   border-radius: var(--radius, 8px);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
 }
 
-.process-canvas__toolbar-actions button:hover:not(:disabled) {
+.process-canvas__toolbar button:hover:not(:disabled) {
   background: var(--bg-card-hover, #2a2218);
   border-color: var(--accent, #e85d04);
 }
 
-.process-canvas__toolbar-actions button:disabled {
+.process-canvas__toolbar button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
+/* Chat section fills remaining space */
 .process-canvas__panel-footer {
   flex: 1;
   min-height: 0;

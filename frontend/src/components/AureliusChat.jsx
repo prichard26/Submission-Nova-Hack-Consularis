@@ -4,6 +4,9 @@ import './AureliusChat.css'
 
 export const WELCOME_MSG = "Salve! I am Aurelius, your process consul. Describe your process or tell me what you'd like to change — I shall refine your graph accordingly."
 
+const MIN_INPUT_ROWS = 1
+const MAX_INPUT_ROWS = 8
+
 export default function AureliusChat({
   sessionId,
   processId = 'Process_Global',
@@ -22,6 +25,7 @@ export default function AureliusChat({
   const [uncontrolledInput, setUncontrolledInput] = useState('')
   const [uncontrolledLoading, setUncontrolledLoading] = useState(false)
   const bottomRef = useRef(null)
+  const inputRef = useRef(null)
 
   const isControlled = controlledMessages != null && controlledOnSend != null
   const messages = isControlled ? controlledMessages : uncontrolledMessages
@@ -33,11 +37,23 @@ export default function AureliusChat({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  function resizeInput() {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const lineHeight = parseInt(getComputedStyle(el).lineHeight, 10) || 20
+    const rows = Math.min(MAX_INPUT_ROWS, Math.max(MIN_INPUT_ROWS, Math.floor(el.scrollHeight / lineHeight)))
+    el.style.height = `${rows * lineHeight}px`
+  }
+
+  useEffect(resizeInput, [input])
+
   async function handleSendUncontrolled(e) {
     e.preventDefault()
     if (!uncontrolledInput.trim() || uncontrolledLoading) return
     const userText = uncontrolledInput.trim()
     setUncontrolledInput('')
+    resizeInput()
     setUncontrolledMessages((prev) => [...prev, { id: Date.now(), role: 'user', text: userText }])
     setUncontrolledLoading(true)
     try {
@@ -57,13 +73,21 @@ export default function AureliusChat({
     e.preventDefault()
     if (!input.trim() || loading) return
     controlledOnSend(input.trim())
+    resizeInput()
   }
 
   const handleSend = isControlled ? handleSendControlled : handleSendUncontrolled
 
+  function onInputKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend(e)
+    }
+  }
+
   return (
     <div
-      className="chat-panel"
+      className={`chat-panel${isOverlay ? ' chat-panel--overlay' : ''}`}
       role={isOverlay ? 'dialog' : undefined}
       aria-modal={isOverlay || undefined}
       aria-label={isOverlay ? 'Aurelius assistant chat' : undefined}
@@ -98,13 +122,15 @@ export default function AureliusChat({
       </div>
 
       <form className="chat-panel__form" onSubmit={handleSend}>
-        <input
-          className="chat-panel__input"
-          type="text"
-          placeholder="Describe a change or ask a question…"
+        <textarea
+          ref={inputRef}
+          className="chat-panel__input chat-panel__input--textarea"
+          placeholder="Describe a change or ask a question… (Shift+Enter: new line)"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={onInputKeyDown}
           disabled={loading}
+          rows={MIN_INPUT_ROWS}
         />
         <button className="chat-panel__send" type="submit" disabled={!input.trim() || loading} aria-label="Send message">
           ↑

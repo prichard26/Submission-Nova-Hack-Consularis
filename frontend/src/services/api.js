@@ -90,6 +90,25 @@ export function createNode(sessionId, processId, laneId, name, type = 'step', op
   })
 }
 
+export function createEdge(sessionId, processId, source, target, label = '', options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = encodeURIComponent(processId)
+  return request(`/api/graph/edge?session_id=${sid}&process_id=${pid}`, {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({ source, target, label }),
+  })
+}
+
+export function deleteEdge(sessionId, processId, source, target, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = encodeURIComponent(processId)
+  return request(
+    `/api/graph/edge?session_id=${sid}&process_id=${pid}&source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}`,
+    { ...options, method: 'DELETE' },
+  )
+}
+
 // ---------------------------------------------------------------------------
 // BPMN export (download only)
 // ---------------------------------------------------------------------------
