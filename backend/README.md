@@ -16,6 +16,8 @@ uvicorn main:app --reload --port 8000
 - API: `http://localhost:8000`
 - Docs: `http://localhost:8000/docs`
 
+To run tests, install dev dependencies: `pip install -r requirements-dev.txt`, then `pytest` from the `backend` directory.
+
 ## Structure
 
 ```
@@ -42,9 +44,6 @@ backend/
 │   ├── serializer.py    # serialize_bpmn_xml (with diagram interchange for bpmn-js)
 │   ├── layout.py        # Layout constants and layout_bounds() for diagram
 │   └── store.py         # Session-scoped BPMN store with SQLite backing + in-memory cache
-│
-├── services/            # Business logic helpers
-│   └── chat.py          # Chat orchestration
 │
 ├── data/                # Runtime data
 │   └── graphs/          # Baseline BPMN hierarchy (read-only at runtime)

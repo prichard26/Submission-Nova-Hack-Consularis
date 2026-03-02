@@ -1,7 +1,5 @@
-fastapi
-uvicorn[standard]
-pydantic
-python-dotenv
-groq
-pytest
-httpx
+fastapi==0.134.0
+uvicorn[standard]==0.41.0
+pydantic==2.12.5
+python-dotenv==1.2.1
+groq==1.0.0
