@@ -41,6 +41,7 @@ export default function Landing({ onSubmit }) {
 
       <header className="landing__header">
         <span className="landing__logo">
+          <img className="landing__logo-img" src="/logo.png" alt="" width="40" height="40" />
           Consularis<span className="landing__logo-dot">.</span>
         </span>
         <span className="landing__tagline">Process Intelligence</span>

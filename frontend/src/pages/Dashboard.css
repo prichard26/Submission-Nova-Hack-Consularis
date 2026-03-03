@@ -6,24 +6,16 @@
   overflow: hidden;
 }
 
-/* ── Top bar ── */
+/* ── Slim top bar (logo only) ── */
 .dashboard__topbar {
-  height: 52px;
+  height: 40px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0 1.25rem;
+  padding: 0 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
   z-index: 10;
-}
-
-.dashboard__topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0;
 }
 
 .dashboard__logo {
@@ -31,65 +23,14 @@
   align-items: center;
   gap: 0.4rem;
   font-family: var(--font-sans);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .dashboard__logo-icon {
-  fill: var(--accent);
-}
-
-.dashboard__company {
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.dashboard__badge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.2rem 0.55rem;
-  border-radius: 20px;
-  background: var(--accent-soft);
-  border: 1px solid var(--border-accent);
-  color: var(--accent);
-}
-
-.dashboard__topbar-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* ── View toggle ── */
-.dashboard__view-toggle {
-  flex-shrink: 0;
-  padding: 0.3rem 0.8rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.dashboard__view-toggle:hover {
-  border-color: var(--border-accent);
-  color: var(--accent);
-}
-
-.dashboard__view-toggle--active {
-  border-color: var(--border-accent);
-  background: var(--accent-soft);
-  color: var(--accent);
+  display: block;
+  object-fit: contain;
 }
 
 /* ── Backdrop ── */

@@ -1,4 +1,4 @@
-import { Handle, Position, NodeResizer } from '@xyflow/react'
+import { Handle, Position } from '@xyflow/react'
 import './StepNode.css'
 
 const HANDLES = [
@@ -17,7 +17,6 @@ export default function StepNode({ data, selected }) {
 
   return (
     <div className={`step-node ${hasHighError ? 'step-node--high-error' : ''} ${selected ? 'step-node--selected' : ''}`}>
-      <NodeResizer minWidth={160} minHeight={80} isVisible={selected} />
       {TARGET_ORDER.map((id) => {
         const { position } = HANDLES.find((h) => h.id === id)
         return <Handle key={`${id}-target`} type="target" position={position} id={`${id}-target`} />

@@ -14,7 +14,8 @@
 }
 
 .step-node:hover {
-  box-shadow: 0 0 0 2px var(--accent, #e85d04), 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: var(--accent, #e85d04);
+  box-shadow: 0 0 12px rgba(232, 93, 4, 0.4);
 }
 
 .step-node--high-error {
@@ -112,8 +113,8 @@
 }
 
 .step-node--selected {
-  box-shadow: 0 0 0 3px var(--accent, #e85d04), 0 4px 16px rgba(232, 93, 4, 0.3);
   border-color: var(--accent, #e85d04);
+  box-shadow: 0 0 16px rgba(232, 93, 4, 0.5);
 }
 
 .step-node__risk-indicator {

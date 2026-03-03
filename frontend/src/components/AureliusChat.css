@@ -7,6 +7,10 @@
   overflow: hidden;
 }
 
+.chat-panel--compact .chat-panel__messages {
+  padding-top: 0.8rem;
+}
+
 .chat-panel--overlay {
   position: absolute;
   bottom: 16px;
@@ -43,15 +47,9 @@
 .chat-panel__avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 0.75rem;
-  color: white;
   flex-shrink: 0;
 }
 
@@ -103,15 +101,9 @@
 .chat-msg__avatar {
   width: 22px;
   height: 22px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 0.6rem;
-  color: white;
   flex-shrink: 0;
   margin-top: 2px;
 }

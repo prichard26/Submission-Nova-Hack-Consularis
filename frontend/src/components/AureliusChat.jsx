@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { sendChat } from '../services/api'
+import BotFace from './BotFace'
 import './AureliusChat.css'
 
 export const WELCOME_MSG = "Salve! I am Aurelius, your process consul. Describe your process or tell me what you'd like to change — I shall refine your graph accordingly."
@@ -13,6 +14,7 @@ export default function AureliusChat({
   onGraphUpdate,
   onClose,
   isOverlay = false,
+  compact = false,
   messages: controlledMessages,
   onSend: controlledOnSend,
   input: controlledInput,
@@ -85,36 +87,52 @@ export default function AureliusChat({
     }
   }
 
+  const panelClass = [
+    'chat-panel',
+    isOverlay && 'chat-panel--overlay',
+    compact && 'chat-panel--compact',
+  ].filter(Boolean).join(' ')
+
   return (
     <div
-      className={`chat-panel${isOverlay ? ' chat-panel--overlay' : ''}`}
+      className={panelClass}
       role={isOverlay ? 'dialog' : undefined}
       aria-modal={isOverlay || undefined}
       aria-label={isOverlay ? 'Aurelius assistant chat' : undefined}
     >
-      <div className="chat-panel__header">
-        <div className="chat-panel__title-row">
-          <div className="chat-panel__avatar">A</div>
-          <div>
-            <div className="chat-panel__name">Aurelius</div>
-            <div className="chat-panel__status">{loading ? 'Thinking…' : 'Process consul'}</div>
+      {!compact && (
+        <div className="chat-panel__header">
+          <div className="chat-panel__title-row">
+            <div className="chat-panel__avatar">
+              <BotFace talking={loading} size={28} />
+            </div>
+            <div>
+              <div className="chat-panel__name">Aurelius</div>
+              <div className="chat-panel__status">{loading ? 'Thinking…' : 'Process consul'}</div>
+            </div>
           </div>
+          {isOverlay && onClose && (
+            <button className="chat-panel__close" onClick={onClose} aria-label="Close chat">✕</button>
+          )}
         </div>
-        {isOverlay && onClose && (
-          <button className="chat-panel__close" onClick={onClose} aria-label="Close chat">✕</button>
-        )}
-      </div>
+      )}
 
       <div className="chat-panel__messages">
         {messages.map((msg) => (
           <div key={msg.id} className={`chat-msg chat-msg--${msg.role}`}>
-            {msg.role === 'assistant' && <div className="chat-msg__avatar">A</div>}
+            {msg.role === 'assistant' && (
+              <div className="chat-msg__avatar">
+                <BotFace talking={false} size={22} />
+              </div>
+            )}
             <div className="chat-msg__bubble">{msg.text}</div>
           </div>
         ))}
         {loading && (
           <div className="chat-msg chat-msg--assistant">
-            <div className="chat-msg__avatar">A</div>
+            <div className="chat-msg__avatar">
+              <BotFace talking={true} size={22} />
+            </div>
             <div className="chat-msg__bubble chat-msg__typing">…</div>
           </div>
         )}

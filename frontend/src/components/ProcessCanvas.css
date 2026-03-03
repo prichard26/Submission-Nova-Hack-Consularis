@@ -6,10 +6,12 @@
   background: var(--bg-primary, #0d0a07);
 }
 
+/* ── Flow canvas (left) ── */
 .process-canvas__flow {
   flex: 1;
   height: 100%;
   min-width: 0;
+  order: 0;
 }
 
 .process-canvas__flow--placing {
@@ -17,7 +19,7 @@
   opacity: 0.92;
 }
 
-/* Resize handle between flow and panel */
+/* ── Resize handle (center) ── */
 .process-canvas__resize-handle {
   flex-shrink: 0;
   width: 6px;
@@ -44,36 +46,63 @@
   background: var(--accent, #e85d04);
 }
 
-/* React Flow overrides */
+/* ── Right panel ── */
+.process-canvas__panel {
+  flex-shrink: 0;
+  background: var(--bg-secondary, #1a1510);
+  border-left: 1px solid var(--border, #2e2820);
+  display: flex;
+  flex-direction: column;
+  order: 2;
+  overflow: hidden;
+}
+
+.process-canvas__panel-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── React Flow overrides ── */
 .process-canvas .react-flow {
   background: var(--bg-primary, #0d0a07) !important;
-}
-
-.process-canvas .react-flow__controls {
-  background: var(--bg-card, #1e1914);
-  border: 1px solid var(--border, #2e2820);
-  border-radius: var(--radius, 8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.process-canvas .react-flow__controls-button {
-  background: var(--bg-card, #1e1914);
-  border-color: var(--border, #2e2820);
-  color: var(--text-secondary, #c9bfb0);
-  fill: var(--text-secondary, #c9bfb0);
-}
-
-.process-canvas .react-flow__controls-button:hover {
-  background: var(--bg-card-hover, #2a2218);
-}
-
-.process-canvas .react-flow__controls-interactive {
-  display: none;
 }
 
 .process-canvas .react-flow__minimap {
   border: 1px solid var(--border, #2e2820);
   border-radius: var(--radius, 8px);
+}
+
+/* Connection handles — larger touch area */
+.process-canvas .react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background: var(--node-stroke, #c97d3a);
+  border: 2px solid var(--node-fill, #f5d4b8);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.process-canvas .react-flow__node:hover .react-flow__handle,
+.process-canvas .react-flow__handle:hover {
+  opacity: 1;
+}
+
+.process-canvas .react-flow__handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.process-canvas .react-flow__handle:hover {
+  background: var(--accent, #e85d04);
+  border-color: white;
 }
 
 .process-canvas .react-flow__edge-path {
@@ -104,85 +133,229 @@
   font-size: 11px;
 }
 
-/* Right panel */
-.process-canvas__panel {
-  flex-shrink: 0;
-  background: var(--bg-secondary, #1a1510);
-  border-left: 1px solid var(--border, #2e2820);
-  display: flex;
-  flex-direction: column;
-  order: 2;
-  overflow: hidden;
-}
+/* ==========================================================================
+   FLOATING TOOLBAR — draggable, collapsible, orientation-togglable
+   ========================================================================== */
 
-.process-canvas__panel-inner {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* Compact toolbar */
-.process-canvas__toolbar {
-  padding: 10px 12px;
+.floating-toolbar {
+  position: absolute;
+  z-index: 15;
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border, #2e2820);
-  flex-shrink: 0;
-}
-
-.process-canvas__toolbar-title {
-  font-family: var(--font-sans, 'Outfit', sans-serif);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary, #fbf9f1);
-  margin-right: auto;
-}
-
-.process-canvas__toolbar-sep {
-  width: 1px;
-  height: 20px;
-  background: var(--border, #2e2820);
-  flex-shrink: 0;
-}
-
-.process-canvas__toolbar button {
+  gap: 3px;
+  padding: 4px;
   background: var(--bg-card, #1e1914);
   border: 1px solid var(--border, #2e2820);
-  color: var(--text-secondary, #c9bfb0);
-  font: inherit;
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: var(--radius, 8px);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  white-space: nowrap;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  user-select: none;
 }
 
-.process-canvas__toolbar button:hover:not(:disabled) {
+.floating-toolbar--vertical {
+  flex-direction: column;
+}
+
+.floating-toolbar--horizontal {
+  flex-direction: row;
+}
+
+.floating-toolbar--collapsed {
+  padding: 3px;
+  border-radius: 8px;
+}
+
+/* ── Toggle handle (hamburger when open, + when closed) ── */
+.ftb__toggle {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--text-muted, #a99683);
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+
+.ftb__toggle:hover {
   background: var(--bg-card-hover, #2a2218);
-  border-color: var(--accent, #e85d04);
+  color: var(--text-primary, #fbf9f1);
 }
 
-.process-canvas__toolbar-button--active {
+.ftb__toggle:active {
+  cursor: grabbing;
+}
+
+/* Tooltip for toggle */
+.floating-toolbar--vertical .ftb__toggle[data-tip]::after,
+.floating-toolbar--collapsed .ftb__toggle[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 5px 10px;
+  background: var(--bg-secondary, #1a1510);
+  border: 1px solid var(--border, #2e2820);
+  border-radius: 6px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 11px;
+  color: var(--text-primary, #fbf9f1);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.floating-toolbar--horizontal .ftb__toggle[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  background: var(--bg-secondary, #1a1510);
+  border: 1px solid var(--border, #2e2820);
+  border-radius: 6px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 11px;
+  color: var(--text-primary, #fbf9f1);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ftb__toggle[data-tip]:hover::after {
+  opacity: 1;
+}
+
+/* ── Separator ── */
+.floating-toolbar--vertical .ftb__sep {
+  width: calc(100% - 8px);
+  height: 1px;
+  background: var(--border, #2e2820);
+  margin: 1px auto;
+  flex-shrink: 0;
+}
+
+.floating-toolbar--horizontal .ftb__sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border, #2e2820);
+  margin: 4px 1px;
+  flex-shrink: 0;
+}
+
+/* ── Toolbar button ── */
+.ftb__btn {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary, #c9bfb0);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.ftb__btn:hover:not(:disabled) {
+  background: var(--bg-card-hover, #2a2218);
+  border-color: var(--border, #2e2820);
+  color: var(--text-primary, #fbf9f1);
+}
+
+.ftb__btn--active {
   background: var(--accent-soft, rgba(232, 93, 4, 0.15)) !important;
   border-color: var(--accent, #e85d04) !important;
   color: var(--accent, #e85d04) !important;
 }
 
-.process-canvas__toolbar button:disabled {
-  opacity: 0.4;
+.ftb__btn--meta {
+  color: var(--text-muted, #a99683);
+}
+
+.ftb__btn:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
+.ftb__btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ── Tooltip (appears on hover) ── */
+
+/* Vertical layout: tooltip to the right */
+.floating-toolbar--vertical .ftb__btn[data-tip]::after,
+.floating-toolbar--collapsed .ftb__btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 5px 10px;
+  background: var(--bg-secondary, #1a1510);
+  border: 1px solid var(--border, #2e2820);
+  border-radius: 6px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 11px;
+  color: var(--text-primary, #fbf9f1);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Horizontal layout: tooltip below */
+.floating-toolbar--horizontal .ftb__btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  background: var(--bg-secondary, #1a1510);
+  border: 1px solid var(--border, #2e2820);
+  border-radius: 6px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 11px;
+  color: var(--text-primary, #fbf9f1);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ftb__btn[data-tip]:hover::after {
+  opacity: 1;
+}
+
+/* ── Conditional status bars (in right panel) ── */
 .process-canvas__place-hint {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border, #2e2820);
   background: rgba(232, 93, 4, 0.08);
   color: var(--text-primary, #fbf9f1);
   font-size: 11px;
+  flex-shrink: 0;
 }
 
 .process-canvas__subprocess-status {
@@ -191,50 +364,208 @@
   background: rgba(46, 106, 79, 0.2);
   color: var(--text-primary, #fbf9f1);
   font-size: 11px;
-}
-
-.process-canvas__shortcuts {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border, #2e2820);
-  background: var(--bg-card, #1e1914);
   flex-shrink: 0;
 }
 
-.process-canvas__shortcuts-title {
+/* ==========================================================================
+   PANEL — Action row (Landscape, Analyze)
+   ========================================================================== */
+
+.panel-actions-row {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border, #2e2820);
+}
+
+.panel-actions-row__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #2e2820);
+  background: var(--bg-card, #1e1914);
+  color: var(--text-secondary, #bfae9a);
+  font-family: var(--font-sans, 'Outfit', sans-serif);
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary, #fbf9f1);
-  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.process-canvas__shortcuts-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 10px;
+.panel-actions-row__btn:hover:not(:disabled) {
+  border-color: var(--accent, #e85d04);
+  color: var(--accent, #e85d04);
+  background: var(--accent-soft, rgba(232,93,4,0.08));
+}
+
+.panel-actions-row__btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.panel-actions-row__btn--accent {
+  border-color: var(--border-accent, #4a2c10);
+  background: linear-gradient(135deg, rgba(232,93,4,0.06), rgba(232,93,4,0.02));
+  color: var(--accent, #e85d04);
+}
+
+.panel-actions-row__btn--accent:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(232,93,4,0.14), rgba(232,93,4,0.06));
+}
+
+.panel-actions-row__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   PANEL — Breadcrumb
+   ========================================================================== */
+
+.panel-breadcrumb {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #2e2820);
   font-size: 11px;
-  color: var(--text-secondary, #c9bfb0);
 }
 
-.process-canvas__shortcuts-grid kbd {
-  display: inline-block;
-  padding: 1px 5px;
+.panel-breadcrumb__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.panel-breadcrumb__sep {
+  color: var(--text-muted, #7a6f60);
+  font-size: 12px;
+}
+
+.panel-breadcrumb__link {
+  background: none;
+  border: none;
+  color: var(--accent, #e85d04);
+  cursor: pointer;
+  font: inherit;
+  padding: 1px 4px;
   border-radius: 4px;
-  border: 1px solid var(--border, #2e2820);
-  background: var(--bg-secondary, #1a1510);
+  transition: background 0.12s;
+}
+
+.panel-breadcrumb__link:hover {
+  text-decoration: underline;
+  background: rgba(232, 93, 4, 0.08);
+}
+
+.panel-breadcrumb__current {
   color: var(--text-primary, #fbf9f1);
-  margin-right: 4px;
-  font-size: 10px;
-  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  padding: 1px 4px;
 }
 
-.process-canvas__shortcuts-note {
-  margin-top: 8px;
-  font-size: 10px;
+/* ==========================================================================
+   PANEL — Page Info
+   ========================================================================== */
+
+.panel-info {
+  flex-shrink: 0;
+  padding: 12px;
+  border-bottom: 1px solid var(--border, #2e2820);
+}
+
+.panel-info__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-info__name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-family: var(--font-sans, 'Outfit', sans-serif);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary, #fbf9f1);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.panel-info__name-input:hover {
+  border-color: var(--border, #2e2820);
+  background: var(--bg-card, #1e1914);
+}
+
+.panel-info__name-input:focus {
+  outline: none;
+  border-color: var(--accent, #e85d04);
+  background: var(--bg-card, #1e1914);
+  box-shadow: 0 0 0 2px rgba(232, 93, 4, 0.1);
+}
+
+.panel-info__name-input:focus + .panel-info__edit-icon {
+  opacity: 0;
+}
+
+.panel-info__edit-icon {
+  flex-shrink: 0;
   color: var(--text-muted, #a99683);
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  pointer-events: none;
 }
 
-/* Chat section fills remaining space */
-.process-canvas__panel-footer {
+.panel-info__name-row:hover .panel-info__edit-icon {
+  opacity: 1;
+}
+
+.panel-info__stats {
+  display: flex;
+  gap: 2px;
+  margin-top: 12px;
+}
+
+.panel-info__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-radius: 6px;
+  background: var(--bg-card, #1e1914);
+}
+
+.panel-info__stat-value {
+  font-family: var(--font-sans, 'Outfit', sans-serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary, #fbf9f1);
+  line-height: 1.2;
+}
+
+.panel-info__stat-label {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #a99683);
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   PANEL — Chat
+   ========================================================================== */
+
+.process-canvas__panel-chat {
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -242,6 +573,7 @@
   flex-direction: column;
 }
 
+/* ── Loading / Error overlays ── */
 .process-canvas__loading,
 .process-canvas__error {
   position: absolute;
@@ -252,6 +584,7 @@
   z-index: 10;
 }
 
+/* ── Edge editor modal ── */
 .process-canvas__edge-editor-backdrop {
   position: absolute;
   inset: 0;

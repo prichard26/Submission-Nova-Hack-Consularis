@@ -52,6 +52,7 @@ def _get_graph(session_id: str, process_id: str | None = None) -> ProcessGraph:
     json_str = db.get_session_json(session_id, pid)
     if json_str is None:
         db.clone_baseline_to_session(session_id)
+        _brand_session(session_id)
         json_str = db.get_session_json(session_id, pid)
     if json_str is None:
         json_str = db.get_baseline_json(DEFAULT_PROCESS_ID)
@@ -98,28 +99,55 @@ def _refresh_workspace_summary(session_id: str, process_id: str | None = None) -
     db.upsert_session_workspace(session_id, ws.to_json())
 
 
+def _brand_session(session_id: str) -> None:
+    """Rename the root process to '{company}_map' after first clone."""
+    map_name = f"{session_id}_map"
+    ws_json = db.get_session_workspace(session_id)
+    if ws_json is None:
+        return
+    ws = WorkspaceManifest.from_json(ws_json)
+    root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
+    procs = ws.data.get("process_tree", {}).get("processes", {})
+    if root_id in procs:
+        procs[root_id]["name"] = map_name
+    db.upsert_session_workspace(session_id, ws.to_json())
+
+    graph_json = db.get_session_json(session_id, root_id)
+    if graph_json:
+        gdata = json.loads(graph_json)
+        gdata["name"] = map_name
+        db.upsert_session_json(session_id, root_id, json.dumps(gdata, ensure_ascii=False, indent=2))
+
+
 def _get_workspace(session_id: str) -> WorkspaceManifest:
     if session_id in _ws_cache:
         return _ws_cache[session_id]
     ws_json = db.get_session_workspace(session_id)
     if ws_json is None:
         db.clone_baseline_to_session(session_id)
+        _brand_session(session_id)
         ws_json = db.get_session_workspace(session_id)
     if ws_json is None:
         ws_json = db.get_baseline_workspace()
     if ws_json is None:
-        # One-time retry: baseline may not be seeded yet (e.g. request before lifespan finished).
         try:
             init_baseline()
             ws_json = db.get_baseline_workspace()
             if ws_json:
                 db.clone_baseline_to_session(session_id)
+                _brand_session(session_id)
                 ws_json = db.get_session_workspace(session_id) or ws_json
         except FileNotFoundError:
             pass
     if ws_json is None:
         raise RuntimeError("No workspace manifest found")
     ws = WorkspaceManifest.from_json(ws_json)
+    expected_name = f"{session_id}_map"
+    root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
+    procs = ws.data.get("process_tree", {}).get("processes", {})
+    if root_id in procs and procs[root_id].get("name") != expected_name:
+        _brand_session(session_id)
+        ws.data["process_tree"]["processes"][root_id]["name"] = expected_name
     _ws_cache[session_id] = ws
     return ws
 
@@ -152,6 +180,7 @@ def get_process_ids(session_id: str) -> list[str]:
     pids = db.get_session_process_ids(session_id)
     if not pids:
         db.clone_baseline_to_session(session_id)
+        _brand_session(session_id)
         pids = db.get_session_process_ids(session_id)
     return pids
 

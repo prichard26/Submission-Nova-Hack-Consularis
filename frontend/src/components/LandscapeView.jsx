@@ -79,7 +79,7 @@ function layoutTree(workspace) {
   return { nodes, edges }
 }
 
-function LandscapeCanvas({ workspace, onProcessSelect }) {
+function LandscapeCanvas({ workspace, onProcessSelect, onSwitchView }) {
   const { nodes, edges } = useMemo(() => layoutTree(workspace), [workspace])
 
   if (!workspace) {
@@ -88,6 +88,10 @@ function LandscapeCanvas({ workspace, onProcessSelect }) {
 
   return (
     <div className="landscape-view">
+      <button className="landscape-view__back" onClick={onSwitchView}>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5" /></svg>
+        Process View
+      </button>
       <ReactFlow
         nodes={nodes}
         edges={edges}

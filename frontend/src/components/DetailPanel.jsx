@@ -80,6 +80,8 @@ export default function DetailPanel({ step, sessionId, processId, onClose, onUpd
 
   if (!step) return null
 
+  const isDecision = step.type === 'decision'
+
   return (
     <div className="detail-panel" role="complementary" aria-label="Step details">
       <div className="detail-panel__header">
@@ -92,102 +94,104 @@ export default function DetailPanel({ step, sessionId, processId, onClose, onUpd
           type="text"
           value={form.name ?? ''}
           onChange={(e) => handleChange('name', e.target.value)}
-          placeholder="Step name"
+          placeholder={isDecision ? 'Decision name' : 'Step name'}
         />
         <button className="detail-panel__close" onClick={onClose} aria-label="Close detail panel">✕</button>
       </div>
 
-      <div className="detail-panel__body">
-        {/* Core */}
-        <section className="detail-panel__section">
-          <h4 className="detail-panel__section-title">Core</h4>
-          {TEXT_FIELDS.slice(0, 2).map((f) => (
-            <label key={f.key} className="detail-panel__field">
-              <span className="detail-panel__label">{f.label}</span>
-              <input
-                type="text"
-                className="detail-panel__input"
-                value={form[f.key] ?? ''}
-                onChange={(e) => handleChange(f.key, e.target.value)}
-              />
-            </label>
-          ))}
-          {TEXTAREA_FIELDS.slice(0, 1).map((f) => (
-            <label key={f.key} className="detail-panel__field">
-              <span className="detail-panel__label">{f.label}</span>
-              <textarea
-                className="detail-panel__textarea"
-                value={form[f.key] ?? ''}
-                onChange={(e) => handleChange(f.key, e.target.value)}
-                rows={3}
-              />
-            </label>
-          ))}
-        </section>
+      {!isDecision && (
+        <div className="detail-panel__body">
+          {/* Core */}
+          <section className="detail-panel__section">
+            <h4 className="detail-panel__section-title">Core</h4>
+            {TEXT_FIELDS.slice(0, 2).map((f) => (
+              <label key={f.key} className="detail-panel__field">
+                <span className="detail-panel__label">{f.label}</span>
+                <input
+                  type="text"
+                  className="detail-panel__input"
+                  value={form[f.key] ?? ''}
+                  onChange={(e) => handleChange(f.key, e.target.value)}
+                />
+              </label>
+            ))}
+            {TEXTAREA_FIELDS.slice(0, 1).map((f) => (
+              <label key={f.key} className="detail-panel__field">
+                <span className="detail-panel__label">{f.label}</span>
+                <textarea
+                  className="detail-panel__textarea"
+                  value={form[f.key] ?? ''}
+                  onChange={(e) => handleChange(f.key, e.target.value)}
+                  rows={3}
+                />
+              </label>
+            ))}
+          </section>
 
-        {/* Metrics */}
-        <section className="detail-panel__section">
-          <h4 className="detail-panel__section-title">Metrics</h4>
-          {TEXT_FIELDS.slice(2).map((f) => (
-            <label key={f.key} className="detail-panel__field">
-              <span className="detail-panel__label">{f.label}</span>
-              <input
-                type="text"
-                className="detail-panel__input"
-                value={form[f.key] ?? ''}
-                onChange={(e) => handleChange(f.key, e.target.value)}
-              />
-            </label>
-          ))}
-        </section>
+          {/* Metrics */}
+          <section className="detail-panel__section">
+            <h4 className="detail-panel__section-title">Metrics</h4>
+            {TEXT_FIELDS.slice(2).map((f) => (
+              <label key={f.key} className="detail-panel__field">
+                <span className="detail-panel__label">{f.label}</span>
+                <input
+                  type="text"
+                  className="detail-panel__input"
+                  value={form[f.key] ?? ''}
+                  onChange={(e) => handleChange(f.key, e.target.value)}
+                />
+              </label>
+            ))}
+          </section>
 
-        {/* Automation */}
-        <section className="detail-panel__section">
-          <h4 className="detail-panel__section-title">Automation</h4>
-          <label className="detail-panel__field">
-            <span className="detail-panel__label">Potential</span>
-            <select
-              className="detail-panel__select"
-              value={form.automation_potential ?? ''}
-              onChange={(e) => handleChange('automation_potential', e.target.value)}
-            >
-              {AUTOMATION_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt || '—'}
-                </option>
-              ))}
-            </select>
-          </label>
-          {TEXTAREA_FIELDS.slice(1).map((f) => (
-            <label key={f.key} className="detail-panel__field">
-              <span className="detail-panel__label">{f.label}</span>
-              <textarea
-                className="detail-panel__textarea"
-                value={form[f.key] ?? ''}
-                onChange={(e) => handleChange(f.key, e.target.value)}
-                rows={2}
-              />
+          {/* Automation */}
+          <section className="detail-panel__section">
+            <h4 className="detail-panel__section-title">Automation</h4>
+            <label className="detail-panel__field">
+              <span className="detail-panel__label">Potential</span>
+              <select
+                className="detail-panel__select"
+                value={form.automation_potential ?? ''}
+                onChange={(e) => handleChange('automation_potential', e.target.value)}
+              >
+                {AUTOMATION_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt || '—'}
+                  </option>
+                ))}
+              </select>
             </label>
-          ))}
-        </section>
+            {TEXTAREA_FIELDS.slice(1).map((f) => (
+              <label key={f.key} className="detail-panel__field">
+                <span className="detail-panel__label">{f.label}</span>
+                <textarea
+                  className="detail-panel__textarea"
+                  value={form[f.key] ?? ''}
+                  onChange={(e) => handleChange(f.key, e.target.value)}
+                  rows={2}
+                />
+              </label>
+            ))}
+          </section>
 
-        {/* Lists */}
-        <section className="detail-panel__section">
-          <h4 className="detail-panel__section-title">Lists</h4>
-          <p className="detail-panel__hint">Comma-separated values</p>
-          {LIST_FIELDS.map((f) => (
-            <label key={f.key} className="detail-panel__field">
-              <span className="detail-panel__label">{f.label}</span>
-              <textarea
-                className="detail-panel__textarea"
-                value={form[f.key] ?? ''}
-                onChange={(e) => handleChange(f.key, e.target.value)}
-                rows={2}
-              />
-            </label>
-          ))}
-        </section>
-      </div>
+          {/* Lists */}
+          <section className="detail-panel__section">
+            <h4 className="detail-panel__section-title">Lists</h4>
+            <p className="detail-panel__hint">Comma-separated values</p>
+            {LIST_FIELDS.map((f) => (
+              <label key={f.key} className="detail-panel__field">
+                <span className="detail-panel__label">{f.label}</span>
+                <textarea
+                  className="detail-panel__textarea"
+                  value={form[f.key] ?? ''}
+                  onChange={(e) => handleChange(f.key, e.target.value)}
+                  rows={2}
+                />
+              </label>
+            ))}
+          </section>
+        </div>
+      )}
     </div>
   )
 }

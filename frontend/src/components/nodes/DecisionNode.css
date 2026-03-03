@@ -1,15 +1,18 @@
 .decision-node {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  width: 80px;
+  height: 80px;
 }
 
 .decision-node__diamond {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 56px;
   height: 56px;
+  transform: translate(-50%, -50%) rotate(45deg);
   background: var(--node-fill, #f5d4b8);
   border: 2px solid var(--node-stroke, #c97d3a);
-  transform: rotate(45deg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,12 +21,13 @@
 }
 
 .decision-node__diamond:hover {
-  box-shadow: 0 0 0 2px var(--accent, #e85d04);
+  border-color: var(--accent, #e85d04);
+  filter: drop-shadow(0 0 6px rgba(232, 93, 4, 0.5));
 }
 
 .decision-node__diamond--selected {
-  box-shadow: 0 0 0 3px var(--accent, #e85d04), 0 4px 16px rgba(232, 93, 4, 0.3);
   border-color: var(--accent, #e85d04);
+  filter: drop-shadow(0 0 8px rgba(232, 93, 4, 0.6));
 }
 
 .decision-node__label {
@@ -36,4 +40,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.1;
+}
+
+.decision-node .react-flow__handle {
+  opacity: 0;
+  z-index: 10;
+}
+
+.decision-node:hover .react-flow__handle {
+  opacity: 1;
 }

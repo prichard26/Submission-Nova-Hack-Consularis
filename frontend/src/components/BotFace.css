@@ -1,0 +1,54 @@
+.bot-face {
+  display: block;
+  flex-shrink: 0;
+}
+
+.bot-face__head {
+  fill: var(--bg-card, #1e1914);
+  stroke: var(--accent, #e85d04);
+  stroke-width: 2;
+}
+
+.bot-face__eye-socket {
+  fill: var(--bg-secondary, #1a1510);
+  stroke: var(--accent, #e85d04);
+  stroke-width: 1.5;
+}
+
+.bot-face__pupil {
+  fill: var(--accent, #e85d04);
+  animation: bot-face-look 6s ease-in-out infinite;
+}
+
+@keyframes bot-face-look {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(1.5px, -1px); }
+  50% { transform: translate(-1.5px, 0); }
+  75% { transform: translate(1px, 1px); }
+}
+
+.bot-face__mouth {
+  fill: var(--accent, #e85d04);
+  transition: all 0.15s ease;
+}
+
+.bot-face--talking .bot-face__mouth {
+  animation: bot-face-talk 0.35s ease-in-out infinite;
+}
+
+@keyframes bot-face-talk {
+  0%, 100% {
+    y: 33;
+    height: 4;
+    width: 16;
+    x: 22;
+    rx: 2;
+  }
+  50% {
+    y: 30;
+    height: 10;
+    width: 12;
+    x: 24;
+    rx: 5;
+  }
+}

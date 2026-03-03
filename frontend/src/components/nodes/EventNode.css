@@ -19,8 +19,8 @@
 }
 
 .event-node--selected {
-  box-shadow: 0 0 0 3px var(--accent, #e85d04), 0 4px 16px rgba(232, 93, 4, 0.3);
   border-color: var(--accent, #e85d04);
+  box-shadow: 0 0 16px rgba(232, 93, 4, 0.5);
 }
 
 .event-node__label {

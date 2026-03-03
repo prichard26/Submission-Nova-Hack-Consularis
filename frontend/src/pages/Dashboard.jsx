@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import AureliusChat, { WELCOME_MSG } from '../components/AureliusChat'
 import ProcessCanvas from '../components/ProcessCanvas'
-import ProcessBreadcrumb from '../components/ProcessBreadcrumb'
 import DetailPanel from '../components/DetailPanel'
 import LandscapeView from '../components/LandscapeView'
 import { useWorkspace } from '../hooks/useWorkspace'
@@ -10,7 +9,7 @@ import './Dashboard.css'
 
 const DEFAULT_PROCESS_ID = 'Process_Global'
 
-export default function Dashboard({ companyName, sector = 'pharmacy' }) {
+export default function Dashboard({ companyName }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [activeProcessId, setActiveProcessId] = useState(DEFAULT_PROCESS_ID)
   const [selectedStep, setSelectedStep] = useState(null)
@@ -22,8 +21,6 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
   const [chatLoading, setChatLoading] = useState(false)
 
   const { workspace } = useWorkspace(companyName, refreshTrigger)
-
-  const sectorLabel = `${sector.charAt(0).toUpperCase()}${sector.slice(1)}`
 
   const workspaceProcesses = useMemo(() => {
     return workspace?.process_tree?.processes || {}
@@ -72,6 +69,7 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
 
   const panelFooter = (
     <AureliusChat
+      compact
       sessionId={companyName}
       processId={activeProcessId}
       onGraphUpdate={handleExternalGraphUpdate}
@@ -97,49 +95,19 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
   return (
     <div className="dashboard">
       <header className="dashboard__topbar">
-        <div className="dashboard__topbar-left">
-          <span className="dashboard__logo">
-            <svg
-              className="dashboard__logo-icon"
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              aria-hidden="true"
-            >
-              <rect x="2" y="3" width="5" height="18" rx="1.5" />
-              <rect x="9.5" y="3" width="5" height="18" rx="1.5" />
-              <rect x="17" y="3" width="5" height="18" rx="1.5" />
-            </svg>
-            Consularis.ai
-          </span>
-          <span className="dashboard__company">{companyName}</span>
-          <span className="dashboard__badge">{sectorLabel}</span>
-        </div>
-
-        <div className="dashboard__topbar-right">
-          <button
-            className={`dashboard__view-toggle ${viewMode === 'landscape' ? 'dashboard__view-toggle--active' : ''}`}
-            onClick={() => setViewMode(viewMode === 'landscape' ? 'detail' : 'landscape')}
-          >
-            {viewMode === 'landscape' ? 'Process View' : 'Landscape'}
-          </button>
-        </div>
+        <span className="dashboard__logo">
+          <img className="dashboard__logo-icon" src="/logo.png" alt="Consularis" width="24" height="24" />
+          Consularis.ai
+        </span>
       </header>
-
-      {viewMode === 'detail' && (
-        <ProcessBreadcrumb
-          workspaceProcesses={workspaceProcesses}
-          activeProcessId={activeProcessId}
-          onNavigate={navigateToProcess}
-        />
-      )}
 
       <div className="dashboard__canvas">
         {viewMode === 'landscape' ? (
           <LandscapeView
             sessionId={companyName}
             workspace={workspace}
-            onProcessSelect={navigateToProcess}
+            onProcessSelect={(pid) => { navigateToProcess(pid); setViewMode('detail') }}
+            onSwitchView={() => setViewMode('detail')}
           />
         ) : (
           <ProcessCanvas
@@ -151,6 +119,8 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
             onRequestRefresh={handleExternalGraphUpdate}
             panelFooter={panelFooter}
             workspaceProcesses={workspaceProcesses}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
         )}
       </div>
