@@ -12,6 +12,11 @@
   min-width: 0;
 }
 
+.process-canvas__flow--placing {
+  cursor: crosshair;
+  opacity: 0.92;
+}
+
 /* Resize handle between flow and panel */
 .process-canvas__resize-handle {
   flex-shrink: 0;
@@ -62,6 +67,10 @@
   background: var(--bg-card-hover, #2a2218);
 }
 
+.process-canvas .react-flow__controls-interactive {
+  display: none;
+}
+
 .process-canvas .react-flow__minimap {
   border: 1px solid var(--border, #2e2820);
   border-radius: var(--radius, 8px);
@@ -85,6 +94,10 @@
 
 .process-canvas .react-flow__edge.selected .react-flow__edge-text {
   fill: var(--accent, #e85d04);
+}
+
+.process-canvas .react-flow__edge-textbg {
+  fill: var(--bg-primary, #0d0a07);
 }
 
 .process-canvas .react-flow__edge-text {
@@ -153,9 +166,71 @@
   border-color: var(--accent, #e85d04);
 }
 
+.process-canvas__toolbar-button--active {
+  background: var(--accent-soft, rgba(232, 93, 4, 0.15)) !important;
+  border-color: var(--accent, #e85d04) !important;
+  color: var(--accent, #e85d04) !important;
+}
+
 .process-canvas__toolbar button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.process-canvas__place-hint {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #2e2820);
+  background: rgba(232, 93, 4, 0.08);
+  color: var(--text-primary, #fbf9f1);
+  font-size: 11px;
+}
+
+.process-canvas__subprocess-status {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #2e2820);
+  background: rgba(46, 106, 79, 0.2);
+  color: var(--text-primary, #fbf9f1);
+  font-size: 11px;
+}
+
+.process-canvas__shortcuts {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border, #2e2820);
+  background: var(--bg-card, #1e1914);
+  flex-shrink: 0;
+}
+
+.process-canvas__shortcuts-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #fbf9f1);
+  margin-bottom: 8px;
+}
+
+.process-canvas__shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  font-size: 11px;
+  color: var(--text-secondary, #c9bfb0);
+}
+
+.process-canvas__shortcuts-grid kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #2e2820);
+  background: var(--bg-secondary, #1a1510);
+  color: var(--text-primary, #fbf9f1);
+  margin-right: 4px;
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+}
+
+.process-canvas__shortcuts-note {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-muted, #a99683);
 }
 
 /* Chat section fills remaining space */
@@ -175,4 +250,70 @@
   align-items: center;
   justify-content: center;
   z-index: 10;
+}
+
+.process-canvas__edge-editor-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 5, 5, 0.45);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.process-canvas__edge-editor {
+  width: min(420px, calc(100% - 32px));
+  background: var(--bg-secondary, #1a1510);
+  border: 1px solid var(--border-accent, #e85d04);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  padding: 14px;
+}
+
+.process-canvas__edge-editor-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #fbf9f1);
+  margin-bottom: 10px;
+}
+
+.process-canvas__edge-editor-input {
+  width: 100%;
+  border: 1px solid var(--border, #2e2820);
+  background: var(--bg-card, #1e1914);
+  color: var(--text-primary, #fbf9f1);
+  font: inherit;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.process-canvas__edge-editor-input:focus {
+  outline: none;
+  border-color: var(--accent, #e85d04);
+  box-shadow: 0 0 0 2px rgba(232, 93, 4, 0.15);
+}
+
+.process-canvas__edge-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.process-canvas__edge-editor-actions button {
+  background: var(--bg-card, #1e1914);
+  border: 1px solid var(--border, #2e2820);
+  color: var(--text-secondary, #c9bfb0);
+  font: inherit;
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: var(--radius, 8px);
+  cursor: pointer;
+}
+
+.process-canvas__edge-editor-actions button:hover:not(:disabled) {
+  background: var(--bg-card-hover, #2a2218);
+  border-color: var(--accent, #e85d04);
 }

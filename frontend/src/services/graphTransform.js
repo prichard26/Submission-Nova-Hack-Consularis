@@ -77,7 +77,7 @@ export function toReactFlowData(graph, workspaceProcesses = {}) {
       type: step.type || 'step',
       position: step.position || { x: 0, y: 0 },
       data: { ...step, workspaceInfo: processInfo },
-      draggable: step.type !== 'start' && step.type !== 'end',
+      draggable: true,
       connectable: true,
     })
   }
@@ -87,6 +87,8 @@ export function toReactFlowData(graph, workspaceProcesses = {}) {
       id: `${flow.from}->${flow.to}`,
       source: flow.from,
       target: flow.to,
+      sourceHandle: flow.source_handle || flow.sourceHandle || undefined,
+      targetHandle: flow.target_handle || flow.targetHandle || undefined,
       label: flow.label || '',
       animated: false,
       style: { stroke: 'var(--edge-stroke, #c97d3a)' },

@@ -99,7 +99,18 @@ export default function Dashboard({ companyName, sector = 'pharmacy' }) {
       <header className="dashboard__topbar">
         <div className="dashboard__topbar-left">
           <span className="dashboard__logo">
-            Consularis<span className="dashboard__logo-dot">.</span>
+            <svg
+              className="dashboard__logo-icon"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              aria-hidden="true"
+            >
+              <rect x="2" y="3" width="5" height="18" rx="1.5" />
+              <rect x="9.5" y="3" width="5" height="18" rx="1.5" />
+              <rect x="17" y="3" width="5" height="18" rx="1.5" />
+            </svg>
+            Consularis.ai
           </span>
           <span className="dashboard__company">{companyName}</span>
           <span className="dashboard__badge">{sectorLabel}</span>

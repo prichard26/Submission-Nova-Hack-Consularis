@@ -7,14 +7,28 @@ import {
   useNodesState,
   useEdgesState,
   ReactFlowProvider,
+  useReactFlow,
   MarkerType,
+  ConnectionLineType,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toPng } from 'html-to-image'
 import { useProcessGraph } from '../hooks/useProcessGraph'
 import { toReactFlowData, autoArrangeNodes } from '../services/graphTransform'
 import { nodeTypes } from './nodes/nodeTypes'
-import { undoGraph, updatePositions, createNode, createEdge, deleteEdge, exportBpmnXml } from '../services/api'
+import {
+  undoGraph,
+  redoGraph,
+  resetToBaseline,
+  updatePositions,
+  createNode,
+  createSubprocessPage,
+  createEdge,
+  updateEdge,
+  deleteEdge,
+  deleteNode,
+  exportBpmnXml,
+} from '../services/api'
 import DataViewState from './DataViewState'
 import './ProcessCanvas.css'
 
@@ -28,10 +42,19 @@ function Canvas({
   panelFooter,
   workspaceProcesses = {},
 }) {
+  const { screenToFlowPosition } = useReactFlow()
   const { graph, loading, error } = useProcessGraph(sessionId, processId, refreshTrigger)
   const [undoBotPending, setUndoBotPending] = useState(false)
+  const [redoPending, setRedoPending] = useState(false)
+  const [resetPending, setResetPending] = useState(false)
   const [panelWidth, setPanelWidth] = useState(380)
   const [resizing, setResizing] = useState(false)
+  const [selectedNodeId, setSelectedNodeId] = useState(null)
+  const [flowFocused, setFlowFocused] = useState(false)
+  const [pendingAddType, setPendingAddType] = useState(null)
+  const [subprocessStatus, setSubprocessStatus] = useState('')
+  const [edgeEditor, setEdgeEditor] = useState(null)
+  const [edgeEditorSaving, setEdgeEditorSaving] = useState(false)
   const flowWrapper = useRef(null)
   const panelRef = useRef(null)
   const posTimerRef = useRef(null)
@@ -45,7 +68,7 @@ function Canvas({
       if (!container) return
       const rect = container.getBoundingClientRect()
       const newWidth = rect.right - e.clientX
-      setPanelWidth((w) => Math.min(720, Math.max(280, newWidth)))
+      setPanelWidth(() => Math.min(720, Math.max(280, newWidth)))
     }
     function onUp() {
       setResizing(false)
@@ -57,6 +80,12 @@ function Canvas({
       window.removeEventListener('mouseup', onUp)
     }
   }, [resizing])
+
+  useEffect(() => {
+    if (!subprocessStatus) return
+    const t = setTimeout(() => setSubprocessStatus(''), 3500)
+    return () => clearTimeout(t)
+  }, [subprocessStatus])
 
   const { initialNodes, initialEdges } = useMemo(() => {
     if (!graph) return { initialNodes: [], initialEdges: [] }
@@ -97,8 +126,17 @@ function Canvas({
 
   const handleNodeClick = useCallback(
     (_event, node) => {
-      if (node.type === 'subprocess' && onDrillDown && node.data?.called_element) {
-        onDrillDown(node.data.called_element)
+      setSelectedNodeId(node.id)
+      if (node.type === 'subprocess') {
+        if (onDrillDown && node.data?.called_element) {
+          onDrillDown(node.data.called_element)
+          return
+        }
+        // New subprocess nodes may not yet be linked to a target process.
+        // Fall back to opening details so the node remains actionable on click.
+        if (onStepSelect) {
+          onStepSelect(node.data)
+        }
         return
       }
       if (node.type === 'step' && onStepSelect) {
@@ -121,19 +159,82 @@ function Canvas({
     }
   }, [sessionId, processId, onRequestRefresh, undoBotPending])
 
-  const handleAddNode = useCallback(
-    async (type) => {
-      if (!graph?.lanes?.length) return
+  const handleRedo = useCallback(async () => {
+    if (!sessionId || redoPending || !onRequestRefresh) return
+    setRedoPending(true)
+    try {
+      await redoGraph(sessionId, { processId })
+      onRequestRefresh()
+    } catch (err) {
+      if (err?.status !== 404) console.warn('Redo failed', err)
+    } finally {
+      setRedoPending(false)
+    }
+  }, [sessionId, processId, onRequestRefresh, redoPending])
+
+  const handleReset = useCallback(async () => {
+    if (!sessionId || resetPending || !onRequestRefresh) return
+    if (!window.confirm('Reset to original graph? All changes will be lost.')) return
+    setResetPending(true)
+    try {
+      await resetToBaseline(sessionId, { processId })
+      onRequestRefresh()
+    } catch (err) {
+      console.warn('Reset failed', err)
+    } finally {
+      setResetPending(false)
+    }
+  }, [sessionId, processId, onRequestRefresh, resetPending])
+
+  const handleAddNode = useCallback((type) => {
+    setPendingAddType(type)
+    setSelectedNodeId(null)
+  }, [])
+
+  const handlePlaceNode = useCallback(
+    async (event) => {
+      if (!pendingAddType || !graph?.lanes?.length) {
+        setSelectedNodeId(null)
+        return
+      }
       const laneId = graph.lanes[0].id
-      const name = type === 'step' ? 'New Step' : type === 'decision' ? 'New Decision' : 'New Subprocess'
+      const name =
+        pendingAddType === 'step'
+          ? 'New Step'
+          : pendingAddType === 'decision'
+            ? 'New Decision'
+            : 'New Subprocess'
+      const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
       try {
-        await createNode(sessionId, processId, laneId, name, type)
+        const createdNode = await createNode(sessionId, processId, laneId, name, pendingAddType, position)
+        if (pendingAddType === 'subprocess' && createdNode?.id) {
+          try {
+            const created = await createSubprocessPage(
+              sessionId,
+              processId,
+              createdNode.id,
+              createdNode.name || name,
+            )
+            const linkedProcessId = created?.process_id
+            setSubprocessStatus(
+              linkedProcessId
+                ? `Subprocess page created and linked (${linkedProcessId}).`
+                : 'Subprocess page linked.',
+            )
+          } catch (linkErr) {
+            console.warn('Subprocess page creation failed', linkErr)
+            setSubprocessStatus('Subprocess node created, but page linking failed.')
+          }
+        } else {
+          setSubprocessStatus('')
+        }
+        setPendingAddType(null)
         onRequestRefresh?.()
       } catch (err) {
         console.warn('Create node failed', err)
       }
     },
-    [graph, sessionId, processId, onRequestRefresh],
+    [pendingAddType, graph, screenToFlowPosition, sessionId, processId, onRequestRefresh],
   )
 
   const handleAutoArrange = useCallback(async () => {
@@ -149,17 +250,59 @@ function Canvas({
   }, [nodes, edges, sessionId, processId, setNodes, onRequestRefresh])
 
   const handleConnect = useCallback(
-    async (connection) => {
+    (connection) => {
       if (!connection?.source || !connection?.target) return
-      try {
-        await createEdge(sessionId, processId, connection.source, connection.target, '')
-        onRequestRefresh?.()
-      } catch (err) {
-        console.warn('Create edge failed', err)
-      }
+      setEdgeEditor({
+        mode: 'create',
+        source: connection.source,
+        target: connection.target,
+        sourceHandle: connection.sourceHandle || null,
+        targetHandle: connection.targetHandle || null,
+        label: '',
+      })
     },
-    [sessionId, processId, onRequestRefresh],
+    [],
   )
+
+  const handleEdgeDoubleClick = useCallback(
+    (_event, edge) => {
+      setEdgeEditor({
+        mode: 'edit',
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle || null,
+        targetHandle: edge.targetHandle || null,
+        label: edge.label || '',
+      })
+    },
+    [],
+  )
+
+  const handleEdgeEditorClose = useCallback(() => {
+    if (edgeEditorSaving) return
+    setEdgeEditor(null)
+  }, [edgeEditorSaving])
+
+  const handleEdgeEditorSave = useCallback(async () => {
+    if (!edgeEditor || edgeEditorSaving) return
+    setEdgeEditorSaving(true)
+    try {
+      if (edgeEditor.mode === 'create') {
+        await createEdge(sessionId, processId, edgeEditor.source, edgeEditor.target, edgeEditor.label || '', {
+          sourceHandle: edgeEditor.sourceHandle,
+          targetHandle: edgeEditor.targetHandle,
+        })
+      } else {
+        await updateEdge(sessionId, processId, edgeEditor.source, edgeEditor.target, { label: edgeEditor.label || '' })
+      }
+      setEdgeEditor(null)
+      onRequestRefresh?.()
+    } catch (err) {
+      console.warn('Edge label save failed', err)
+    } finally {
+      setEdgeEditorSaving(false)
+    }
+  }, [edgeEditor, edgeEditorSaving, sessionId, processId, onRequestRefresh])
 
   const handleEdgesDelete = useCallback(
     async (deletedEdges) => {
@@ -175,12 +318,36 @@ function Canvas({
     [sessionId, processId, onRequestRefresh],
   )
 
+  const handleNodesDelete = useCallback(
+    async (deletedNodes) => {
+      const nonLaneNodes = deletedNodes.filter((node) => !node.id.startsWith('lane_'))
+      for (const node of nonLaneNodes) {
+        if (node.type === 'start' || node.type === 'end') continue
+        try {
+          await deleteNode(sessionId, processId, node.id)
+        } catch (err) {
+          console.warn('Delete node failed', err)
+        }
+      }
+      onRequestRefresh?.()
+    },
+    [sessionId, processId, onRequestRefresh],
+  )
+
   const handleReconnect = useCallback(
     async (oldEdge, newConnection) => {
       if (!newConnection?.source || !newConnection?.target) return
       try {
-        await deleteEdge(sessionId, processId, oldEdge.source, oldEdge.target)
-        await createEdge(sessionId, processId, newConnection.source, newConnection.target, '')
+        const reconnectsSamePair =
+          oldEdge.source === newConnection.source && oldEdge.target === newConnection.target
+
+        await createEdge(sessionId, processId, newConnection.source, newConnection.target, '', {
+          sourceHandle: newConnection.sourceHandle,
+          targetHandle: newConnection.targetHandle,
+        })
+        if (!reconnectsSamePair) {
+          await deleteEdge(sessionId, processId, oldEdge.source, oldEdge.target)
+        }
         onRequestRefresh?.()
       } catch (err) {
         console.warn('Reconnect edge failed', err)
@@ -217,6 +384,47 @@ function Canvas({
     }
   }, [sessionId, processId])
 
+  useEffect(() => {
+    function onKeyDown(e) {
+      const active = document.activeElement
+      const tag = active?.tagName?.toLowerCase()
+      const isTypingTarget = tag === 'textarea' || tag === 'input' || active?.isContentEditable
+      if (isTypingTarget || !flowFocused || loading || error) return
+
+      const key = e.key.toLowerCase()
+      const metaOrCtrl = e.metaKey || e.ctrlKey
+
+      if (metaOrCtrl && key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          handleRedo()
+        } else {
+          handleUndoBot()
+        }
+        return
+      }
+
+      if (key === 's') {
+        e.preventDefault()
+        handleAddNode('step')
+      } else if (key === 'd') {
+        e.preventDefault()
+        handleAddNode('decision')
+      } else if (key === 'p') {
+        e.preventDefault()
+        handleAddNode('subprocess')
+      } else if (key === 'a') {
+        e.preventDefault()
+        handleAutoArrange()
+      } else if (key === 'escape') {
+        setPendingAddType(null)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [flowFocused, loading, error, handleAddNode, handleAutoArrange, handleUndoBot, handleRedo])
+
   const disabled = loading || !!error
 
   return (
@@ -235,15 +443,61 @@ function Canvas({
         <div className="process-canvas__panel-inner">
           <div className="process-canvas__toolbar" role="toolbar">
             <span className="process-canvas__toolbar-title">Canvas</span>
-            <button type="button" onClick={() => handleAddNode('step')} disabled={disabled} title="Add Step">+ Step</button>
-            <button type="button" onClick={() => handleAddNode('decision')} disabled={disabled} title="Add Decision">+ Decision</button>
-            <button type="button" onClick={() => handleAddNode('subprocess')} disabled={disabled} title="Add Subprocess">+ Sub</button>
+            <button
+              type="button"
+              onClick={() => handleAddNode('step')}
+              disabled={disabled}
+              className={pendingAddType === 'step' ? 'process-canvas__toolbar-button--active' : ''}
+              title="Add Step (S)"
+            >
+              + Step
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAddNode('decision')}
+              disabled={disabled}
+              className={pendingAddType === 'decision' ? 'process-canvas__toolbar-button--active' : ''}
+              title="Add Decision (D)"
+            >
+              + Decision
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAddNode('subprocess')}
+              disabled={disabled}
+              className={pendingAddType === 'subprocess' ? 'process-canvas__toolbar-button--active' : ''}
+              title="Add Subprocess (P)"
+            >
+              + Sub
+            </button>
             <span className="process-canvas__toolbar-sep" />
-            <button type="button" onClick={handleAutoArrange} disabled={disabled || !onRequestRefresh} title="Auto-arrange nodes">Arrange</button>
-            <button type="button" onClick={handleUndoBot} disabled={disabled || undoBotPending || !onRequestRefresh} title="Undo last bot change">Undo</button>
+            <button type="button" onClick={handleAutoArrange} disabled={disabled || !onRequestRefresh} title="Auto-arrange nodes (A)">Arrange</button>
+            <button type="button" onClick={handleUndoBot} disabled={disabled || undoBotPending || !onRequestRefresh} title="Undo last change (Ctrl/Cmd+Z)">Undo</button>
+            <button type="button" onClick={handleRedo} disabled={disabled || redoPending || !onRequestRefresh} title="Redo last undo (Ctrl/Cmd+Shift+Z)">Redo</button>
+            <button type="button" onClick={handleReset} disabled={disabled || resetPending || !onRequestRefresh} title="Reset to baseline">Reset</button>
             <span className="process-canvas__toolbar-sep" />
             <button type="button" onClick={handleExportPng} disabled={disabled} title="Export as PNG">PNG</button>
             <button type="button" onClick={handleExportBpmn} disabled={disabled} title="Export as BPMN XML">BPMN</button>
+          </div>
+          {pendingAddType && (
+            <div className="process-canvas__place-hint">
+              Click on canvas to place the new {pendingAddType}. It starts unconnected.
+            </div>
+          )}
+          {!pendingAddType && subprocessStatus && (
+            <div className="process-canvas__subprocess-status">{subprocessStatus}</div>
+          )}
+          <div className="process-canvas__shortcuts" aria-label="Keyboard shortcuts">
+            <div className="process-canvas__shortcuts-title">Keyboard shortcuts</div>
+            <div className="process-canvas__shortcuts-grid">
+              <span><kbd>S</kbd> Add Step</span>
+              <span><kbd>D</kbd> Add Decision</span>
+              <span><kbd>P</kbd> Add Subprocess</span>
+              <span><kbd>A</kbd> Auto-arrange</span>
+              <span><kbd>Ctrl/Cmd + Z</kbd> Undo</span>
+              <span><kbd>Ctrl/Cmd + Shift + Z</kbd> Redo</span>
+            </div>
+            <div className="process-canvas__shortcuts-note">Click the canvas first to enable shortcuts.</div>
           </div>
           {panelFooter && <div className="process-canvas__panel-footer">{panelFooter}</div>}
         </div>
@@ -255,10 +509,45 @@ function Canvas({
         loadingClassName="process-canvas__loading"
         errorClassName="process-canvas__error"
       />
+      {edgeEditor && (
+        <div className="process-canvas__edge-editor-backdrop" onClick={handleEdgeEditorClose}>
+          <div className="process-canvas__edge-editor" onClick={(e) => e.stopPropagation()}>
+            <div className="process-canvas__edge-editor-title">
+              {edgeEditor.mode === 'create' ? 'New connection label' : 'Edit connection label'}
+            </div>
+            <input
+              className="process-canvas__edge-editor-input"
+              autoFocus
+              placeholder="Enter edge text (optional)"
+              value={edgeEditor.label}
+              onChange={(e) => setEdgeEditor((prev) => (prev ? { ...prev, label: e.target.value } : prev))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleEdgeEditorSave()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  handleEdgeEditorClose()
+                }
+              }}
+            />
+            <div className="process-canvas__edge-editor-actions">
+              <button type="button" onClick={handleEdgeEditorClose} disabled={edgeEditorSaving}>Cancel</button>
+              <button type="button" onClick={handleEdgeEditorSave} disabled={edgeEditorSaving}>
+                {edgeEditorSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         ref={flowWrapper}
-        className="process-canvas__flow"
+        className={`process-canvas__flow ${pendingAddType ? 'process-canvas__flow--placing' : ''}`}
         style={{ visibility: loading || error ? 'hidden' : 'visible' }}
+        tabIndex={0}
+        onMouseDown={() => flowWrapper.current?.focus()}
+        onFocus={() => setFlowFocused(true)}
+        onBlur={() => setFlowFocused(false)}
       >
         <ReactFlow
           nodes={nodes}
@@ -267,13 +556,18 @@ function Canvas({
           onEdgesChange={onEdgesChange}
           onConnect={handleConnect}
           onEdgesDelete={handleEdgesDelete}
+          onNodesDelete={handleNodesDelete}
           onReconnect={handleReconnect}
+          onEdgeDoubleClick={handleEdgeDoubleClick}
           onNodeClick={handleNodeClick}
+          onConnectStart={(_, { nodeId }) => setSelectedNodeId(nodeId || null)}
+          onPaneClick={handlePlaceNode}
           nodeTypes={nodeTypes}
           fitView
           minZoom={0.1}
           maxZoom={4}
           edgesReconnectable
+          connectionLineType={ConnectionLineType.SmoothStep}
           defaultEdgeOptions={{
             type: 'smoothstep',
             markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--edge-stroke, #c97d3a)' },
@@ -281,12 +575,15 @@ function Canvas({
           proOptions={{ hideAttribution: true }}
           deleteKeyCode={['Backspace', 'Delete']}
         >
-          <Controls position="bottom-left" />
+          <Controls position="top-left" />
           <MiniMap
+            position="top-right"
+            pannable
+            zoomable
             nodeStrokeColor="var(--node-stroke, #c97d3a)"
             nodeColor="var(--node-fill, #f5d4b8)"
             maskColor="rgba(255, 255, 255, 0.7)"
-            style={{ background: 'var(--bg-secondary, #1a1510)' }}
+            style={{ width: 180, height: 120, background: 'var(--bg-secondary, #1a1510)' }}
           />
           <Background variant="dots" color="#ccc4b8" gap={20} size={1.5} />
         </ReactFlow>

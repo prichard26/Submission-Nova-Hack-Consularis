@@ -74,6 +74,7 @@ def _persist(session_id: str, process_id: str | None = None, *, skip_history: bo
         current = db.get_session_json(session_id, pid)
         if current:
             db.push_history(session_id, pid, current)
+        db.clear_redo(session_id, pid)
     db.upsert_session_json(session_id, pid, graph.to_json())
 
 
@@ -284,6 +285,8 @@ def get_edges(session_id: str, source_id: str | None = None, process_id: str | N
             "from": f["from"],
             "to": f["to"],
             "label": f.get("label", ""),
+            **({"source_handle": f["source_handle"]} if f.get("source_handle") else {}),
+            **({"target_handle": f["target_handle"]} if f.get("target_handle") else {}),
             **({"condition": f["condition"]} if f.get("condition") else {}),
         }
         for f in flows
@@ -294,7 +297,7 @@ def get_edges(session_id: str, source_id: str | None = None, process_id: str | N
 # Mutation operations
 # ---------------------------------------------------------------------------
 
-_UPDATE_NODE_ALLOWED = {"name"} | STEP_METADATA_KEYS
+_UPDATE_NODE_ALLOWED = {"name", "called_element"} | STEP_METADATA_KEYS
 
 
 def _dedupe_risks(risks: list) -> list:
@@ -306,6 +309,62 @@ def _dedupe_risks(risks: list) -> list:
             seen.add(s)
             out.append(s)
     return out
+
+
+def _next_custom_process_id(session_id: str, ws: WorkspaceManifest) -> str:
+    existing = set(ws.all_process_ids())
+    existing.update(get_process_ids(session_id))
+    n = 1
+    while f"Process_Custom_{n}" in existing:
+        n += 1
+    return f"Process_Custom_{n}"
+
+
+def _starter_process_graph(process_id: str, name: str, parent_info: dict | None) -> dict[str, Any]:
+    lane_id = "MAIN"
+    start_id = f"Start_{process_id}"
+    end_id = f"End_{process_id}"
+    return {
+        "format_version": "1.0",
+        "process_id": process_id,
+        "name": name,
+        "metadata": {
+            "owner": (parent_info or {}).get("owner", "Pharmacy Department"),
+            "category": (parent_info or {}).get("category", "clinical"),
+            "criticality": (parent_info or {}).get("criticality", "medium"),
+        },
+        "lanes": [
+            {
+                "id": lane_id,
+                "name": name,
+                "description": "",
+                "node_refs": [start_id, end_id],
+            }
+        ],
+        "steps": [
+            {
+                "id": start_id,
+                "name": "Start",
+                "type": "start",
+                "lane_id": lane_id,
+                "position": {"x": 280, "y": 78},
+            },
+            {
+                "id": end_id,
+                "name": "End",
+                "type": "end",
+                "lane_id": lane_id,
+                "position": {"x": 740, "y": 78},
+            },
+        ],
+        "flows": [
+            {
+                "from": start_id,
+                "to": end_id,
+                "label": "Start",
+            }
+        ],
+    }
 
 
 def update_node(session_id: str, node_id: str, updates: dict, process_id: str | None = None) -> dict | None:
@@ -329,15 +388,26 @@ def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | N
         return None
 
     refs = lane.get("node_refs", [])
-    step_num = 1
-    for nid in reversed(refs):
-        parts = nid.split(".")
-        if len(parts) >= 2 and parts[-1].isdigit():
-            step_num = int(parts[-1]) + 1
-            break
+    existing_ids = graph.all_step_ids()
+    prefix = f"{lane_id}."
+    max_suffix = 0
+    for nid in existing_ids:
+        if not nid.startswith(prefix):
+            continue
+        suffix = nid[len(prefix):]
+        if suffix.isdigit():
+            max_suffix = max(max_suffix, int(suffix))
+    step_num = max_suffix + 1 if max_suffix > 0 else 1
     new_id = f"{lane_id}.{step_num}"
+    while new_id in existing_ids:
+        step_num += 1
+        new_id = f"{lane_id}.{step_num}"
 
-    pos = auto_position(graph, lane_id)
+    provided_pos = step_data.get("position")
+    if isinstance(provided_pos, dict) and "x" in provided_pos and "y" in provided_pos:
+        pos = {"x": int(provided_pos.get("x", 0)), "y": int(provided_pos.get("y", 0))}
+    else:
+        pos = auto_position(graph, lane_id)
     new_step: dict[str, Any] = {
         "id": new_id,
         "name": step_data.get("name", "New step"),
@@ -355,25 +425,88 @@ def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | N
     graph.steps.append(new_step)
     lane["node_refs"] = list(refs) + [new_id]
 
-    # Optionally insert new node into flow chain just before the End event of this lane
-    end_step = next((s for s in graph.steps if s.get("lane_id") == lane_id and s.get("type") == "end"), None)
-    if end_step:
-        end_id = end_step.get("id")
-        incoming = next((f for f in graph.flows if f.get("to") == end_id), None)
-        if incoming:
-            prev_id = incoming["from"]
-            incoming["to"] = new_id
-            graph.flows.append({"from": new_id, "to": end_id})
-
     _persist(session_id, process_id)
     _refresh_workspace_summary(session_id, process_id)
     return get_node(session_id, new_id, process_id=process_id)
+
+
+def create_subprocess_page(
+    session_id: str,
+    parent_process_id: str,
+    node_id: str,
+    name: str | None = None,
+) -> dict | None:
+    parent_pid = _normalize_process_id(parent_process_id)
+    parent_graph = _get_graph(session_id, parent_pid)
+    step = parent_graph.get_step(node_id)
+    if not step or step.get("type") != "subprocess":
+        return None
+
+    ws = _get_workspace(session_id)
+    parent_info = ws.get_process_info(parent_pid)
+    if parent_info is None:
+        return None
+
+    existing_called = step.get("called_element")
+    if existing_called and ws.get_process_info(existing_called):
+        return {
+            "created": False,
+            "process_id": existing_called,
+            "node": get_node(session_id, node_id, process_id=parent_pid),
+        }
+
+    process_name = (name or step.get("name") or "New Subprocess").strip() or "New Subprocess"
+    new_process_id = _next_custom_process_id(session_id, ws)
+    new_graph_dict = _starter_process_graph(new_process_id, process_name, parent_info)
+    db.upsert_session_json(session_id, new_process_id, json.dumps(new_graph_dict, ensure_ascii=False, indent=2))
+    _cache[(session_id, new_process_id)] = ProcessGraph.from_dict(new_graph_dict)
+
+    tree = ws.data.setdefault("process_tree", {})
+    processes = tree.setdefault("processes", {})
+    parent_children = parent_info.setdefault("children", [])
+    if new_process_id not in parent_children:
+        parent_children.append(new_process_id)
+
+    new_depth = int(parent_info.get("depth", 0)) + 1
+    new_path = f"{parent_info.get('path', '').rstrip('/')}/{new_process_id}"
+    processes[new_process_id] = {
+        "name": process_name,
+        "depth": new_depth,
+        "path": new_path,
+        "children": [],
+        "graph_file": f"{new_process_id}.json",
+        "owner": parent_info.get("owner", "Pharmacy Department"),
+        "category": parent_info.get("category", "clinical"),
+        "criticality": parent_info.get("criticality", "medium"),
+        "summary": {"step_count": 0, "subprocess_count": 0},
+    }
+
+    category = processes[new_process_id].get("category")
+    if category:
+        tags = ws.data.setdefault("tags", {})
+        tagged = tags.setdefault(category, [])
+        if new_process_id not in tagged:
+            tagged.append(new_process_id)
+
+    step["called_element"] = new_process_id
+    _persist(session_id, parent_pid)
+    db.upsert_session_workspace(session_id, ws.to_json())
+    _refresh_workspace_summary(session_id, parent_pid)
+    _refresh_workspace_summary(session_id, new_process_id)
+
+    return {
+        "created": True,
+        "process_id": new_process_id,
+        "node": get_node(session_id, node_id, process_id=parent_pid),
+    }
 
 
 def delete_node(session_id: str, node_id: str, process_id: str | None = None) -> bool:
     graph = _get_graph(session_id, process_id)
     step = graph.get_step(node_id)
     if not step:
+        return False
+    if step.get("type") in ("start", "end"):
         return False
     lane_id = step.get("lane_id")
     if lane_id:
@@ -396,6 +529,8 @@ def add_edge(
     target: str,
     label: str = "",
     condition: str | None = None,
+    source_handle: str | None = None,
+    target_handle: str | None = None,
     process_id: str | None = None,
 ) -> dict | None:
     graph = _get_graph(session_id, process_id)
@@ -408,18 +543,38 @@ def add_edge(
             existing["label"] = label
         if condition is not None:
             existing["condition"] = condition
+        if source_handle:
+            existing["source_handle"] = source_handle
+        if target_handle:
+            existing["target_handle"] = target_handle
         _persist(session_id, process_id)
-        return {"from": source, "to": target, "label": existing.get("label", ""),
-                **({"condition": existing["condition"]} if existing.get("condition") else {})}
+        return {
+            "from": source,
+            "to": target,
+            "label": existing.get("label", ""),
+            **({"source_handle": existing["source_handle"]} if existing.get("source_handle") else {}),
+            **({"target_handle": existing["target_handle"]} if existing.get("target_handle") else {}),
+            **({"condition": existing["condition"]} if existing.get("condition") else {}),
+        }
     flow: dict[str, Any] = {"from": source, "to": target}
     if label:
         flow["label"] = label
     if condition:
         flow["condition"] = condition
+    if source_handle:
+        flow["source_handle"] = source_handle
+    if target_handle:
+        flow["target_handle"] = target_handle
     graph.flows.append(flow)
     _persist(session_id, process_id)
-    return {"from": source, "to": target, "label": flow.get("label", ""),
-            **({"condition": flow["condition"]} if flow.get("condition") else {})}
+    return {
+        "from": source,
+        "to": target,
+        "label": flow.get("label", ""),
+        **({"source_handle": flow["source_handle"]} if flow.get("source_handle") else {}),
+        **({"target_handle": flow["target_handle"]} if flow.get("target_handle") else {}),
+        **({"condition": flow["condition"]} if flow.get("condition") else {}),
+    }
 
 
 def update_edge(session_id: str, source: str, target: str, updates: dict, process_id: str | None = None) -> dict | None:
@@ -579,13 +734,48 @@ def rename_process(session_id: str, new_name: str, process_id: str | None = None
 def undo_graph(session_id: str, process_id: str | None = None) -> str | None:
     """Restore previous graph state from history. Returns restored JSON or None."""
     pid = _normalize_process_id(process_id)
+    current_json = db.get_session_json(session_id, pid)
     prev_json = db.pop_history(session_id, pid)
     if prev_json is None:
         return None
+    if current_json:
+        db.push_redo(session_id, pid, current_json)
     key = (session_id, pid)
     _cache.pop(key, None)
     db.upsert_session_json(session_id, pid, prev_json)
+    _refresh_workspace_summary(session_id, pid)
     return prev_json
+
+
+def redo_graph(session_id: str, process_id: str | None = None) -> str | None:
+    """Re-apply next graph state from redo stack. Returns restored JSON or None."""
+    pid = _normalize_process_id(process_id)
+    current_json = db.get_session_json(session_id, pid)
+    next_json = db.pop_redo(session_id, pid)
+    if next_json is None:
+        return None
+    if current_json:
+        db.push_history(session_id, pid, current_json)
+    key = (session_id, pid)
+    _cache.pop(key, None)
+    db.upsert_session_json(session_id, pid, next_json)
+    _refresh_workspace_summary(session_id, pid)
+    return next_json
+
+
+def reset_to_baseline(session_id: str, process_id: str | None = None) -> str:
+    """Reset process graph to baseline snapshot and clear undo/redo state."""
+    pid = _normalize_process_id(process_id)
+    baseline_json = db.get_baseline_json(pid) or db.get_baseline_json(DEFAULT_PROCESS_ID)
+    if baseline_json is None:
+        raise RuntimeError(f"Baseline not found for process_id={pid}")
+    key = (session_id, pid)
+    _cache.pop(key, None)
+    db.upsert_session_json(session_id, pid, baseline_json)
+    db.clear_history(session_id, pid)
+    db.clear_redo(session_id, pid)
+    _refresh_workspace_summary(session_id, pid)
+    return baseline_json
 
 
 def update_positions(session_id: str, process_id: str | None, positions: dict[str, dict]) -> bool:

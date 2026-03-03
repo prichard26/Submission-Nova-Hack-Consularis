@@ -80,23 +80,44 @@ export function updatePositions(sessionId, processId, positions, options = {}) {
   })
 }
 
-export function createNode(sessionId, processId, laneId, name, type = 'step', options = {}) {
+export function createNode(sessionId, processId, laneId, name, type = 'step', position = null, options = {}) {
   const sid = encodeURIComponent(sessionId)
   const pid = encodeURIComponent(processId)
   return request(`/api/graph/node?session_id=${sid}&process_id=${pid}`, {
     ...options,
     method: 'POST',
-    body: JSON.stringify({ lane_id: laneId, name, type }),
+    body: JSON.stringify({ lane_id: laneId, name, type, position }),
   })
 }
 
-export function createEdge(sessionId, processId, source, target, label = '', options = {}) {
+export function createSubprocessPage(sessionId, processId, nodeId, name, parentProcessId = null, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = encodeURIComponent(processId)
+  return request(`/api/graph/subprocess/create?session_id=${sid}&process_id=${pid}`, {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({
+      node_id: nodeId,
+      name,
+      parent_process_id: parentProcessId,
+    }),
+  })
+}
+
+export function createEdge(sessionId, processId, source, target, label = '', handles = {}, options = {}) {
+  const { sourceHandle = null, targetHandle = null } = handles
   const sid = encodeURIComponent(sessionId)
   const pid = encodeURIComponent(processId)
   return request(`/api/graph/edge?session_id=${sid}&process_id=${pid}`, {
     ...options,
     method: 'POST',
-    body: JSON.stringify({ source, target, label }),
+    body: JSON.stringify({
+      source,
+      target,
+      label,
+      source_handle: sourceHandle,
+      target_handle: targetHandle,
+    }),
   })
 }
 
@@ -105,6 +126,30 @@ export function deleteEdge(sessionId, processId, source, target, options = {}) {
   const pid = encodeURIComponent(processId)
   return request(
     `/api/graph/edge?session_id=${sid}&process_id=${pid}&source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}`,
+    { ...options, method: 'DELETE' },
+  )
+}
+
+export function updateEdge(sessionId, processId, source, target, updates = {}, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = encodeURIComponent(processId)
+  return request(`/api/graph/edge?session_id=${sid}&process_id=${pid}`, {
+    ...options,
+    method: 'PUT',
+    body: JSON.stringify({
+      source,
+      target,
+      label: updates.label ?? null,
+      condition: updates.condition ?? null,
+    }),
+  })
+}
+
+export function deleteNode(sessionId, processId, nodeId, options = {}) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = encodeURIComponent(processId)
+  return request(
+    `/api/graph/node?session_id=${sid}&process_id=${pid}&node_id=${encodeURIComponent(nodeId)}`,
     { ...options, method: 'DELETE' },
   )
 }
@@ -142,6 +187,26 @@ export function undoGraph(sessionId, options = {}) {
   const sid = encodeURIComponent(sessionId)
   const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
   return request(`/api/graph/undo?session_id=${sid}${pid}`, {
+    ...rest,
+    method: 'POST',
+  })
+}
+
+export function redoGraph(sessionId, options = {}) {
+  const { processId, ...rest } = options
+  const sid = encodeURIComponent(sessionId)
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/redo?session_id=${sid}${pid}`, {
+    ...rest,
+    method: 'POST',
+  })
+}
+
+export function resetToBaseline(sessionId, options = {}) {
+  const { processId, ...rest } = options
+  const sid = encodeURIComponent(sessionId)
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return request(`/api/graph/reset?session_id=${sid}${pid}`, {
     ...rest,
     method: 'POST',
   })

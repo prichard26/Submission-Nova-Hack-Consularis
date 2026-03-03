@@ -13,9 +13,12 @@ from graph.store import (
     get_baseline_json,
     resolve_step,
     undo_graph,
+    redo_graph,
+    reset_to_baseline,
     update_node,
     delete_node,
     add_node,
+    create_subprocess_page,
     add_edge,
     update_edge,
     delete_edge,
@@ -102,6 +105,13 @@ class NodeCreateRequest(BaseModel):
     lane_id: str
     name: str = "New step"
     type: str = "step"
+    position: dict | None = None
+
+
+class SubprocessCreateRequest(BaseModel):
+    node_id: str
+    name: str | None = None
+    parent_process_id: str | None = None
 
 
 @router.post("/node")
@@ -112,9 +122,29 @@ def api_create_node(
 ):
     """Create a new node in a lane."""
     _validate_session_id(session_id)
-    result = add_node(session_id, req.lane_id, {"name": req.name, "type": req.type}, process_id=process_id)
+    result = add_node(
+        session_id,
+        req.lane_id,
+        {"name": req.name, "type": req.type, "position": req.position},
+        process_id=process_id,
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="Lane not found")
+    return result
+
+
+@router.post("/subprocess/create")
+def api_create_subprocess_page(
+    req: SubprocessCreateRequest,
+    session_id: str = Query(..., description="Session id"),
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Current process id"),
+):
+    """Create and link a subprocess page for a subprocess node."""
+    _validate_session_id(session_id)
+    parent_pid = req.parent_process_id or process_id
+    result = create_subprocess_page(session_id, parent_pid, req.node_id, req.name)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Subprocess node or parent process not found")
     return result
 
 
@@ -141,6 +171,8 @@ class EdgeCreateRequest(BaseModel):
     target: str
     label: str = ""
     condition: str | None = None
+    source_handle: str | None = None
+    target_handle: str | None = None
 
 
 class EdgeUpdateRequest(BaseModel):
@@ -164,6 +196,8 @@ def api_create_edge(
         req.target,
         label=req.label or "",
         condition=req.condition,
+        source_handle=req.source_handle,
+        target_handle=req.target_handle,
         process_id=process_id,
     )
     if result is None:
@@ -269,4 +303,26 @@ def api_undo_graph(
     restored_json = undo_graph(session_id, process_id=process_id)
     if restored_json is None:
         raise HTTPException(status_code=404, detail="Nothing to undo")
+    return {"graph_json": json.loads(restored_json)}
+
+
+@router.post("/redo")
+def api_redo_graph(
+    session_id: str = Query(..., description="Session id"),
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
+):
+    _validate_session_id(session_id)
+    restored_json = redo_graph(session_id, process_id=process_id)
+    if restored_json is None:
+        raise HTTPException(status_code=404, detail="Nothing to redo")
+    return {"graph_json": json.loads(restored_json)}
+
+
+@router.post("/reset")
+def api_reset_graph(
+    session_id: str = Query(..., description="Session id"),
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
+):
+    _validate_session_id(session_id)
+    restored_json = reset_to_baseline(session_id, process_id=process_id)
     return {"graph_json": json.loads(restored_json)}

@@ -1,4 +1,4 @@
-import { Handle, Position } from '@xyflow/react'
+import { Handle, Position, NodeResizer } from '@xyflow/react'
 import './SubprocessNode.css'
 
 const HANDLES = [
@@ -13,6 +13,7 @@ const SOURCE_ORDER = ['right', 'left', 'top', 'bottom']
 export default function SubprocessNode({ data, selected }) {
   return (
     <div className={`subprocess-node ${selected ? 'subprocess-node--selected' : ''}`}>
+      <NodeResizer minWidth={160} minHeight={80} isVisible={selected} />
       {TARGET_ORDER.map((id) => {
         const { position } = HANDLES.find((h) => h.id === id)
         return <Handle key={`${id}-target`} type="target" position={position} id={`${id}-target`} />

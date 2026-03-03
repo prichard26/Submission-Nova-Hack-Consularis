@@ -27,12 +27,18 @@
 }
 
 .dashboard__logo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-primary);
 }
-.dashboard__logo-dot { color: var(--accent); }
+
+.dashboard__logo-icon {
+  fill: var(--accent);
+}
 
 .dashboard__company {
   font-family: var(--font-sans);
