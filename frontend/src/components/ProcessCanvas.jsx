@@ -52,6 +52,9 @@ function Canvas({
   selectedStep,
   onCloseDetail,
   onStepUpdate,
+  structuralChangeFromChat = false,
+  structuralChangeGraph = null,
+  onConsumedStructuralChange,
 }) {
   const { screenToFlowPosition, flowToScreenPosition, zoomIn, zoomOut, fitView } = useReactFlow()
   const { zoom } = useViewport()
@@ -158,6 +161,39 @@ function Canvas({
     setNodes(initialNodes)
     setEdges(initialEdges)
   }, [initialNodes, initialEdges, setNodes, setEdges])
+
+  // When chat caused a structural change, run auto-arrange on the graph from the chat response (not stale refetch) and POST positions.
+  useEffect(() => {
+    if (!structuralChangeFromChat || !structuralChangeGraph || !onConsumedStructuralChange) return
+    const { nodes: arrangeNodes, edges: arrangeEdges } = toReactFlowData(structuralChangeGraph, workspaceProcesses)
+    if (arrangeNodes.length === 0) {
+      onConsumedStructuralChange()
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const { nodes: nextNodes, edges: nextEdges, positions } = await autoArrangeNodes(
+        arrangeNodes,
+        arrangeEdges,
+        { graph: structuralChangeGraph }
+      )
+      if (cancelled || Object.keys(positions).length === 0) {
+        onConsumedStructuralChange()
+        return
+      }
+      setNodes(nextNodes)
+      setEdges(nextEdges)
+      setTimeout(() => fitView(), 100)
+      try {
+        await updatePositions(sessionId, processId, positions)
+        onRequestRefresh?.()
+      } catch (err) {
+        console.warn('Auto-arrange after structural change failed', err)
+      }
+      if (!cancelled) onConsumedStructuralChange()
+    })()
+    return () => { cancelled = true }
+  }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, sessionId, processId, setNodes, setEdges, fitView, onRequestRefresh, onConsumedStructuralChange])
 
   const processDisplayName = useMemo(() => {
     const entry = workspaceProcesses[processId]

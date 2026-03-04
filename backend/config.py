@@ -9,10 +9,16 @@ from dotenv import load_dotenv
 _BACKEND_DIR = Path(__file__).resolve().parent
 load_dotenv(_BACKEND_DIR / ".env")
 
-# API
+# API — Groq (kept but inactive by default)
 GROQ_KEY: str = os.getenv("GROQ_KEY", "")
 if not GROQ_KEY or GROQ_KEY.startswith("your_"):
     GROQ_KEY = "missing"
+
+# API — AWS Bedrock (Amazon Nova)
+AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
+AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+NOVA_MODEL_ID: str = os.getenv("NOVA_MODEL_ID", "us.amazon.nova-pro-v1:0")
 
 # Paths
 _default_graphs_dir = _BACKEND_DIR / "data" / "graphs"
@@ -28,6 +34,8 @@ DEFAULT_PROCESS_ID: str = os.getenv("DEFAULT_PROCESS_ID", "Process_Global")
 MAX_TOOL_ROUNDS: int = int(os.getenv("MAX_TOOL_ROUNDS", "10"))
 GROQ_TIMEOUT: float = float(os.getenv("GROQ_TIMEOUT", "60"))
 GROQ_MAX_RETRIES: int = int(os.getenv("GROQ_MAX_RETRIES", "2"))
+BEDROCK_TIMEOUT: int = int(os.getenv("BEDROCK_TIMEOUT", "120"))
+BEDROCK_MAX_RETRIES: int = int(os.getenv("BEDROCK_MAX_RETRIES", "2"))
 
 # CORS (comma-separated or default)
 _cors = os.getenv("ALLOWED_CORS_ORIGINS", "http://localhost:5173,http://localhost:5174")

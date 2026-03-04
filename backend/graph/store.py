@@ -191,7 +191,8 @@ def get_step_ids(session_id: str, process_id: str | None = None) -> set[str]:
 
 
 def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
-    """Compact lane/step summary for LLM context."""
+    """Compact lane/step summary + edges for LLM context."""
+    pid = _normalize_process_id(process_id)
     graph = _get_graph(session_id, process_id)
     parts = []
     for lane in graph.lanes:
@@ -226,6 +227,19 @@ def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
                 entry += ", " + ", ".join(extras)
             listed.append(entry)
         parts.append(f"{lane.get('id', '')} {lane.get('name', '')}: {', '.join(listed)}")
+    edges = [f"{f.get('from', '')}->{f.get('to', '')}" for f in graph.flows]
+    if edges:
+        parts.append("Edges: " + ", ".join(edges))
+    try:
+        ws = _get_workspace(session_id)
+        root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
+        if pid == root_id:
+            children = ws.get_children(pid)
+            if children:
+                sub_list = [f"{((ws.get_process_info(cid)) or {}).get('name', cid)}={cid}" for cid in children]
+                parts.append("Subprocesses: " + ", ".join(sub_list))
+    except Exception:
+        pass
     return " | ".join(parts)
 
 

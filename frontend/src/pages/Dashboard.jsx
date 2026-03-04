@@ -18,6 +18,9 @@ export default function Dashboard({ companyName }) {
   ])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
+  const [structuralChangeFromChat, setStructuralChangeFromChat] = useState(false)
+  const [structuralChangeGraph, setStructuralChangeGraph] = useState(null)
+  const [usage, setUsage] = useState(null)
 
   const { workspace } = useWorkspace(companyName, refreshTrigger)
 
@@ -55,7 +58,29 @@ export default function Dashboard({ companyName }) {
         const data = await sendChat(companyName, userText, { processId: activeProcessId })
         const reply = data.message || 'I could not process that. Please try again.'
         setChatMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text: reply }])
-        if (data.graph_json) handleExternalGraphUpdate()
+        if (data.meta) {
+          const toolCalls = data.meta.tool_calls_this_turn ?? []
+          if (toolCalls.length > 0) {
+            console.log('[Aurelius] Tools called this turn:', toolCalls.join(', '))
+          }
+          setUsage({
+            tool_calls_this_turn: toolCalls,
+            api_calls_this_turn: data.meta.api_calls_this_turn ?? 0,
+            input_tokens_this_turn: data.meta.input_tokens_this_turn ?? 0,
+            output_tokens_this_turn: data.meta.output_tokens_this_turn ?? 0,
+            total_api_calls: data.meta.total_api_calls ?? 0,
+            total_input_tokens: data.meta.total_input_tokens ?? 0,
+            total_output_tokens: data.meta.total_output_tokens ?? 0,
+            total_tokens: data.meta.total_tokens ?? 0,
+          })
+        }
+        if (data.graph_json) {
+          handleExternalGraphUpdate()
+          if (data.meta?.structural_change) {
+            setStructuralChangeGraph(data.graph_json)
+            setStructuralChangeFromChat(true)
+          }
+        }
       } catch (err) {
         const text = err.status ? `Request failed (${err.status}). Please try again.` : 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.'
         setChatMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text }])
@@ -68,19 +93,36 @@ export default function Dashboard({ companyName }) {
 
   const panelFooter = useMemo(
     () => (
-      <AureliusChat
-        compact
-        sessionId={companyName}
-        processId={activeProcessId}
-        onGraphUpdate={handleExternalGraphUpdate}
-        messages={chatMessages}
-        onSend={handleChatSend}
-        input={chatInput}
-        onInputChange={setChatInput}
-        loading={chatLoading}
-      />
+      <>
+        <AureliusChat
+          compact
+          sessionId={companyName}
+          processId={activeProcessId}
+          onGraphUpdate={handleExternalGraphUpdate}
+          messages={chatMessages}
+          onSend={handleChatSend}
+          input={chatInput}
+          onInputChange={setChatInput}
+          loading={chatLoading}
+        />
+        {usage != null && (
+          <div className="dashboard-usage" aria-label="API usage">
+            <span className="dashboard-usage__turn">
+              This turn: {usage.api_calls_this_turn} call{usage.api_calls_this_turn !== 1 ? 's' : ''}, {usage.input_tokens_this_turn.toLocaleString()} in, {usage.output_tokens_this_turn.toLocaleString()} out
+            </span>
+            {usage.tool_calls_this_turn?.length > 0 && (
+              <span className="dashboard-usage__tools">
+                Tools: {usage.tool_calls_this_turn.join(', ')}
+              </span>
+            )}
+            <span className="dashboard-usage__total">
+              Total: {usage.total_api_calls.toLocaleString()} calls, {usage.total_input_tokens.toLocaleString()} in, {usage.total_output_tokens.toLocaleString()} out ({usage.total_tokens.toLocaleString()} total)
+            </span>
+          </div>
+        )}
+      </>
     ),
-    [companyName, activeProcessId, handleExternalGraphUpdate, chatMessages, handleChatSend, chatInput, chatLoading],
+    [companyName, activeProcessId, handleExternalGraphUpdate, chatMessages, handleChatSend, chatInput, chatLoading, usage],
   )
 
   const handleProcessSelect = useCallback(
@@ -138,6 +180,12 @@ export default function Dashboard({ companyName }) {
             selectedStep={selectedStep}
             onCloseDetail={handleCloseDetail}
             onStepUpdate={handleStepUpdate}
+            structuralChangeFromChat={structuralChangeFromChat}
+            structuralChangeGraph={structuralChangeGraph}
+            onConsumedStructuralChange={() => {
+              setStructuralChangeFromChat(false)
+              setStructuralChangeGraph(null)
+            }}
           />
         )}
       </div>

@@ -29,20 +29,22 @@ def run_chat(
     messages: list[dict],
     max_rounds: int | None = None,
     process_id: str | None = None,
-) -> tuple[str, str, bool]:
+) -> tuple[str, str, bool, list[str]]:
     """
     Run the agent: Groq with tools until no more tool_calls.
-    Returns (final_message, updated_graph_json, tools_used).
+    Returns (final_message, updated_graph_json, tools_used, tools_called_list).
     """
     if max_rounds is None:
         max_rounds = MAX_TOOL_ROUNDS
     tools_used = False
+    tools_called: list[str] = []
 
     if not GROQ_KEY or GROQ_KEY == "missing":
         return (
             "I cannot run yet: GROQ_KEY is not set. Put your key in backend/.env (see backend/env.example) and restart.",
             get_graph_json(session_id, process_id=process_id),
             False,
+            [],
         )
 
     client = Groq(api_key=GROQ_KEY, timeout=GROQ_TIMEOUT)
@@ -82,6 +84,7 @@ def run_chat(
                         "The assistant is temporarily unavailable (API error or timeout). Please try again in a moment.",
                         get_graph_json(session_id, process_id=process_id),
                         False,
+                        [],
                     )
         choice = response.choices[0]
         if not choice.message.content and not getattr(choice.message, "tool_calls", None):
@@ -94,6 +97,7 @@ def run_chat(
 
         tools_used = True
         tool_names = [getattr(tc.function, "name", "?") for tc in tool_calls]
+        tools_called.extend(tool_names)
         logger.info("[AGENT] session_id=%s invoking %d tool(s): %s", session_id, len(tool_calls), ", ".join(tool_names))
 
         msg = choice.message
@@ -121,4 +125,4 @@ def run_chat(
         final_message = "I did not quite understand. Please say which step or phase you mean and what you would like to change."
 
     final_message = _sanitize_reply(final_message)
-    return final_message, get_graph_json(session_id, process_id=process_id), tools_used
+    return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called

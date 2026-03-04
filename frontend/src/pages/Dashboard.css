@@ -39,3 +39,26 @@
   position: relative;
   overflow: hidden;
 }
+
+/* ── Usage (API calls & tokens) ── */
+.dashboard-usage {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--text-secondary, #666);
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dashboard-usage__turn,
+.dashboard-usage__tools,
+.dashboard-usage__total {
+  font-family: var(--font-mono, monospace);
+}
+
+.dashboard-usage__tools {
+  color: var(--text-primary, #333);
+}
