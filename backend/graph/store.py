@@ -754,9 +754,20 @@ def reorder_steps(session_id: str, lane_id: str, ordered_ids: list[str], process
 
 
 def rename_process(session_id: str, new_name: str, process_id: str | None = None) -> bool:
-    graph = _get_graph(session_id, process_id)
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, pid)
     graph.name = (new_name or "").strip() or graph.name
-    _persist(session_id, process_id)
+    _persist(session_id, pid)
+    # Sync process name into workspace manifest so directory/header/minimap show the new name
+    try:
+        ws = _get_workspace(session_id)
+        procs = ws.data.get("process_tree", {}).get("processes", {})
+        if pid in procs:
+            procs[pid]["name"] = graph.name
+            db.upsert_session_workspace(session_id, ws.to_json())
+        _ws_cache.pop(session_id, None)
+    except Exception:
+        pass
     return True
 
 

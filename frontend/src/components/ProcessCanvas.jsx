@@ -53,7 +53,7 @@ function Canvas({
   onCloseDetail,
   onStepUpdate,
 }) {
-  const { screenToFlowPosition, zoomIn, zoomOut, fitView } = useReactFlow()
+  const { screenToFlowPosition, flowToScreenPosition, zoomIn, zoomOut, fitView } = useReactFlow()
   const { zoom } = useViewport()
   const { graph, loading, error } = useProcessGraph(sessionId, processId, refreshTrigger)
   const [undoBotPending, setUndoBotPending] = useState(false)
@@ -259,11 +259,13 @@ function Canvas({
 
   const handleCanvasMouseMove = useCallback(
     (e) => {
-      if (!pendingAddType || !flowWrapper.current) return
+      if (!pendingAddType || !flowWrapper.current || !flowToScreenPosition) return
+      const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      const screenPos = flowToScreenPosition(flowPos)
       const rect = flowWrapper.current.getBoundingClientRect()
-      setGhostPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+      setGhostPos({ x: screenPos.x - rect.left, y: screenPos.y - rect.top })
     },
-    [pendingAddType],
+    [pendingAddType, screenToFlowPosition, flowToScreenPosition],
   )
 
   const handlePlaceNode = useCallback(
@@ -278,7 +280,8 @@ function Canvas({
           : pendingAddType === 'decision'
             ? 'New Decision'
             : 'New Subprocess'
-      const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      const flowTopLeft = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      const position = topLeftToCenter(flowTopLeft, { type: pendingAddType })
       try {
         const createdNode = await createNode(sessionId, processId, laneId, name, pendingAddType, position)
         if (pendingAddType === 'subprocess' && createdNode?.id) {
