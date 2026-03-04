@@ -1,12 +1,13 @@
 /**
  * Graph document → React Flow nodes/edges.
  *
- * Custom Sugiyama-style layered layout:
- * - No node overlap, minimal edge crossings.
- * - Serial (one node per rank): DOWN = one above the other; RIGHT = one beside the other.
- * - Parallel (multiple nodes per rank): DOWN = 2+ columns side-by-side; RIGHT = 2+ rows stacked.
- * - direction 'DOWN' (default): ranks = rows, same rank = horizontal spread.
- * - direction 'RIGHT': ranks = columns, same rank = vertical stack. Use autoArrangeNodes(..., { direction: 'RIGHT' }).
+ * STRUCTURE:
+ * - Public API: toReactFlowData(graph) — load graph, no layout; autoArrangeNodes(nodes, edges, opts) — run layout + handles.
+ * - Layout pipeline (used only by autoArrangeNodes): buildDAG → assignRanks → groupByRank → orderNodesInRanks → assignCoordinates → centerParentsOverChildren.
+ * - Handles: computeSmartHandles(nodes, edges, _, forceRecalc) — base handles + fan-out + fan-in.
+ * - Lanes: computeLaneNodesFromPlaced(graph, placedNodes) for bounds from positions.
+ *
+ * Sugiyama: ranks = rows (DOWN) or columns (RIGHT); serial = one per rank; parallel = multiple per rank. No overlap by construction.
  */
 
 const LANE_PADDING = 40
@@ -138,15 +139,7 @@ function buildDAG(stepNodes, edges) {
     }
   }
 
-  return {
-    nodeIds,
-    successors,
-    predecessors,
-    edgesForRanking,
-    predForRanking,
-    succForRanking,
-    components,
-  }
+  return { predForRanking, succForRanking, components }
 }
 
 /* =========================================================================
@@ -364,28 +357,58 @@ function groupByRank(ranks) {
 }
 
 /**
- * Run full Sugiyama layout. Single component: one pass. Multiple components: layout each and stack (vertically for DOWN, horizontally for RIGHT).
- * @param {Array<{ id: string, type?: string, position: { x: number, y: number }, [key: string]: unknown }>} stepNodes
- * @param {Array<{ source: string, target: string }>} edges
- * @param {{ direction?: 'DOWN'|'RIGHT' }} [options]
- * @returns {{ placed: typeof stepNodes }}
+ * Second pass: center each parent that has 2+ children over the horizontal (DOWN) or vertical (RIGHT) span of those children.
+ * Process from bottom rank to top so children positions are final when we adjust the parent.
+ * @param {Map<string, { x: number, y: number }>} positions mutated in place
+ * @param {Map<number, string[]>} rankToNodes
+ * @param {Map<string, string[]>} succForRanking
+ * @param {'DOWN'|'RIGHT'} direction
+ */
+function centerParentsOverChildren(positions, rankToNodes, succForRanking, direction) {
+  const rankIndices = [...rankToNodes.keys()].sort((a, b) => b - a)
+  for (const r of rankIndices) {
+    for (const id of rankToNodes.get(r) || []) {
+      const succs = (succForRanking.get(id) || []).filter((s) => positions.has(s))
+      if (succs.length < 2) continue
+      const pos = positions.get(id)
+      if (direction === 'RIGHT') {
+        const avgY = succs.reduce((sum, s) => sum + positions.get(s).y, 0) / succs.length
+        positions.set(id, { ...pos, y: avgY })
+      } else {
+        const avgX = succs.reduce((sum, s) => sum + positions.get(s).x, 0) / succs.length
+        positions.set(id, { ...pos, x: avgX })
+      }
+    }
+  }
+}
+
+/**
+ * Layout one connected component: ranks → order → coordinates → center parents. Returns id → position (center-of-top-edge).
+ */
+function layoutOneComponent(stepNodes, edges, direction) {
+  const dag = buildDAG(stepNodes, edges)
+  const ranks = assignRanks(dag)
+  const rankToNodes = groupByRank(ranks)
+  const ordered = orderNodesInRanks(rankToNodes, dag)
+  const positions = assignCoordinates(ordered, stepNodes, direction)
+  centerParentsOverChildren(positions, rankToNodes, dag.succForRanking, direction)
+  return positions
+}
+
+/**
+ * Run full Sugiyama layout. One component: one pass. Multiple: layout each component and stack (DOWN = vertical, RIGHT = horizontal).
  */
 function runSugiyamaLayout(stepNodes, edges, options = {}) {
   const direction = options.direction || 'DOWN'
   if (stepNodes.length === 0) return { placed: stepNodes }
   const idSet = new Set(stepNodes.map((n) => n.id))
-  const hasEdges = edges.some((e) => idSet.has(e.source) && idSet.has(e.target))
-  if (!hasEdges) return { placed: stepNodes }
+  if (!edges.some((e) => idSet.has(e.source) && idSet.has(e.target))) return { placed: stepNodes }
 
   const dag = buildDAG(stepNodes, edges)
   const allPositions = new Map()
 
   if (dag.components.length === 1) {
-    const ranks = assignRanks(dag)
-    const rankToNodes = groupByRank(ranks)
-    const ordered = orderNodesInRanks(rankToNodes, dag)
-    const positions = assignCoordinates(ordered, stepNodes, direction)
-    for (const [id, pos] of positions) allPositions.set(id, pos)
+    for (const [id, pos] of layoutOneComponent(stepNodes, edges, direction)) allPositions.set(id, pos)
   } else {
     const isRight = direction === 'RIGHT'
     let offsetY = 0
@@ -393,11 +416,7 @@ function runSugiyamaLayout(stepNodes, edges, options = {}) {
     for (const comp of dag.components) {
       const subNodes = stepNodes.filter((n) => comp.includes(n.id))
       const subEdges = edges.filter((e) => comp.includes(e.source) && comp.includes(e.target))
-      const subDag = buildDAG(subNodes, subEdges)
-      const ranks = assignRanks(subDag)
-      const rankToNodes = groupByRank(ranks)
-      const ordered = orderNodesInRanks(rankToNodes, subDag)
-      const positions = assignCoordinates(ordered, subNodes, direction)
+      const positions = layoutOneComponent(subNodes, subEdges, direction)
       let compMaxY = 0
       let compMaxX = 0
       for (const [id, pos] of positions) {
@@ -415,11 +434,9 @@ function runSugiyamaLayout(stepNodes, edges, options = {}) {
     }
   }
 
-  const placed = stepNodes.map((n) => ({
-    ...n,
-    position: allPositions.get(n.id) || n.position,
-  }))
-  return { placed }
+  return {
+    placed: stepNodes.map((n) => ({ ...n, position: allPositions.get(n.id) || n.position })),
+  }
 }
 
 /* =========================================================================
@@ -434,16 +451,23 @@ const HANDLE_OFFSETS = {
 }
 
 function getHandlesForEdge(sourceInfo, targetInfo) {
-  const sx = sourceInfo.x + sourceInfo.w / 2
-  const sy = sourceInfo.y + sourceInfo.h / 2
-  const tx = targetInfo.x + targetInfo.w / 2
-  const ty = targetInfo.y + targetInfo.h / 2
-  const dy = ty - sy
-  const dx = tx - sx
-  if (dy > 0 && Math.abs(dx) <= Math.abs(dy)) return { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
-  if (dy < 0 && Math.abs(dx) <= Math.abs(dy)) return { sourceHandle: 'top-source', targetHandle: 'bottom-target' }
-  if (dx > 0) return { sourceHandle: 'right-source', targetHandle: 'left-target' }
-  return { sourceHandle: 'left-source', targetHandle: 'right-target' }
+  const sides = ['top', 'bottom', 'left', 'right']
+  let best = null
+  let bestDist = Infinity
+  for (const ss of sides) {
+    const sp = HANDLE_OFFSETS[ss](sourceInfo.w, sourceInfo.h)
+    for (const ts of sides) {
+      const tp = HANDLE_OFFSETS[ts](targetInfo.w, targetInfo.h)
+      const dx = (sourceInfo.x + sp.x) - (targetInfo.x + tp.x)
+      const dy = (sourceInfo.y + sp.y) - (targetInfo.y + tp.y)
+      const dist = dx * dx + dy * dy
+      if (dist < bestDist) {
+        bestDist = dist
+        best = { sourceHandle: `${ss}-source`, targetHandle: `${ts}-target` }
+      }
+    }
+  }
+  return best
 }
 
 function getEdgeTypeFromHandles(sourceInfo, targetInfo, sourceHandle, targetHandle) {
@@ -464,7 +488,7 @@ function getEdgeTypeFromHandles(sourceInfo, targetInfo, sourceHandle, targetHand
  * @param {Array<{ id: string, source: string, target: string, [key: string]: unknown }>} edges
  * @returns {Array<{ id: string, source: string, target: string, sourceHandle: string, targetHandle: string, type: string, [key: string]: unknown }>}
  */
-export function computeSmartHandles(nodes, edges, _direction = null) {
+export function computeSmartHandles(nodes, edges, _direction = null, forceRecalc = false) {
   const nodeInfo = new Map()
   for (const n of nodes) {
     if (n.id.startsWith('lane_')) continue
@@ -477,11 +501,14 @@ export function computeSmartHandles(nodes, edges, _direction = null) {
     })
   }
 
-  return edges.map((edge) => {
+  // First pass: compute optimal handles per edge.
+  // When forceRecalc is true (e.g. from auto-arrange), always recompute; otherwise keep existing gates.
+  const result = edges.map((edge) => {
     const s = nodeInfo.get(edge.source)
     const t = nodeInfo.get(edge.target)
     if (!s || !t) return { ...edge, type: 'smoothstep' }
-    const { sourceHandle, targetHandle } = edge.sourceHandle && edge.targetHandle
+    const keepExisting = !forceRecalc && edge.sourceHandle && edge.targetHandle
+    const { sourceHandle, targetHandle } = keepExisting
       ? { sourceHandle: edge.sourceHandle, targetHandle: edge.targetHandle }
       : getHandlesForEdge(s, t)
     const type = getEdgeTypeFromHandles(s, t, sourceHandle, targetHandle)
@@ -492,6 +519,68 @@ export function computeSmartHandles(nodes, edges, _direction = null) {
       type,
     }
   })
+
+  // Second pass: fan-out — when a source has 2+ edges, spread source handles by target x-position
+  const bySource = new Map()
+  for (let i = 0; i < result.length; i++) {
+    const e = result[i]
+    if (!nodeInfo.has(e.source) || !nodeInfo.has(e.target)) continue
+    if (!bySource.has(e.source)) bySource.set(e.source, [])
+    bySource.get(e.source).push(i)
+  }
+  for (const [, indices] of bySource) {
+    if (indices.length < 2) continue
+    const sorted = [...indices].sort((a, b) => {
+      const ta = nodeInfo.get(result[a].target)
+      const tb = nodeInfo.get(result[b].target)
+      return (ta?.x ?? 0) - (tb?.x ?? 0)
+    })
+    for (let k = 0; k < sorted.length; k++) {
+      const idx = sorted[k]
+      const e = result[idx]
+      const s = nodeInfo.get(e.source)
+      const t = nodeInfo.get(e.target)
+      if (!s || !t) continue
+      let newSourceHandle
+      if (k === 0 && sorted.length >= 2) newSourceHandle = 'left-source'
+      else if (k === sorted.length - 1 && sorted.length >= 2) newSourceHandle = 'right-source'
+      else newSourceHandle = 'bottom-source'
+      const type = getEdgeTypeFromHandles(s, t, newSourceHandle, e.targetHandle)
+      result[idx] = { ...e, sourceHandle: newSourceHandle, type }
+    }
+  }
+
+  // Third pass: fan-in — when a target has 2+ edges, spread target handles by source x-position
+  const byTarget = new Map()
+  for (let i = 0; i < result.length; i++) {
+    const e = result[i]
+    if (!nodeInfo.has(e.source) || !nodeInfo.has(e.target)) continue
+    if (!byTarget.has(e.target)) byTarget.set(e.target, [])
+    byTarget.get(e.target).push(i)
+  }
+  for (const [, indices] of byTarget) {
+    if (indices.length < 2) continue
+    const sorted = [...indices].sort((a, b) => {
+      const sa = nodeInfo.get(result[a].source)
+      const sb = nodeInfo.get(result[b].source)
+      return (sa?.x ?? 0) - (sb?.x ?? 0)
+    })
+    for (let k = 0; k < sorted.length; k++) {
+      const idx = sorted[k]
+      const e = result[idx]
+      const s = nodeInfo.get(e.source)
+      const t = nodeInfo.get(e.target)
+      if (!s || !t) continue
+      let newTargetHandle
+      if (k === 0 && sorted.length >= 2) newTargetHandle = 'left-target'
+      else if (k === sorted.length - 1 && sorted.length >= 2) newTargetHandle = 'right-target'
+      else newTargetHandle = 'top-target'
+      const type = getEdgeTypeFromHandles(s, t, e.sourceHandle, newTargetHandle)
+      result[idx] = { ...e, targetHandle: newTargetHandle, type }
+    }
+  }
+
+  return result
 }
 
 /* =========================================================================
@@ -669,7 +758,8 @@ export function autoArrangeNodes(nodes, edges, options = {}) {
       style: { width: dims.width, height: dims.height },
     }
   })
-  const smartEdges = computeSmartHandles(placedTopLeft, edges, 'DOWN')
+  // Force handle recalc so gates match new positions (do not keep pre-arrange sourceHandle/targetHandle).
+  const smartEdges = computeSmartHandles(placedTopLeft, edges, 'DOWN', true)
   const outLaneNodes = graph ? computeLaneNodesFromPlaced(graph, placedTopLeft) : laneNodes
 
   return {
