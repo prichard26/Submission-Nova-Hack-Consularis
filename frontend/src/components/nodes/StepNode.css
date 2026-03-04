@@ -10,12 +10,6 @@
   color: var(--node-text, #4a3020);
   position: relative;
   cursor: pointer;
-  transition: box-shadow 0.15s ease;
-}
-
-.step-node:hover {
-  border-color: var(--accent, #e85d04);
-  box-shadow: 0 0 12px rgba(232, 93, 4, 0.4);
 }
 
 .step-node--high-error {
@@ -40,7 +34,7 @@
 .step-node__actor {
   font-size: 10px;
   font-weight: 600;
-  background: rgba(74, 48, 32, 0.12);
+  background: color-mix(in srgb, var(--node-text, #4a3020) 12%, transparent);
   padding: 2px 6px;
   border-radius: 4px;
   white-space: nowrap;
@@ -62,20 +56,20 @@
 }
 
 .step-node__badge--duration {
-  background: rgba(74, 48, 32, 0.08);
+  background: color-mix(in srgb, var(--node-text, #4a3020) 8%, transparent);
 }
 
 .step-node__badge--cost {
-  background: rgba(29, 53, 87, 0.12);
+  background: color-mix(in srgb, var(--node-badge-blue, #1d3557) 12%, transparent);
   color: var(--node-badge-blue, #1d3557);
 }
 
 .step-node__badge--error {
-  background: rgba(74, 48, 32, 0.08);
+  background: color-mix(in srgb, var(--node-text, #4a3020) 8%, transparent);
 }
 
 .step-node__badge--error-high {
-  background: rgba(208, 0, 0, 0.15);
+  background: color-mix(in srgb, var(--node-badge-red, #d00000) 15%, transparent);
   color: var(--node-badge-red, #d00000);
 }
 
@@ -90,7 +84,7 @@
   width: 40px;
   height: 5px;
   border-radius: 3px;
-  background: rgba(74, 48, 32, 0.15);
+  background: color-mix(in srgb, var(--node-text, #4a3020) 15%, transparent);
 }
 
 .step-node__auto-bar--high {
@@ -98,11 +92,11 @@
 }
 
 .step-node__auto-bar--medium {
-  background: #d4a843;
+  background: var(--automation-medium, #d4a843);
 }
 
 .step-node__auto-bar--low {
-  background: rgba(74, 48, 32, 0.2);
+  background: color-mix(in srgb, var(--node-text, #4a3020) 20%, transparent);
 }
 
 .step-node__auto-label {
@@ -112,10 +106,6 @@
   opacity: 0.7;
 }
 
-.step-node--selected {
-  border-color: var(--accent, #e85d04);
-  box-shadow: 0 0 16px rgba(232, 93, 4, 0.5);
-}
 
 .step-node__risk-indicator {
   position: absolute;
@@ -125,7 +115,7 @@
   height: 20px;
   border-radius: 50%;
   background: var(--node-badge-red, #d00000);
-  color: #ffffff;
+  color: var(--accent-contrast, #ffffff);
   font-size: 11px;
   display: flex;
   align-items: center;

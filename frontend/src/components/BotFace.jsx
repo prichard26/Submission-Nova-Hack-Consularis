@@ -1,6 +1,7 @@
+import { memo } from 'react'
 import './BotFace.css'
 
-export default function BotFace({ talking = false, size = 28 }) {
+function BotFace({ talking = false, size = 28 }) {
   return (
     <svg
       className={`bot-face${talking ? ' bot-face--talking' : ''}`}
@@ -27,3 +28,5 @@ export default function BotFace({ talking = false, size = 28 }) {
     </svg>
   )
 }
+
+export default memo(BotFace)

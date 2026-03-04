@@ -38,15 +38,19 @@ async function request(path, options = {}) {
   return res.json()
 }
 
+function buildUrl(path, sessionId, processId) {
+  const sid = encodeURIComponent(sessionId)
+  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
+  return `${path}?session_id=${sid}${pid}`
+}
+
 // ---------------------------------------------------------------------------
 // JSON-native graph endpoints
 // ---------------------------------------------------------------------------
 
 export function getGraphJson(sessionId, options = {}) {
   const { processId, ...rest } = options
-  const sid = encodeURIComponent(sessionId)
-  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
-  return request(`/api/graph/json?session_id=${sid}${pid}`, rest)
+  return request(buildUrl('/api/graph/json', sessionId, processId), rest)
 }
 
 export function getBaselineJson(options = {}) {
@@ -56,14 +60,11 @@ export function getBaselineJson(options = {}) {
 }
 
 export function getWorkspace(sessionId, options = {}) {
-  const sid = encodeURIComponent(sessionId)
-  return request(`/api/graph/workspace?session_id=${sid}`, options)
+  return request(buildUrl('/api/graph/workspace', sessionId), options)
 }
 
 export function updateStepFields(sessionId, processId, stepId, updates, options = {}) {
-  const sid = encodeURIComponent(sessionId)
-  const pid = encodeURIComponent(processId)
-  return request(`/api/graph/step?session_id=${sid}&process_id=${pid}`, {
+  return request(buildUrl('/api/graph/step', sessionId, processId), {
     ...options,
     method: 'POST',
     body: JSON.stringify({ step_id: stepId, updates }),
@@ -71,9 +72,7 @@ export function updateStepFields(sessionId, processId, stepId, updates, options 
 }
 
 export function updatePositions(sessionId, processId, positions, options = {}) {
-  const sid = encodeURIComponent(sessionId)
-  const pid = encodeURIComponent(processId)
-  return request(`/api/graph/position?session_id=${sid}&process_id=${pid}`, {
+  return request(buildUrl('/api/graph/position', sessionId, processId), {
     ...options,
     method: 'POST',
     body: JSON.stringify({ positions }),
@@ -81,9 +80,7 @@ export function updatePositions(sessionId, processId, positions, options = {}) {
 }
 
 export function createNode(sessionId, processId, laneId, name, type = 'step', position = null, options = {}) {
-  const sid = encodeURIComponent(sessionId)
-  const pid = encodeURIComponent(processId)
-  return request(`/api/graph/node?session_id=${sid}&process_id=${pid}`, {
+  return request(buildUrl('/api/graph/node', sessionId, processId), {
     ...options,
     method: 'POST',
     body: JSON.stringify({ lane_id: laneId, name, type, position }),
@@ -91,9 +88,7 @@ export function createNode(sessionId, processId, laneId, name, type = 'step', po
 }
 
 export function createSubprocessPage(sessionId, processId, nodeId, name, parentProcessId = null, options = {}) {
-  const sid = encodeURIComponent(sessionId)
-  const pid = encodeURIComponent(processId)
-  return request(`/api/graph/subprocess/create?session_id=${sid}&process_id=${pid}`, {
+  return request(buildUrl('/api/graph/subprocess/create', sessionId, processId), {
     ...options,
     method: 'POST',
     body: JSON.stringify({
@@ -106,9 +101,7 @@ export function createSubprocessPage(sessionId, processId, nodeId, name, parentP
 
 export function createEdge(sessionId, processId, source, target, label = '', handles = {}, options = {}) {
   const { sourceHandle = null, targetHandle = null } = handles
-  const sid = encodeURIComponent(sessionId)
-  const pid = encodeURIComponent(processId)
-  return request(`/api/graph/edge?session_id=${sid}&process_id=${pid}`, {
+  return request(buildUrl('/api/graph/edge', sessionId, processId), {
     ...options,
     method: 'POST',
     body: JSON.stringify({
@@ -122,18 +115,15 @@ export function createEdge(sessionId, processId, source, target, label = '', han
 }
 
 export function deleteEdge(sessionId, processId, source, target, options = {}) {
-  const sid = encodeURIComponent(sessionId)
-  const pid = encodeURIComponent(processId)
+  const base = buildUrl('/api/graph/edge', sessionId, processId)
   return request(
-    `/api/graph/edge?session_id=${sid}&process_id=${pid}&source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}`,
+    `${base}&source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}`,
     { ...options, method: 'DELETE' },
   )
 }
 
 export function updateEdge(sessionId, processId, source, target, updates = {}, options = {}) {
-  const sid = encodeURIComponent(sessionId)
-  const pid = encodeURIComponent(processId)
-  return request(`/api/graph/edge?session_id=${sid}&process_id=${pid}`, {
+  return request(buildUrl('/api/graph/edge', sessionId, processId), {
     ...options,
     method: 'PUT',
     body: JSON.stringify({
@@ -146,10 +136,9 @@ export function updateEdge(sessionId, processId, source, target, updates = {}, o
 }
 
 export function deleteNode(sessionId, processId, nodeId, options = {}) {
-  const sid = encodeURIComponent(sessionId)
-  const pid = encodeURIComponent(processId)
+  const base = buildUrl('/api/graph/node', sessionId, processId)
   return request(
-    `/api/graph/node?session_id=${sid}&process_id=${pid}&node_id=${encodeURIComponent(nodeId)}`,
+    `${base}&node_id=${encodeURIComponent(nodeId)}`,
     { ...options, method: 'DELETE' },
   )
 }
@@ -160,9 +149,7 @@ export function deleteNode(sessionId, processId, nodeId, options = {}) {
 
 export function exportBpmnXml(sessionId, options = {}) {
   const { processId, ...rest } = options
-  const sid = encodeURIComponent(sessionId)
-  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
-  return request(`/api/graph/export?session_id=${sid}${pid}`, { ...rest, parseAs: 'text' })
+  return request(buildUrl('/api/graph/export', sessionId, processId), { ...rest, parseAs: 'text' })
 }
 
 // ---------------------------------------------------------------------------
@@ -184,9 +171,7 @@ export function sendChat(sessionId, message, options = {}) {
 
 export function undoGraph(sessionId, options = {}) {
   const { processId, ...rest } = options
-  const sid = encodeURIComponent(sessionId)
-  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
-  return request(`/api/graph/undo?session_id=${sid}${pid}`, {
+  return request(buildUrl('/api/graph/undo', sessionId, processId), {
     ...rest,
     method: 'POST',
   })
@@ -194,9 +179,7 @@ export function undoGraph(sessionId, options = {}) {
 
 export function redoGraph(sessionId, options = {}) {
   const { processId, ...rest } = options
-  const sid = encodeURIComponent(sessionId)
-  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
-  return request(`/api/graph/redo?session_id=${sid}${pid}`, {
+  return request(buildUrl('/api/graph/redo', sessionId, processId), {
     ...rest,
     method: 'POST',
   })
@@ -204,9 +187,7 @@ export function redoGraph(sessionId, options = {}) {
 
 export function resetToBaseline(sessionId, options = {}) {
   const { processId, ...rest } = options
-  const sid = encodeURIComponent(sessionId)
-  const pid = processId ? `&process_id=${encodeURIComponent(processId)}` : ''
-  return request(`/api/graph/reset?session_id=${sid}${pid}`, {
+  return request(buildUrl('/api/graph/reset', sessionId, processId), {
     ...rest,
     method: 'POST',
   })

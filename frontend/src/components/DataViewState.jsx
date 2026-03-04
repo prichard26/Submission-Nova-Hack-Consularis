@@ -1,18 +1,24 @@
-export default function DataViewState({
+import { memo } from 'react'
+
+function DataViewState({
   loading,
   error,
   loadingText = 'Loading…',
   loadingClassName,
   errorClassName,
 }) {
+  const errorText = error?.message ?? (error ? String(error) : '')
+
   return (
     <>
       {loading && <div className={loadingClassName}>{loadingText}</div>}
-      {error && (
+      {errorText && (
         <div className={errorClassName} role="alert">
-          {error}
+          {errorText}
         </div>
       )}
     </>
   )
 }
+
+export default memo(DataViewState)

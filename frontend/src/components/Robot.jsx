@@ -1,15 +1,19 @@
-import { useState, useEffect } from 'react'
+import { memo, useState, useEffect } from 'react'
 import './Robot.css'
 
-export default function Robot({ speaking, message, size = 'normal' }) {
+const BLINK_INTERVAL_MS = 3000
+const BLINK_DURATION_MS = 150
+const TYPING_INTERVAL_MS = 30
+
+function Robot({ speaking, message, size = 'normal' }) {
   const [displayedText, setDisplayedText] = useState('')
   const [blinking, setBlinking] = useState(false)
 
   useEffect(() => {
     const blinkInterval = setInterval(() => {
       setBlinking(true)
-      setTimeout(() => setBlinking(false), 150)
-    }, 3000)
+      setTimeout(() => setBlinking(false), BLINK_DURATION_MS)
+    }, BLINK_INTERVAL_MS)
     return () => clearInterval(blinkInterval)
   }, [])
 
@@ -21,7 +25,7 @@ export default function Robot({ speaking, message, size = 'normal' }) {
       setDisplayedText(message.slice(0, i + 1))
       i++
       if (i >= message.length) clearInterval(interval)
-    }, 30)
+    }, TYPING_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [message])
 
@@ -88,3 +92,5 @@ export default function Robot({ speaking, message, size = 'normal' }) {
     </div>
   )
 }
+
+export default memo(Robot)

@@ -2,17 +2,13 @@ import { useEffect, useState } from 'react'
 import { getGraphJson, getBaselineJson } from '../services/api'
 
 export function useProcessGraph(sessionId, processId = 'Process_Global', refreshTrigger = 0) {
-  const [state, setState] = useState({ graph: null, loading: true, error: null })
+  const [state, setState] = useState({ graph: null, loading: false, error: null })
 
   useEffect(() => {
     if (!sessionId) return
 
     const controller = new AbortController()
-    queueMicrotask(() => {
-      if (!controller.signal.aborted) {
-        setState((prev) => ({ ...prev, loading: true, error: null }))
-      }
-    })
+    setState((prev) => ({ ...prev, loading: true, error: null }))
 
     getGraphJson(sessionId, { processId, signal: controller.signal })
       .catch((err) => {

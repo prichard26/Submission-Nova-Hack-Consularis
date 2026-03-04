@@ -23,17 +23,17 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--shadow-soft, rgba(0, 0, 0, 0.08)) 300%, transparent);
 }
 
 .landscape-view__back:hover {
   border-color: var(--accent, #e85d04);
   color: var(--accent, #e85d04);
-  background: var(--accent-soft, rgba(232,93,4,0.08));
+  background: var(--accent-soft, rgba(232, 93, 4, 0.08));
 }
 
 .landscape-view .react-flow {
-  background: var(--bg-primary, #0d0a07) !important;
+  background: var(--bg-primary, #0d0a07);
 }
 
 .landscape-view__empty {
@@ -73,7 +73,7 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--node-text, #4a3020);
-  background: rgba(74, 48, 32, 0.08);
+  background: color-mix(in srgb, var(--node-text, #4a3020) 8%, transparent);
   padding: 2px 6px;
   border-radius: 4px;
 }

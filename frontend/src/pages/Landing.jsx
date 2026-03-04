@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import Robot from '../components/Robot'
 import './Landing.css'
 
@@ -11,6 +11,9 @@ const SECTORS = [
 
 const GREET = "Salve! I'm Aurelius. Let's map your pharmacy operations — tell me your company's name and I'll generate your first process graph."
 const CONFIRM = (name) => `Excellent, ${name}. Generating your pharmacy medication circuit now...`
+const SPEECH_CHAR_MS = 28
+const SPEECH_EXTRA_MS = 600
+const SUBMIT_DELAY_MS = 2000
 
 export default function Landing({ onSubmit }) {
   const [companyName, setCompanyName] = useState('')
@@ -20,20 +23,20 @@ export default function Landing({ onSubmit }) {
   const [speaking, setSpeaking] = useState(false)
   const companyNameMissing = attemptedSubmit && !companyName.trim()
 
-  function speak(msg) {
+  const speak = useCallback((msg) => {
     setSpeaking(true)
     setMessage(msg)
-    setTimeout(() => setSpeaking(false), msg.length * 28 + 600)
-  }
+    setTimeout(() => setSpeaking(false), msg.length * SPEECH_CHAR_MS + SPEECH_EXTRA_MS)
+  }, [])
 
-  function handleSubmit(e) {
+  const handleSubmit = useCallback((e) => {
     e.preventDefault()
     setAttemptedSubmit(true)
     if (!companyName.trim() || submitted) return
     setSubmitted(true)
     speak(CONFIRM(companyName.trim()))
-    setTimeout(() => onSubmit({ sector: 'pharmacy', companyName: companyName.trim() }), 2000)
-  }
+    setTimeout(() => onSubmit({ sector: 'pharmacy', companyName: companyName.trim() }), SUBMIT_DELAY_MS)
+  }, [companyName, onSubmit, speak, submitted])
 
   return (
     <div className="landing">

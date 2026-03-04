@@ -8,6 +8,7 @@
 
 /* ── Flow canvas (left) ── */
 .process-canvas__flow {
+  position: relative;
   flex: 1;
   height: 100%;
   min-width: 0;
@@ -16,7 +17,97 @@
 
 .process-canvas__flow--placing {
   cursor: crosshair;
-  opacity: 0.92;
+}
+
+/* ── Ghost preview (follows cursor when placing a node) ──
+   Top-left of ghost aligns with click position (= node top-left when placed).
+   Dimensions match real nodes: StepNode, SubprocessNode, DecisionNode. */
+.ghost-preview {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+  /* No centering transform: ghost top-left = cursor = node top-left */
+  opacity: 0;
+  animation: ghost-fade-in 0.15s ease forwards;
+}
+
+@keyframes ghost-fade-in {
+  to { opacity: 1; }
+}
+
+/* Step: 260×120, border-radius 8px, padding 10px 14px (matches StepNode.css) */
+.ghost-preview__step {
+  width: 260px;
+  min-height: 120px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--node-fill, #f5d4b8) 58%, transparent);
+  border: 2px solid color-mix(in srgb, var(--node-stroke, #c97d3a) 80%, transparent);
+}
+
+/* Subprocess: 260×120, border-radius 8px, padding 10px 14px (matches SubprocessNode.css) */
+.ghost-preview__subprocess {
+  width: 260px;
+  min-height: 120px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--node-fill, #f5d4b8) 54%, transparent);
+  border: 3px double color-mix(in srgb, var(--node-stroke, #c97d3a) 80%, transparent);
+}
+
+/* Decision: 80×80 container, 56×56 diamond rotated 45deg (matches DecisionNode.css) */
+.ghost-preview__decision {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ghost-preview__decision-inner {
+  width: 56px;
+  height: 56px;
+  transform: rotate(45deg);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--node-fill, #f5d4b8) 58%, transparent);
+  border: 2px solid color-mix(in srgb, var(--node-stroke, #c97d3a) 80%, transparent);
+}
+
+.ghost-preview__icon {
+  font-size: 12px;
+  opacity: 0.6;
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--node-text, #4a3020) 88%, transparent);
+}
+
+.ghost-preview__label {
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--node-text, #4a3020) 88%, transparent);
+}
+
+.ghost-preview__decision .ghost-preview__label {
+  transform: rotate(-45deg);
+  font-size: 10px;
+  white-space: nowrap;
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Resize handle (center) ── */
@@ -66,7 +157,7 @@
 
 /* ── React Flow overrides ── */
 .process-canvas .react-flow {
-  background: var(--bg-primary, #0d0a07) !important;
+  background: var(--bg-primary, #0d0a07);
 }
 
 .process-canvas .react-flow__minimap {
@@ -102,7 +193,7 @@
 
 .process-canvas .react-flow__handle:hover {
   background: var(--accent, #e85d04);
-  border-color: white;
+  border-color: var(--accent-contrast, #ffffff);
 }
 
 .process-canvas .react-flow__edge-path {
@@ -278,9 +369,9 @@
 }
 
 .ftb__btn--active {
-  background: var(--accent-soft, rgba(232, 93, 4, 0.15)) !important;
-  border-color: var(--accent, #e85d04) !important;
-  color: var(--accent, #e85d04) !important;
+  background: var(--accent-soft, rgba(232, 93, 4, 0.15));
+  border-color: var(--accent, #e85d04);
+  color: var(--accent, #e85d04);
 }
 
 .ftb__btn--meta {
@@ -352,7 +443,7 @@
 .process-canvas__place-hint {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border, #2e2820);
-  background: rgba(232, 93, 4, 0.08);
+  background: var(--accent-soft, rgba(232, 93, 4, 0.08));
   color: var(--text-primary, #fbf9f1);
   font-size: 11px;
   flex-shrink: 0;
@@ -361,7 +452,7 @@
 .process-canvas__subprocess-status {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border, #2e2820);
-  background: rgba(46, 106, 79, 0.2);
+  background: color-mix(in srgb, var(--node-badge-green, #2d6a4f) 20%, transparent);
   color: var(--text-primary, #fbf9f1);
   font-size: 11px;
   flex-shrink: 0;
@@ -400,7 +491,7 @@
 .panel-actions-row__btn:hover:not(:disabled) {
   border-color: var(--accent, #e85d04);
   color: var(--accent, #e85d04);
-  background: var(--accent-soft, rgba(232,93,4,0.08));
+  background: var(--accent-soft, rgba(232, 93, 4, 0.08));
 }
 
 .panel-actions-row__btn:active:not(:disabled) {
@@ -409,12 +500,20 @@
 
 .panel-actions-row__btn--accent {
   border-color: var(--border-accent, #4a2c10);
-  background: linear-gradient(135deg, rgba(232,93,4,0.06), rgba(232,93,4,0.02));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent, #e85d04) 6%, transparent),
+    color-mix(in srgb, var(--accent, #e85d04) 2%, transparent)
+  );
   color: var(--accent, #e85d04);
 }
 
 .panel-actions-row__btn--accent:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(232,93,4,0.14), rgba(232,93,4,0.06));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent, #e85d04) 14%, transparent),
+    color-mix(in srgb, var(--accent, #e85d04) 6%, transparent)
+  );
 }
 
 .panel-actions-row__btn:disabled {
@@ -423,109 +522,68 @@
 }
 
 /* ==========================================================================
-   PANEL — Breadcrumb
-   ========================================================================== */
-
-.panel-breadcrumb {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border, #2e2820);
-  font-size: 11px;
-}
-
-.panel-breadcrumb__item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.panel-breadcrumb__sep {
-  color: var(--text-muted, #7a6f60);
-  font-size: 12px;
-}
-
-.panel-breadcrumb__link {
-  background: none;
-  border: none;
-  color: var(--accent, #e85d04);
-  cursor: pointer;
-  font: inherit;
-  padding: 1px 4px;
-  border-radius: 4px;
-  transition: background 0.12s;
-}
-
-.panel-breadcrumb__link:hover {
-  text-decoration: underline;
-  background: rgba(232, 93, 4, 0.08);
-}
-
-.panel-breadcrumb__current {
-  color: var(--text-primary, #fbf9f1);
-  font-weight: 600;
-  padding: 1px 4px;
-}
-
-/* ==========================================================================
-   PANEL — Page Info
+   PANEL — Directory + Page Info (merged)
    ========================================================================== */
 
 .panel-info {
   flex-shrink: 0;
-  padding: 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border, #2e2820);
 }
 
-.panel-info__name-row {
+.panel-info__path {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.panel-info__name-input {
+.panel-info__path-item {
+  display: flex;
+  align-items: center;
+}
+
+.panel-info__path-link {
+  background: none;
+  border: none;
+  color: var(--text-muted, #a99683);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.12s, background 0.12s;
+}
+
+.panel-info__path-link:hover,
+.panel-info__path-link:focus-visible {
+  color: var(--accent, #e85d04);
+  background: var(--accent-soft, rgba(232, 93, 4, 0.08));
+}
+
+.panel-info__path-sep {
+  color: var(--text-muted, #7a6f60);
+  font-size: 11px;
+  margin: 0 1px;
+}
+
+.panel-info__current {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex: 1;
   min-width: 0;
-  padding: 4px 6px;
+}
+
+.panel-info__name-display {
+  flex: 1;
+  min-width: 0;
   font-family: var(--font-sans, 'Outfit', sans-serif);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
   color: var(--text-primary, #fbf9f1);
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.panel-info__name-input:hover {
-  border-color: var(--border, #2e2820);
-  background: var(--bg-card, #1e1914);
-}
-
-.panel-info__name-input:focus {
-  outline: none;
-  border-color: var(--accent, #e85d04);
-  background: var(--bg-card, #1e1914);
-  box-shadow: 0 0 0 2px rgba(232, 93, 4, 0.1);
-}
-
-.panel-info__name-input:focus + .panel-info__edit-icon {
-  opacity: 0;
-}
-
-.panel-info__edit-icon {
-  flex-shrink: 0;
-  color: var(--text-muted, #a99683);
-  opacity: 0.5;
-  transition: opacity 0.15s;
-  pointer-events: none;
-}
-
-.panel-info__name-row:hover .panel-info__edit-icon {
-  opacity: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .panel-info__stats {
@@ -588,7 +646,7 @@
 .process-canvas__edge-editor-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(5, 5, 5, 0.45);
+  background: var(--overlay-bg);
   z-index: 30;
   display: flex;
   align-items: center;
@@ -622,8 +680,9 @@
   padding: 8px 10px;
 }
 
-.process-canvas__edge-editor-input:focus {
-  outline: none;
+.process-canvas__edge-editor-input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, #e85d04) 45%, transparent);
+  outline-offset: 1px;
   border-color: var(--accent, #e85d04);
   box-shadow: 0 0 0 2px rgba(232, 93, 4, 0.15);
 }

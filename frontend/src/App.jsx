@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
@@ -22,14 +22,14 @@ export default function App() {
     }
   }, [session])
 
-  function updateSession(nextSession) {
+  const updateSession = useCallback((nextSession) => {
     const normalized = {
       companyName: nextSession.companyName,
       sector: nextSession.sector || 'pharmacy',
     }
     setSession(normalized)
     sessionStorage.setItem('consularis_session', JSON.stringify(normalized))
-  }
+  }, [])
 
   return (
     <Routes>
@@ -47,7 +47,7 @@ export default function App() {
         path="/dashboard"
         element={
           safeSession ? (
-            <Dashboard companyName={safeSession.companyName} sector={safeSession.sector} />
+            <Dashboard companyName={safeSession.companyName} />
           ) : (
             <Navigate to="/" replace />
           )

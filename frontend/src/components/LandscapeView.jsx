@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import {
   ReactFlow,
   Controls,
@@ -81,6 +81,10 @@ function layoutTree(workspace) {
 
 function LandscapeCanvas({ workspace, onProcessSelect, onSwitchView }) {
   const { nodes, edges } = useMemo(() => layoutTree(workspace), [workspace])
+  const handleNodeClick = useCallback(
+    (_event, node) => onProcessSelect?.(node.id),
+    [onProcessSelect],
+  )
 
   if (!workspace) {
     return <div className="landscape-view__empty">Loading workspace...</div>
@@ -95,7 +99,7 @@ function LandscapeCanvas({ workspace, onProcessSelect, onSwitchView }) {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodeClick={(_e, node) => onProcessSelect?.(node.id)}
+        onNodeClick={handleNodeClick}
         fitView
         minZoom={0.3}
         maxZoom={2}
@@ -104,7 +108,7 @@ function LandscapeCanvas({ workspace, onProcessSelect, onSwitchView }) {
         defaultEdgeOptions={{ type: 'smoothstep' }}
       >
         <Controls position="bottom-left" />
-        <Background variant="dots" color="#ccc4b8" gap={20} size={1.5} />
+        <Background variant="dots" color="var(--border, #ccc4b8)" gap={20} size={1.5} />
       </ReactFlow>
     </div>
   )

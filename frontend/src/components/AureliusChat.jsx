@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { sendChat } from '../services/api'
 import BotFace from './BotFace'
 import './AureliusChat.css'
@@ -39,18 +39,20 @@ export default function AureliusChat({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  function resizeInput() {
+  const resizeInput = useCallback(() => {
     const el = inputRef.current
     if (!el) return
     el.style.height = 'auto'
     const lineHeight = parseInt(getComputedStyle(el).lineHeight, 10) || 20
     const rows = Math.min(MAX_INPUT_ROWS, Math.max(MIN_INPUT_ROWS, Math.floor(el.scrollHeight / lineHeight)))
     el.style.height = `${rows * lineHeight}px`
-  }
+  }, [])
 
-  useEffect(resizeInput, [input])
+  useEffect(() => {
+    resizeInput()
+  }, [input, resizeInput])
 
-  async function handleSendUncontrolled(e) {
+  const handleSendUncontrolled = useCallback(async (e) => {
     e.preventDefault()
     if (!uncontrolledInput.trim() || uncontrolledLoading) return
     const userText = uncontrolledInput.trim()
@@ -69,23 +71,23 @@ export default function AureliusChat({
     } finally {
       setUncontrolledLoading(false)
     }
-  }
+  }, [uncontrolledInput, uncontrolledLoading, processId, resizeInput, sessionId, onGraphUpdate])
 
-  function handleSendControlled(e) {
+  const handleSendControlled = useCallback((e) => {
     e.preventDefault()
     if (!input.trim() || loading) return
     controlledOnSend(input.trim())
     resizeInput()
-  }
+  }, [controlledOnSend, input, loading, resizeInput])
 
   const handleSend = isControlled ? handleSendControlled : handleSendUncontrolled
 
-  function onInputKeyDown(e) {
+  const onInputKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend(e)
     }
-  }
+  }, [handleSend])
 
   const panelClass = [
     'chat-panel',

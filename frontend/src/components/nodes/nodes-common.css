@@ -1,0 +1,22 @@
+.node-shared-handles .react-flow__handle {
+  opacity: 0;
+  z-index: 10;
+}
+
+.node-shared-handles:hover .react-flow__handle {
+  opacity: 1;
+}
+
+.node-shared-interactive {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.node-shared-interactive:hover {
+  border-color: var(--accent, #e85d04);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent, #e85d04) 40%, transparent);
+}
+
+.node-shared-interactive.node-shared-selected {
+  border-color: var(--accent, #e85d04);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent, #e85d04) 50%, transparent);
+}

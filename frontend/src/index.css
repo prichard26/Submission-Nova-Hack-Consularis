@@ -23,8 +23,14 @@
   --border-accent: rgba(232, 93, 4, 0.25);
   --font-sans: 'Outfit', system-ui, sans-serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
   --radius: 8px;
   --radius-lg: 12px;
+  --error: #d03020;
+  --overlay-bg: rgba(5, 5, 5, 0.45);
+  --shadow-soft: rgba(0, 0, 0, 0.08);
+  --accent-contrast: #ffffff;
+  --automation-medium: #d4a843;
 
   /* Node / graph vars */
   --node-fill: #fff8f0;
@@ -65,7 +71,7 @@ body {
   border: 1px solid var(--border-accent);
   border-radius: var(--radius);
   background: var(--accent);
-  color: var(--text-primary);
+  color: var(--accent-contrast);
   font: inherit;
   padding: 0.55rem 1rem;
   cursor: pointer;

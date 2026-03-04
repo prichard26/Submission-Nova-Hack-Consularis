@@ -17,17 +17,6 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: box-shadow 0.15s ease;
-}
-
-.decision-node__diamond:hover {
-  border-color: var(--accent, #e85d04);
-  filter: drop-shadow(0 0 6px rgba(232, 93, 4, 0.5));
-}
-
-.decision-node__diamond--selected {
-  border-color: var(--accent, #e85d04);
-  filter: drop-shadow(0 0 8px rgba(232, 93, 4, 0.6));
 }
 
 .decision-node__label {
@@ -42,11 +31,3 @@
   line-height: 1.1;
 }
 
-.decision-node .react-flow__handle {
-  opacity: 0;
-  z-index: 10;
-}
-
-.decision-node:hover .react-flow__handle {
-  opacity: 1;
-}

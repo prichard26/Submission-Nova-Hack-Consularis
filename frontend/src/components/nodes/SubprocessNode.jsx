@@ -1,25 +1,20 @@
-import { Handle, Position, NodeResizer } from '@xyflow/react'
+import { memo } from 'react'
+import { Handle } from '@xyflow/react'
+import { HANDLE_MAP } from './nodeTypes'
+import './nodes-common.css'
 import './SubprocessNode.css'
-
-const HANDLES = [
-  { position: Position.Left, id: 'left' },
-  { position: Position.Right, id: 'right' },
-  { position: Position.Top, id: 'top' },
-  { position: Position.Bottom, id: 'bottom' },
-]
 const TARGET_ORDER = ['left', 'right', 'top', 'bottom']
 const SOURCE_ORDER = ['right', 'left', 'top', 'bottom']
 
-export default function SubprocessNode({ data, selected }) {
+function SubprocessNode({ data, selected }) {
   return (
-    <div className={`subprocess-node ${selected ? 'subprocess-node--selected' : ''}`}>
-      <NodeResizer minWidth={160} minHeight={80} isVisible={selected} />
+    <div className={`subprocess-node node-shared-interactive node-shared-handles ${selected ? 'node-shared-selected' : ''}`}>
       {TARGET_ORDER.map((id) => {
-        const { position } = HANDLES.find((h) => h.id === id)
+        const { position } = HANDLE_MAP[id]
         return <Handle key={`${id}-target`} type="target" position={position} id={`${id}-target`} />
       })}
       {SOURCE_ORDER.map((id) => {
-        const { position } = HANDLES.find((h) => h.id === id)
+        const { position } = HANDLE_MAP[id]
         return <Handle key={`${id}-source`} type="source" position={position} id={`${id}-source`} />
       })}
       <div className="subprocess-node__icon">▶▶</div>
@@ -34,3 +29,5 @@ export default function SubprocessNode({ data, selected }) {
     </div>
   )
 }
+
+export default memo(SubprocessNode)

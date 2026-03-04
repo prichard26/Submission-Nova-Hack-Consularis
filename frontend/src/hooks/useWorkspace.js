@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getWorkspace } from '../services/api'
 
 export function useWorkspace(sessionId, refreshTrigger = 0) {
-  const [state, setState] = useState({ workspace: null, loading: true, error: null })
+  const [state, setState] = useState({ workspace: null, loading: false, error: null })
 
   useEffect(() => {
     if (!sessionId) return

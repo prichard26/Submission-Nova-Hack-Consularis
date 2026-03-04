@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import AureliusChat, { WELCOME_MSG } from '../components/AureliusChat'
 import ProcessCanvas from '../components/ProcessCanvas'
-import DetailPanel from '../components/DetailPanel'
 import LandscapeView from '../components/LandscapeView'
 import { useWorkspace } from '../hooks/useWorkspace'
 import { sendChat } from '../services/api'
@@ -67,19 +66,34 @@ export default function Dashboard({ companyName }) {
     [companyName, activeProcessId, handleExternalGraphUpdate],
   )
 
-  const panelFooter = (
-    <AureliusChat
-      compact
-      sessionId={companyName}
-      processId={activeProcessId}
-      onGraphUpdate={handleExternalGraphUpdate}
-      messages={chatMessages}
-      onSend={handleChatSend}
-      input={chatInput}
-      onInputChange={setChatInput}
-      loading={chatLoading}
-    />
+  const panelFooter = useMemo(
+    () => (
+      <AureliusChat
+        compact
+        sessionId={companyName}
+        processId={activeProcessId}
+        onGraphUpdate={handleExternalGraphUpdate}
+        messages={chatMessages}
+        onSend={handleChatSend}
+        input={chatInput}
+        onInputChange={setChatInput}
+        loading={chatLoading}
+      />
+    ),
+    [companyName, activeProcessId, handleExternalGraphUpdate, chatMessages, handleChatSend, chatInput, chatLoading],
   )
+
+  const handleProcessSelect = useCallback(
+    (processId) => {
+      navigateToProcess(processId)
+      setViewMode('detail')
+    },
+    [navigateToProcess],
+  )
+
+  const handleSwitchToDetail = useCallback(() => {
+    setViewMode('detail')
+  }, [])
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -106,8 +120,8 @@ export default function Dashboard({ companyName }) {
           <LandscapeView
             sessionId={companyName}
             workspace={workspace}
-            onProcessSelect={(pid) => { navigateToProcess(pid); setViewMode('detail') }}
-            onSwitchView={() => setViewMode('detail')}
+            onProcessSelect={handleProcessSelect}
+            onSwitchView={handleSwitchToDetail}
           />
         ) : (
           <ProcessCanvas
@@ -121,22 +135,13 @@ export default function Dashboard({ companyName }) {
             workspaceProcesses={workspaceProcesses}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            selectedStep={selectedStep}
+            onCloseDetail={handleCloseDetail}
+            onStepUpdate={handleStepUpdate}
           />
         )}
       </div>
 
-      {selectedStep && (
-        <>
-          <div className="dashboard__backdrop" onClick={handleCloseDetail} aria-hidden />
-          <DetailPanel
-            step={selectedStep}
-            sessionId={companyName}
-            processId={activeProcessId}
-            onClose={handleCloseDetail}
-            onUpdate={handleStepUpdate}
-          />
-        </>
-      )}
     </div>
   )
 }

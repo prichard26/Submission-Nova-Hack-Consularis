@@ -12,17 +12,6 @@
   cursor: pointer;
   font-family: var(--font-body, 'DM Sans', sans-serif);
   color: var(--node-text, #4a3020);
-  transition: box-shadow 0.15s ease;
-}
-
-.subprocess-node:hover {
-  border-color: var(--accent, #e85d04);
-  box-shadow: 0 0 12px rgba(232, 93, 4, 0.4);
-}
-
-.subprocess-node--selected {
-  border-color: var(--accent, #e85d04);
-  box-shadow: 0 0 16px rgba(232, 93, 4, 0.5);
 }
 
 .subprocess-node__icon {

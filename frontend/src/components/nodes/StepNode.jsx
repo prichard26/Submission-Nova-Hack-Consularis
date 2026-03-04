@@ -1,28 +1,26 @@
-import { Handle, Position } from '@xyflow/react'
+import { memo } from 'react'
+import { Handle } from '@xyflow/react'
+import { HANDLE_MAP } from './nodeTypes'
+import './nodes-common.css'
 import './StepNode.css'
-
-const HANDLES = [
-  { position: Position.Left, id: 'left' },
-  { position: Position.Right, id: 'right' },
-  { position: Position.Top, id: 'top' },
-  { position: Position.Bottom, id: 'bottom' },
-]
 const TARGET_ORDER = ['left', 'right', 'top', 'bottom']
 const SOURCE_ORDER = ['right', 'left', 'top', 'bottom']
 
-export default function StepNode({ data, selected }) {
+function StepNode({ data, selected }) {
   const errRate = parseFloat(data.error_rate_percent)
   const hasHighError = !isNaN(errRate) && errRate > 5
   const autoPotential = (data.automation_potential || '').toLowerCase()
 
   return (
-    <div className={`step-node ${hasHighError ? 'step-node--high-error' : ''} ${selected ? 'step-node--selected' : ''}`}>
+    <div
+      className={`step-node node-shared-interactive node-shared-handles ${hasHighError ? 'step-node--high-error' : ''} ${selected ? 'node-shared-selected' : ''}`}
+    >
       {TARGET_ORDER.map((id) => {
-        const { position } = HANDLES.find((h) => h.id === id)
+        const { position } = HANDLE_MAP[id]
         return <Handle key={`${id}-target`} type="target" position={position} id={`${id}-target`} />
       })}
       {SOURCE_ORDER.map((id) => {
-        const { position } = HANDLES.find((h) => h.id === id)
+        const { position } = HANDLE_MAP[id]
         return <Handle key={`${id}-source`} type="source" position={position} id={`${id}-source`} />
       })}
       <div className="step-node__header">
@@ -54,3 +52,5 @@ export default function StepNode({ data, selected }) {
     </div>
   )
 }
+
+export default memo(StepNode)
