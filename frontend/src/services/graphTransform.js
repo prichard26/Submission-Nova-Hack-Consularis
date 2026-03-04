@@ -2,9 +2,11 @@
  * Graph document → React Flow nodes/edges.
  *
  * Custom Sugiyama-style layered layout:
- * - Top-down flow (start → end), no node overlap, minimal edge crossings.
- * - Serial: one node per rank, centered on vertical axis.
- * - Parallel: multiple nodes per rank, spread horizontally.
+ * - No node overlap, minimal edge crossings.
+ * - Serial (one node per rank): DOWN = one above the other; RIGHT = one beside the other.
+ * - Parallel (multiple nodes per rank): DOWN = 2+ columns side-by-side; RIGHT = 2+ rows stacked.
+ * - direction 'DOWN' (default): ranks = rows, same rank = horizontal spread.
+ * - direction 'RIGHT': ranks = columns, same rank = vertical stack. Use autoArrangeNodes(..., { direction: 'RIGHT' }).
  */
 
 const LANE_PADDING = 40
@@ -17,6 +19,8 @@ const DECISION_SIZE = 80
 
 const V_SPACING = 100
 const H_SPACING = 80
+/** Extra gap between nodes when a rank has 2+ nodes (parallel branches) so they read as distinct columns. */
+const PARALLEL_H_SPACING = 120
 const STRAIGHT_ALIGN_TOLERANCE = 2
 
 export function getNodeDimensions(node) {
@@ -212,7 +216,7 @@ function orderNodesInRanks(rankToNodes, dag) {
         const bc = indices.length === 0 ? 0 : indices.reduce((a, b) => a + b, 0) / indices.length
         return { id, bc }
       })
-      withBc.sort((a, b) => a.bc - b.bc)
+      withBc.sort((a, b) => a.bc - b.bc || (a.id < b.id ? -1 : 1))
       next.set(r, withBc.map((x) => x.id))
     }
     order = next
@@ -230,7 +234,7 @@ function orderNodesInRanks(rankToNodes, dag) {
         const bc = indices.length === 0 ? 0 : indices.reduce((a, b) => a + b, 0) / indices.length
         return { id, bc }
       })
-      withBc.sort((a, b) => a.bc - b.bc)
+      withBc.sort((a, b) => a.bc - b.bc || (a.id < b.id ? -1 : 1))
       next.set(r, withBc.map((x) => x.id))
     }
     order = next
@@ -251,12 +255,45 @@ function orderNodesInRanks(rankToNodes, dag) {
 /**
  * @param {Map<number, string[]>} rankToOrderedNodes
  * @param {Array<{ id: string, type?: string }>} stepNodes
+ * @param {'DOWN'|'RIGHT'} [direction] DOWN = serial vertical, parallel horizontal. RIGHT = serial horizontal, parallel vertical.
  * @returns {Map<string, { x: number, y: number }>}
  */
-function assignCoordinates(rankToOrderedNodes, stepNodes) {
+function assignCoordinates(rankToOrderedNodes, stepNodes, direction = 'DOWN') {
   const dimById = new Map(stepNodes.map((n) => [n.id, getNodeDimensions(n)]))
   const rankIndices = [...rankToOrderedNodes.keys()].sort((a, b) => a - b)
   const positions = new Map()
+
+  if (direction === 'RIGHT') {
+    let currentX = 0
+    for (const r of rankIndices) {
+      const ids = rankToOrderedNodes.get(r) || []
+      const maxWidth = ids.reduce((max, id) => {
+        const d = dimById.get(id)
+        return d ? Math.max(max, d.width) : max
+      }, 0)
+      const isParallel = ids.length > 1
+      const vGap = isParallel ? PARALLEL_H_SPACING : V_SPACING
+      let columnHeight = 0
+      const heights = ids.map((id) => {
+        const d = dimById.get(id)
+        const h = d ? d.height : NODE_HEIGHT
+        columnHeight += h + (columnHeight > 0 ? vGap : 0)
+        return h
+      })
+      const startY = -columnHeight / 2
+      let y = startY
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i]
+        const h = heights[i]
+        const d = dimById.get(id)
+        const w = d ? d.width : NODE_WIDTH
+        positions.set(id, { x: currentX + w / 2, y })
+        y += h + vGap
+      }
+      currentX += maxWidth + H_SPACING
+    }
+    return positions
+  }
 
   let currentY = 0
   for (const r of rankIndices) {
@@ -266,11 +303,13 @@ function assignCoordinates(rankToOrderedNodes, stepNodes) {
       return d ? Math.max(max, d.height) : max
     }, 0)
 
+    const isParallel = ids.length > 1
+    const hGap = isParallel ? PARALLEL_H_SPACING : H_SPACING
     let rankWidth = 0
     const widths = ids.map((id) => {
       const d = dimById.get(id)
       const w = d ? d.width : NODE_WIDTH
-      rankWidth += w + (rankWidth > 0 ? H_SPACING : 0)
+      rankWidth += w + (rankWidth > 0 ? hGap : 0)
       return w
     })
     const startX = -rankWidth / 2
@@ -279,7 +318,7 @@ function assignCoordinates(rankToOrderedNodes, stepNodes) {
       const id = ids[i]
       const w = widths[i]
       positions.set(id, { x: x + w / 2, y: currentY })
-      x += w + H_SPACING
+      x += w + hGap
     }
     currentY += maxHeight + V_SPACING
   }
@@ -298,12 +337,14 @@ function groupByRank(ranks) {
 }
 
 /**
- * Run full Sugiyama layout. Single component: one pass. Multiple components: layout each and stack vertically.
+ * Run full Sugiyama layout. Single component: one pass. Multiple components: layout each and stack (vertically for DOWN, horizontally for RIGHT).
  * @param {Array<{ id: string, type?: string, position: { x: number, y: number }, [key: string]: unknown }>} stepNodes
  * @param {Array<{ source: string, target: string }>} edges
+ * @param {{ direction?: 'DOWN'|'RIGHT' }} [options]
  * @returns {{ placed: typeof stepNodes }}
  */
-function runSugiyamaLayout(stepNodes, edges) {
+function runSugiyamaLayout(stepNodes, edges, options = {}) {
+  const direction = options.direction || 'DOWN'
   if (stepNodes.length === 0) return { placed: stepNodes }
   const idSet = new Set(stepNodes.map((n) => n.id))
   const hasEdges = edges.some((e) => idSet.has(e.source) && idSet.has(e.target))
@@ -316,10 +357,12 @@ function runSugiyamaLayout(stepNodes, edges) {
     const ranks = assignRanks(dag)
     const rankToNodes = groupByRank(ranks)
     const ordered = orderNodesInRanks(rankToNodes, dag)
-    const positions = assignCoordinates(ordered, stepNodes)
+    const positions = assignCoordinates(ordered, stepNodes, direction)
     for (const [id, pos] of positions) allPositions.set(id, pos)
   } else {
+    const isRight = direction === 'RIGHT'
     let offsetY = 0
+    let offsetX = 0
     for (const comp of dag.components) {
       const subNodes = stepNodes.filter((n) => comp.includes(n.id))
       const subEdges = edges.filter((e) => comp.includes(e.source) && comp.includes(e.target))
@@ -327,15 +370,21 @@ function runSugiyamaLayout(stepNodes, edges) {
       const ranks = assignRanks(subDag)
       const rankToNodes = groupByRank(ranks)
       const ordered = orderNodesInRanks(rankToNodes, subDag)
-      const positions = assignCoordinates(ordered, subNodes)
+      const positions = assignCoordinates(ordered, subNodes, direction)
       let compMaxY = 0
+      let compMaxX = 0
       for (const [id, pos] of positions) {
         const node = subNodes.find((n) => n.id === id)
         const dim = getNodeDimensions(node || { type: 'step' })
         compMaxY = Math.max(compMaxY, pos.y + dim.height)
-        allPositions.set(id, { x: pos.x, y: pos.y + offsetY })
+        compMaxX = Math.max(compMaxX, pos.x + dim.width / 2)
+        allPositions.set(id, {
+          x: pos.x + (isRight ? offsetX : 0),
+          y: pos.y + (isRight ? 0 : offsetY),
+        })
       }
-      offsetY += compMaxY + V_SPACING
+      if (isRight) offsetX += compMaxX + H_SPACING
+      else offsetY += compMaxY + V_SPACING
     }
   }
 
@@ -575,13 +624,13 @@ export function toReactFlowData(graph, workspaceProcesses = {}) {
    ========================================================================= */
 
 export function autoArrangeNodes(nodes, edges, options = {}) {
-  const { graph = null } = options
+  const { graph = null, direction = 'DOWN' } = options
 
   const stepNodes = nodes.filter((n) => !n.id.startsWith('lane_'))
   const laneNodes = nodes.filter((n) => n.id.startsWith('lane_'))
   if (stepNodes.length === 0) return { nodes, edges, positions: {} }
 
-  const { placed } = runSugiyamaLayout(stepNodes, edges)
+  const { placed } = runSugiyamaLayout(stepNodes, edges, { direction })
   const positions = {}
   const placedTopLeft = placed.map((node) => {
     const centerPos = node.position
