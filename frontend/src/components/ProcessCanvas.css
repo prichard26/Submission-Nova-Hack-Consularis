@@ -586,6 +586,44 @@
   white-space: nowrap;
 }
 
+.panel-info__name-edit {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted, #7a6f60);
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+
+.panel-info__name-edit:hover {
+  color: var(--accent, #e85d04);
+  background: var(--accent-soft, rgba(232, 93, 4, 0.08));
+}
+
+.panel-info__name-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-card, #1e1914);
+  border: 1px solid var(--accent, #e85d04);
+  border-radius: 6px;
+  color: var(--text-primary, #fbf9f1);
+  font-family: var(--font-sans, 'Outfit', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 6px;
+}
+
+.panel-info__name-input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, #e85d04) 45%, transparent);
+  outline-offset: 1px;
+}
+
 .panel-info__stats {
   display: flex;
   gap: 2px;

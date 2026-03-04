@@ -23,6 +23,7 @@ from graph.store import (
     update_edge,
     delete_edge,
     update_positions,
+    rename_process,
 )
 from graph.bpmn_export import export_bpmn_xml
 from graph.model import ProcessGraph
@@ -237,6 +238,22 @@ def api_delete_edge(
     if not ok:
         raise HTTPException(status_code=404, detail="Edge not found")
     return {"deleted": True}
+
+
+class ProcessRenameRequest(BaseModel):
+    new_name: str
+
+
+@router.post("/process/rename")
+def api_rename_process(
+    req: ProcessRenameRequest,
+    session_id: str = Query(..., description="Session id"),
+    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
+):
+    """Rename the current process."""
+    _validate_session_id(session_id)
+    rename_process(session_id, req.new_name or "", process_id=process_id)
+    return {"ok": True}
 
 
 @router.post("/position")

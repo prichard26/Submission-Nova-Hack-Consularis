@@ -185,6 +185,14 @@ export function redoGraph(sessionId, options = {}) {
   })
 }
 
+export function renameProcess(sessionId, processId, newName, options = {}) {
+  return request(buildUrl('/api/graph/process/rename', sessionId, processId), {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({ new_name: newName }),
+  })
+}
+
 export function resetToBaseline(sessionId, options = {}) {
   const { processId, ...rest } = options
   return request(buildUrl('/api/graph/reset', sessionId, processId), {

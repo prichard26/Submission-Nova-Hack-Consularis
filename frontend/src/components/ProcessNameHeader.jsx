@@ -1,9 +1,63 @@
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { renameProcess } from '../services/api'
+
 export default function ProcessNameHeader({
   breadcrumb,
   processDisplayName,
+  processId,
+  sessionId,
   onDrillDown,
+  onRequestRefresh,
   stats,
 }) {
+  const [editing, setEditing] = useState(false)
+  const [editValue, setEditValue] = useState(processDisplayName)
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    setEditValue(processDisplayName)
+  }, [processDisplayName])
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  const handleSave = useCallback(async () => {
+    const trimmed = (editValue || '').trim()
+    if (trimmed === processDisplayName || !sessionId || !onRequestRefresh) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await renameProcess(sessionId, processId, trimmed)
+      onRequestRefresh()
+      setEditing(false)
+    } catch (err) {
+      console.warn('Rename process failed', err)
+    } finally {
+      setSaving(false)
+    }
+  }, [editValue, processDisplayName, sessionId, processId, onRequestRefresh])
+
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        handleSave()
+      }
+      if (e.key === 'Escape') {
+        setEditValue(processDisplayName)
+        setEditing(false)
+      }
+    },
+    [handleSave, processDisplayName],
+  )
+
   return (
     <section className="panel-info">
       <nav className="panel-info__path" aria-label="Process path">
@@ -14,7 +68,36 @@ export default function ProcessNameHeader({
           </span>
         ))}
         <span className="panel-info__current">
-          <span className="panel-info__name-display" title={processDisplayName}>{processDisplayName}</span>
+          {editing ? (
+            <input
+              ref={inputRef}
+              type="text"
+              className="panel-info__name-input"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={handleSave}
+              onKeyDown={handleKeyDown}
+              disabled={saving}
+              aria-label="Process name"
+            />
+          ) : (
+            <>
+              <span className="panel-info__name-display" title={processDisplayName}>{processDisplayName}</span>
+              {sessionId && onRequestRefresh && (
+              <button
+                type="button"
+                className="panel-info__name-edit"
+                onClick={() => setEditing(true)}
+                title="Edit process name"
+                aria-label="Edit process name"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M7 2L10 5L4 11H1V8L7 2Z" />
+                </svg>
+              </button>
+              )}
+            </>
+          )}
         </span>
       </nav>
       <div className="panel-info__stats">

@@ -13,7 +13,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { toPng } from 'html-to-image'
 import { useProcessGraph } from '../hooks/useProcessGraph'
-import { toReactFlowData, autoArrangeNodes } from '../services/graphTransform'
+import { toReactFlowData, autoArrangeNodes, topLeftToCenter } from '../services/graphTransform'
 import { nodeTypes } from './nodes/nodeTypes'
 import {
   undoGraph,
@@ -194,7 +194,9 @@ function Canvas({
       if (posChanges.length === 0) return
       for (const c of posChanges) {
         if (c.id.startsWith('lane_')) continue
-        pendingPositions.current[c.id] = { x: Math.round(c.position.x), y: Math.round(c.position.y) }
+        const node = nodes.find((n) => n.id === c.id)
+        const center = topLeftToCenter(c.position, node)
+        pendingPositions.current[c.id] = { x: Math.round(center.x), y: Math.round(center.y) }
       }
       clearTimeout(posTimerRef.current)
       posTimerRef.current = setTimeout(() => {
@@ -207,7 +209,7 @@ function Canvas({
         }
       }, 500)
     },
-    [onNodesChange, sessionId, processId],
+    [onNodesChange, sessionId, processId, nodes],
   )
 
   const handleUndoBot = useCallback(async () => {
@@ -334,13 +336,8 @@ function Canvas({
   )
 
   const handleAutoArrange = useCallback(async () => {
-    const flowEl = flowWrapper.current
-    const viewportAspect = flowEl && flowEl.clientHeight > 0
-      ? flowEl.clientWidth / flowEl.clientHeight
-      : undefined
     const { nodes: nextNodes, edges: nextEdges, positions } = await autoArrangeNodes(nodes, edges, {
       graph: graph ?? undefined,
-      viewportAspect,
     })
     if (Object.keys(positions).length === 0) return
     setNodes(nextNodes)
@@ -583,7 +580,10 @@ function Canvas({
           <ProcessNameHeader
             breadcrumb={breadcrumb}
             processDisplayName={processDisplayName}
+            processId={processId}
+            sessionId={sessionId}
             onDrillDown={onDrillDown}
+            onRequestRefresh={onRequestRefresh}
             stats={stats}
           />
 

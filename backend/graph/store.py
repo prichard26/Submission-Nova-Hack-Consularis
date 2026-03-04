@@ -436,7 +436,7 @@ def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | N
     if isinstance(provided_pos, dict) and "x" in provided_pos and "y" in provided_pos:
         pos = {"x": int(provided_pos.get("x", 0)), "y": int(provided_pos.get("y", 0))}
     else:
-        pos = auto_position(graph, lane_id)
+        pos = auto_position(graph, lane_id, new_step=step_data)
     new_step: dict[str, Any] = {
         "id": new_id,
         "name": step_data.get("name", "New step"),

@@ -1,17 +1,11 @@
 /**
  * Graph document → React Flow nodes/edges.
  *
- * Goals:
- * - Well-designed graph: easy to read edges and elements by position.
- * - Best port: edges start/end at the handle pair that keeps them short.
- * - Straight edges when the segment is axis-aligned (no diagonal).
- * - Series (linear chain): center nodes on one vertical axis so edges are vertical.
- * - Parallel (branches): do not force one column; keep ELK’s horizontal spread.
+ * Custom Sugiyama-style layered layout:
+ * - Top-down flow (start → end), no node overlap, minimal edge crossings.
+ * - Serial: one node per rank, centered on vertical axis.
+ * - Parallel: multiple nodes per rank, spread horizontally.
  */
-
-import ELK from 'elkjs/lib/elk.bundled.js'
-
-const elk = new ELK()
 
 const LANE_PADDING = 40
 const LANE_MIN_HEIGHT = 160
@@ -19,239 +13,409 @@ const NODE_WIDTH = 260
 const NODE_HEIGHT = 120
 const EVENT_SIZE = 44
 const GATEWAY_SIZE = 56
+const DECISION_SIZE = 80
 
-/* Layout spacing — used by ELK options; reserves space for edge labels (≈ label height + padding). */
-const EDGE_LABEL_CLEARANCE = 24
-const NODE_NODE_SPACING = 80
-const LAYER_SPACING = 160
-const EDGE_NODE_SPACING = 60
-const EDGE_EDGE_SPACING = 24
+const V_SPACING = 100
+const H_SPACING = 80
+const STRAIGHT_ALIGN_TOLERANCE = 2
 
 export function getNodeDimensions(node) {
   const type = node.type || 'step'
   if (type === 'start' || type === 'end') return { width: EVENT_SIZE, height: EVENT_SIZE }
-  if (type === 'decision') return { width: GATEWAY_SIZE, height: GATEWAY_SIZE }
+  if (type === 'decision') return { width: DECISION_SIZE, height: DECISION_SIZE }
   return { width: NODE_WIDTH, height: NODE_HEIGHT }
 }
 
+/**
+ * Stored/API position = center of top edge (top handle). React Flow uses top-left.
+ * Convert center-of-top-edge -> top-left for rendering.
+ */
+export function centerToTopLeft(position, node) {
+  if (!position) return { x: 0, y: 0 }
+  const { width } = getNodeDimensions(node || { type: 'step' })
+  return { x: position.x - width / 2, y: position.y }
+}
+
+/**
+ * Convert React Flow top-left position -> center-of-top-edge for storing/API.
+ */
+export function topLeftToCenter(position, node) {
+  if (!position) return { x: 0, y: 0 }
+  const { width } = getNodeDimensions(node || { type: 'step' })
+  return { x: position.x + width / 2, y: position.y }
+}
+
 /* =========================================================================
-   Smart handle assignment — best port so edges stay short
-   =========================================================================
-   Edges exit bottom or right, enter top or left. We pick the handle pair that
-   minimizes distance and avoids collisions/crossings. For vertical flow, prefer
-   bottom→top when the path is clear so joining points line up.
+   Phase 1: Build DAG — adjacency lists, detect start/end, break cycles
+   ========================================================================= */
+
+/**
+ * @param {Array<{ id: string }>} stepNodes
+ * @param {Array<{ source: string, target: string }>} edges
+ * @returns {{ nodeIds: string[], successors: Map<string, string[]>, predecessors: Map<string, string[]>, edgesForRanking: Array<{ source: string, target: string }>, components: string[][] }}
+ */
+function buildDAG(stepNodes, edges) {
+  const nodeIds = stepNodes.map((n) => n.id)
+  const idSet = new Set(nodeIds)
+  const filteredEdges = edges.filter((e) => idSet.has(e.source) && idSet.has(e.target))
+
+  const successors = new Map()
+  const predecessors = new Map()
+  for (const id of nodeIds) {
+    successors.set(id, [])
+    predecessors.set(id, [])
+  }
+  for (const e of filteredEdges) {
+    if (!successors.get(e.source).includes(e.target)) {
+      successors.get(e.source).push(e.target)
+      predecessors.get(e.target).push(e.source)
+    }
+  }
+
+  const visiting = new Set()
+  const done = new Set()
+  const backEdges = new Set()
+
+  function dfs(u) {
+    visiting.add(u)
+    for (const v of successors.get(u) || []) {
+      if (visiting.has(v)) backEdges.add(`${u}->${v}`)
+      else if (!done.has(v)) dfs(v)
+    }
+    visiting.delete(u)
+    done.add(u)
+  }
+  for (const id of nodeIds) {
+    if (!done.has(id)) dfs(id)
+  }
+
+  const edgesForRanking = filteredEdges.filter((e) => !backEdges.has(`${e.source}->${e.target}`))
+
+  const predForRanking = new Map()
+  const succForRanking = new Map()
+  for (const id of nodeIds) {
+    predForRanking.set(id, [])
+    succForRanking.set(id, [])
+  }
+  for (const e of edgesForRanking) {
+    succForRanking.get(e.source).push(e.target)
+    predForRanking.get(e.target).push(e.source)
+  }
+
+  const componentVisited = new Set()
+  const components = []
+
+  function componentDfs(id, comp) {
+    componentVisited.add(id)
+    comp.push(id)
+    for (const next of succForRanking.get(id) || []) {
+      if (!componentVisited.has(next)) componentDfs(next, comp)
+    }
+    for (const prev of predForRanking.get(id) || []) {
+      if (!componentVisited.has(prev)) componentDfs(prev, comp)
+    }
+  }
+  for (const id of nodeIds) {
+    if (!componentVisited.has(id)) {
+      const comp = []
+      componentDfs(id, comp)
+      components.push(comp)
+    }
+  }
+
+  return {
+    nodeIds,
+    successors,
+    predecessors,
+    edgesForRanking,
+    predForRanking,
+    succForRanking,
+    components,
+  }
+}
+
+/* =========================================================================
+   Phase 2: Assign ranks (longest path from start)
+   ========================================================================= */
+
+/**
+ * @param {{ predForRanking: Map<string, string[]>, succForRanking: Map<string, string[]>, components: string[][] }} dag
+ * @returns {Map<string, number>} nodeId -> rank
+ */
+function assignRanks(dag) {
+  const ranks = new Map()
+  const { predForRanking, succForRanking, components } = dag
+
+  for (const comp of components) {
+    const compSet = new Set(comp)
+    const topoOrder = []
+    const inDeg = new Map()
+    for (const id of comp) inDeg.set(id, 0)
+    for (const id of comp) {
+      for (const p of predForRanking.get(id) || []) {
+        if (compSet.has(p)) inDeg.set(id, (inDeg.get(id) || 0) + 1)
+      }
+    }
+    const queue = comp.filter((id) => inDeg.get(id) === 0)
+    while (queue.length > 0) {
+      const u = queue.shift()
+      topoOrder.push(u)
+      for (const v of succForRanking.get(u) || []) {
+        if (!compSet.has(v)) continue
+        inDeg.set(v, (inDeg.get(v) || 0) - 1)
+        if (inDeg.get(v) === 0) queue.push(v)
+      }
+    }
+
+    for (const id of topoOrder) {
+      const preds = (predForRanking.get(id) || []).filter((p) => compSet.has(p))
+      const predRanks = preds.map((p) => ranks.get(p) ?? -1)
+      const maxPred = predRanks.length === 0 ? -1 : Math.max(...predRanks)
+      ranks.set(id, maxPred + 1)
+    }
+  }
+
+  return ranks
+}
+
+/* =========================================================================
+   Phase 3: Order nodes within ranks (barycenter heuristic, 4 sweeps)
+   ========================================================================= */
+
+/**
+ * @param {Map<number, string[]>} rankToNodes rank -> [nodeId]
+ * @param {{ predForRanking: Map<string, string[]>, succForRanking: Map<string, string[]> }} dag
+ * @returns {Map<number, string[]>} rank -> ordered [nodeId]
+ */
+function orderNodesInRanks(rankToNodes, dag) {
+  const { predForRanking, succForRanking } = dag
+  const rankIndices = [...rankToNodes.keys()].sort((a, b) => a - b)
+  const nodeToRank = new Map()
+  for (const [r, ids] of rankToNodes) {
+    for (const id of ids) nodeToRank.set(id, r)
+  }
+
+  let order = new Map()
+  for (const r of rankIndices) {
+    order.set(r, [...(rankToNodes.get(r) || [])])
+  }
+
+  function barycenterDown() {
+    const next = new Map()
+    for (const r of rankIndices) next.set(r, [])
+    for (const r of rankIndices) {
+      const nodes = order.get(r) || []
+      const withBc = nodes.map((id) => {
+        const preds = (predForRanking.get(id) || []).filter((p) => nodeToRank.get(p) === r - 1)
+        const prevOrder = order.get(r - 1) || []
+        const indices = preds.map((p) => prevOrder.indexOf(p)).filter((i) => i >= 0)
+        const bc = indices.length === 0 ? 0 : indices.reduce((a, b) => a + b, 0) / indices.length
+        return { id, bc }
+      })
+      withBc.sort((a, b) => a.bc - b.bc)
+      next.set(r, withBc.map((x) => x.id))
+    }
+    order = next
+  }
+
+  function barycenterUp() {
+    const next = new Map()
+    for (const r of rankIndices) next.set(r, [])
+    for (const r of rankIndices) {
+      const nodes = order.get(r) || []
+      const withBc = nodes.map((id) => {
+        const succs = (succForRanking.get(id) || []).filter((s) => nodeToRank.get(s) === r + 1)
+        const nextOrder = order.get(r + 1) || []
+        const indices = succs.map((s) => nextOrder.indexOf(s)).filter((i) => i >= 0)
+        const bc = indices.length === 0 ? 0 : indices.reduce((a, b) => a + b, 0) / indices.length
+        return { id, bc }
+      })
+      withBc.sort((a, b) => a.bc - b.bc)
+      next.set(r, withBc.map((x) => x.id))
+    }
+    order = next
+  }
+
+  barycenterDown()
+  barycenterUp()
+  barycenterDown()
+  barycenterUp()
+
+  return order
+}
+
+/* =========================================================================
+   Phase 4: Assign coordinates (no overlap by construction)
+   ========================================================================= */
+
+/**
+ * @param {Map<number, string[]>} rankToOrderedNodes
+ * @param {Array<{ id: string, type?: string }>} stepNodes
+ * @returns {Map<string, { x: number, y: number }>}
+ */
+function assignCoordinates(rankToOrderedNodes, stepNodes) {
+  const dimById = new Map(stepNodes.map((n) => [n.id, getNodeDimensions(n)]))
+  const rankIndices = [...rankToOrderedNodes.keys()].sort((a, b) => a - b)
+  const positions = new Map()
+
+  let currentY = 0
+  for (const r of rankIndices) {
+    const ids = rankToOrderedNodes.get(r) || []
+    const maxHeight = ids.reduce((max, id) => {
+      const d = dimById.get(id)
+      return d ? Math.max(max, d.height) : max
+    }, 0)
+
+    let rankWidth = 0
+    const widths = ids.map((id) => {
+      const d = dimById.get(id)
+      const w = d ? d.width : NODE_WIDTH
+      rankWidth += w + (rankWidth > 0 ? H_SPACING : 0)
+      return w
+    })
+    const startX = -rankWidth / 2
+    let x = startX
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i]
+      const w = widths[i]
+      positions.set(id, { x: x + w / 2, y: currentY })
+      x += w + H_SPACING
+    }
+    currentY += maxHeight + V_SPACING
+  }
+
+  return positions
+}
+
+/** @param {Map<string, number>} ranks @returns {Map<number, string[]>} */
+function groupByRank(ranks) {
+  const rankToNodes = new Map()
+  for (const [id, r] of ranks) {
+    if (!rankToNodes.has(r)) rankToNodes.set(r, [])
+    rankToNodes.get(r).push(id)
+  }
+  return rankToNodes
+}
+
+/**
+ * Run full Sugiyama layout. Single component: one pass. Multiple components: layout each and stack vertically.
+ * @param {Array<{ id: string, type?: string, position: { x: number, y: number }, [key: string]: unknown }>} stepNodes
+ * @param {Array<{ source: string, target: string }>} edges
+ * @returns {{ placed: typeof stepNodes }}
+ */
+function runSugiyamaLayout(stepNodes, edges) {
+  if (stepNodes.length === 0) return { placed: stepNodes }
+  const idSet = new Set(stepNodes.map((n) => n.id))
+  const hasEdges = edges.some((e) => idSet.has(e.source) && idSet.has(e.target))
+  if (!hasEdges) return { placed: stepNodes }
+
+  const dag = buildDAG(stepNodes, edges)
+  const allPositions = new Map()
+
+  if (dag.components.length === 1) {
+    const ranks = assignRanks(dag)
+    const rankToNodes = groupByRank(ranks)
+    const ordered = orderNodesInRanks(rankToNodes, dag)
+    const positions = assignCoordinates(ordered, stepNodes)
+    for (const [id, pos] of positions) allPositions.set(id, pos)
+  } else {
+    let offsetY = 0
+    for (const comp of dag.components) {
+      const subNodes = stepNodes.filter((n) => comp.includes(n.id))
+      const subEdges = edges.filter((e) => comp.includes(e.source) && comp.includes(e.target))
+      const subDag = buildDAG(subNodes, subEdges)
+      const ranks = assignRanks(subDag)
+      const rankToNodes = groupByRank(ranks)
+      const ordered = orderNodesInRanks(rankToNodes, subDag)
+      const positions = assignCoordinates(ordered, subNodes)
+      let compMaxY = 0
+      for (const [id, pos] of positions) {
+        const node = subNodes.find((n) => n.id === id)
+        const dim = getNodeDimensions(node || { type: 'step' })
+        compMaxY = Math.max(compMaxY, pos.y + dim.height)
+        allPositions.set(id, { x: pos.x, y: pos.y + offsetY })
+      }
+      offsetY += compMaxY + V_SPACING
+    }
+  }
+
+  const placed = stepNodes.map((n) => ({
+    ...n,
+    position: allPositions.get(n.id) || n.position,
+  }))
+  return { placed }
+}
+
+/* =========================================================================
+   Phase 5: Position-based handle assignment and edge type
    ========================================================================= */
 
 const HANDLE_OFFSETS = {
-  right:  (w, h) => ({ x: w, y: h / 2 }),
-  left:   (_w, h) => ({ x: 0, y: h / 2 }),
+  right: (w, h) => ({ x: w, y: h / 2 }),
+  left: (_w, h) => ({ x: 0, y: h / 2 }),
   bottom: (w, h) => ({ x: w / 2, y: h }),
-  top:    (w) => ({ x: w / 2, y: 0 }),
+  top: (w) => ({ x: w / 2, y: 0 }),
 }
 
-/* Exit from bottom or right only; enter from top or left only. */
-const ALLOWED_PAIRS = [
-  ['right-source', 'left-target'],
-  ['right-source', 'top-target'],
-  ['bottom-source', 'top-target'],
-  ['bottom-source', 'left-target'],
-]
-
-function handleSide(handleId) {
-  return handleId.split('-')[0]
+function getHandlesForEdge(sourceInfo, targetInfo) {
+  const sx = sourceInfo.x + sourceInfo.w / 2
+  const sy = sourceInfo.y + sourceInfo.h / 2
+  const tx = targetInfo.x + targetInfo.w / 2
+  const ty = targetInfo.y + targetInfo.h / 2
+  const dy = ty - sy
+  const dx = tx - sx
+  if (dy > 0 && Math.abs(dx) <= Math.abs(dy)) return { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
+  if (dy < 0 && Math.abs(dx) <= Math.abs(dy)) return { sourceHandle: 'top-source', targetHandle: 'bottom-target' }
+  if (dx > 0) return { sourceHandle: 'right-source', targetHandle: 'left-target' }
+  return { sourceHandle: 'left-source', targetHandle: 'right-target' }
 }
 
-/* Cross product: (a - o) × (b - o). */
-function cross(o, a, b) {
-  return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
-}
-
-function segmentsIntersect(a, b, c, d) {
-  const d1 = cross(a, b, c)
-  const d2 = cross(a, b, d)
-  const d3 = cross(c, d, a)
-  const d4 = cross(c, d, b)
-  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true
-  return false
-}
-
-/** True if segment (p1, p2) intersects axis-aligned rect { x, y, width, height }. */
-function segmentIntersectsRect(p1, p2, rect) {
-  const { x: rx, y: ry, width: rw, height: rh } = rect
-  const corners = [
-    { x: rx, y: ry },
-    { x: rx + rw, y: ry },
-    { x: rx + rw, y: ry + rh },
-    { x: rx, y: ry + rh },
-  ]
-  for (let i = 0; i < 4; i++) {
-    const c1 = corners[i]
-    const c2 = corners[(i + 1) % 4]
-    if (segmentsIntersect(p1, p2, c1, c2)) return true
-  }
-  /* Also check if segment is fully inside rect. */
-  const minX = Math.min(p1.x, p2.x)
-  const maxX = Math.max(p1.x, p2.x)
-  const minY = Math.min(p1.y, p2.y)
-  const maxY = Math.max(p1.y, p2.y)
-  if (minX >= rx && maxX <= rx + rw && minY >= ry && maxY <= ry + rh) return true
-  return false
-}
-
-const K_CROSSING = 200
-const K_NODE_COLLISION = 300
-const STRAIGHT_ALIGN_TOLERANCE = 2
-
-/**
- * Use straight edge only when the segment is axis-aligned (vertical or horizontal)
- * and has no collisions/crossings; otherwise smoothstep.
- */
-function getEdgeType(edge, allEdges, nodeInfo, getHandlePosition) {
-  if (!edge.sourceHandle || !edge.targetHandle) return 'smoothstep'
-  const s = nodeInfo.get(edge.source)
-  const t = nodeInfo.get(edge.target)
-  if (!s || !t) return 'smoothstep'
-  const p1 = getHandlePosition(s, edge.sourceHandle)
-  const p2 = getHandlePosition(t, edge.targetHandle)
-
-  for (const [nid, info] of nodeInfo) {
-    if (nid === edge.source || nid === edge.target) continue
-    const rect = { x: info.x, y: info.y, width: info.w, height: info.h }
-    if (segmentIntersectsRect(p1, p2, rect)) return 'smoothstep'
-  }
-
-  for (const other of allEdges) {
-    if (other.id === edge.id || !other.sourceHandle || !other.targetHandle) continue
-    const os = nodeInfo.get(other.source)
-    const ot = nodeInfo.get(other.target)
-    if (!os || !ot) continue
-    const pa = getHandlePosition(os, other.sourceHandle)
-    const pb = getHandlePosition(ot, other.targetHandle)
-    if (segmentsIntersect(p1, p2, pa, pb)) return 'smoothstep'
-  }
-
+function getEdgeTypeFromHandles(sourceInfo, targetInfo, sourceHandle, targetHandle) {
+  const side = (h) => (h ? h.split('-')[0] : '')
+  const so = HANDLE_OFFSETS[side(sourceHandle)]?.(sourceInfo.w, sourceInfo.h)
+  const to = HANDLE_OFFSETS[side(targetHandle)]?.(targetInfo.w, targetInfo.h)
+  if (!so || !to) return 'smoothstep'
+  const p1 = { x: sourceInfo.x + so.x, y: sourceInfo.y + so.y }
+  const p2 = { x: targetInfo.x + to.x, y: targetInfo.y + to.y }
   const dx = Math.abs(p1.x - p2.x)
   const dy = Math.abs(p1.y - p2.y)
-  const isVertical = dx <= STRAIGHT_ALIGN_TOLERANCE
-  const isHorizontal = dy <= STRAIGHT_ALIGN_TOLERANCE
-  if (!isVertical && !isHorizontal) return 'smoothstep'
-  return 'straight'
+  if (dx <= STRAIGHT_ALIGN_TOLERANCE || dy <= STRAIGHT_ALIGN_TOLERANCE) return 'straight'
+  return 'smoothstep'
 }
 
-export function computeSmartHandles(nodes, edges, direction = null) {
+/**
+ * @param {Array<{ id: string, position: { x: number, y: number }, type?: string }>} nodes
+ * @param {Array<{ id: string, source: string, target: string, [key: string]: unknown }>} edges
+ * @returns {Array<{ id: string, source: string, target: string, sourceHandle: string, targetHandle: string, type: string, [key: string]: unknown }>}
+ */
+export function computeSmartHandles(nodes, edges, _direction = null) {
   const nodeInfo = new Map()
   for (const n of nodes) {
     if (n.id.startsWith('lane_')) continue
     const dim = getNodeDimensions(n)
-    nodeInfo.set(n.id, { x: n.position.x, y: n.position.y, w: dim.width, h: dim.height, type: n.type || 'step' })
+    nodeInfo.set(n.id, {
+      x: n.position.x,
+      y: n.position.y,
+      w: dim.width,
+      h: dim.height,
+    })
   }
 
-  function getHandlePosition(info, handleId) {
-    const side = handleSide(handleId)
-    const off = HANDLE_OFFSETS[side](info.w, info.h)
-    return { x: info.x + off.x, y: info.y + off.y }
-  }
-
-  const sourceHandleCount = new Map()
-  const assigned = []
-
-  for (const edge of edges) {
+  return edges.map((edge) => {
     const s = nodeInfo.get(edge.source)
     const t = nodeInfo.get(edge.target)
-    if (!s || !t) {
-      assigned.push(edge)
-      continue
+    if (!s || !t) return { ...edge, type: 'smoothstep' }
+    const { sourceHandle, targetHandle } = edge.sourceHandle && edge.targetHandle
+      ? { sourceHandle: edge.sourceHandle, targetHandle: edge.targetHandle }
+      : getHandlesForEdge(s, t)
+    const type = getEdgeTypeFromHandles(s, t, sourceHandle, targetHandle)
+    return {
+      ...edge,
+      sourceHandle,
+      targetHandle,
+      type,
     }
-    if (edge.sourceHandle && edge.targetHandle) {
-      assigned.push(edge)
-      const key = `${edge.source}::${edge.sourceHandle}`
-      sourceHandleCount.set(key, (sourceHandleCount.get(key) || 0) + 1)
-      continue
-    }
-
-    let bestScore = Infinity
-    let bestSH = 'right-source'
-    let bestTH = 'left-target'
-
-    for (const [sh, th] of ALLOWED_PAIRS) {
-      const p1 = getHandlePosition(s, sh)
-      const p2 = getHandlePosition(t, th)
-      const dist = Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y)
-
-      let nodeCollisions = 0
-      for (const [nid, info] of nodeInfo) {
-        if (nid === edge.source || nid === edge.target) continue
-        const rect = { x: info.x, y: info.y, width: info.w, height: info.h }
-        if (segmentIntersectsRect(p1, p2, rect)) nodeCollisions++
-      }
-
-      let crossings = 0
-      for (const prev of assigned) {
-        const ps = nodeInfo.get(prev.source)
-        const pt = nodeInfo.get(prev.target)
-        if (!ps || !pt || !prev.sourceHandle || !prev.targetHandle) continue
-        const pa = getHandlePosition(ps, prev.sourceHandle)
-        const pb = getHandlePosition(pt, prev.targetHandle)
-        if (segmentsIntersect(p1, p2, pa, pb)) crossings++
-      }
-
-      let score = dist + K_NODE_COLLISION * nodeCollisions + K_CROSSING * crossings
-
-      /* Prefer vertical: when DOWN and path is clear, use bottom→top so joining points superpose. */
-      if (
-        direction === 'DOWN' &&
-        sh === 'bottom-source' &&
-        th === 'top-target' &&
-        nodeCollisions === 0 &&
-        crossings === 0
-      ) {
-        score = -1
-      }
-
-      if (score < bestScore) {
-        bestScore = score
-        bestSH = sh
-        bestTH = th
-      }
-    }
-
-    const key = `${edge.source}::${bestSH}`
-    sourceHandleCount.set(key, (sourceHandleCount.get(key) || 0) + 1)
-    assigned.push({ ...edge, sourceHandle: bestSH, targetHandle: bestTH })
-  }
-
-  const seen = new Map()
-  const afterDecision = assigned.map((edge) => {
-    const info = nodeInfo.get(edge.source)
-    if (!info || info.type !== 'decision') return edge
-
-    const key = `${edge.source}::${edge.sourceHandle}`
-    const total = sourceHandleCount.get(key) || 1
-    if (total <= 1) return edge
-
-    const idx = seen.get(key) || 0
-    seen.set(key, idx + 1)
-    if (idx === 0) return edge
-
-    const alt = adjacentHandlePair(edge.sourceHandle)
-    if (!alt) return edge
-    return { ...edge, sourceHandle: alt.sourceHandle, targetHandle: alt.targetHandle }
   })
-
-  return afterDecision.map((edge) => ({
-    ...edge,
-    type: getEdgeType(edge, afterDecision, nodeInfo, getHandlePosition),
-  }))
-}
-
-function adjacentHandlePair(sourceHandle) {
-  /* Decision-node fan-out: alternate only between right-source and bottom-source. */
-  const map = {
-    'right-source': { sourceHandle: 'bottom-source', targetHandle: 'top-target' },
-    'bottom-source': { sourceHandle: 'right-source', targetHandle: 'left-target' },
-  }
-  return map[sourceHandle] || null
 }
 
 /* =========================================================================
@@ -361,23 +525,23 @@ export function computeLaneNodesFromPlaced(graph, placedNodes) {
 export function toReactFlowData(graph, workspaceProcesses = {}) {
   const nodes = []
   const edges = []
-
-  if (!graph) return { nodes, edges }
-
-  const laneNodes = computeLaneNodes(graph)
-  nodes.push(...laneNodes)
+  if (!graph) return { nodes: [], edges }
 
   for (const step of graph.steps || []) {
     const processInfo = workspaceProcesses[step.called_element] || {}
+    const storedPosition = step.position || { x: 0, y: 0 }
+    const dims = getNodeDimensions(step)
     nodes.push({
       id: step.id,
       type: step.type || 'step',
-      position: step.position || { x: 0, y: 0 },
+      position: centerToTopLeft(storedPosition, step),
+      style: { width: dims.width, height: dims.height },
       data: { ...step, workspaceInfo: processInfo },
       draggable: true,
       connectable: true,
     })
   }
+  const stepNodes = nodes
 
   for (const flow of graph.flows || []) {
     edges.push({
@@ -396,208 +560,44 @@ export function toReactFlowData(graph, workspaceProcesses = {}) {
     })
   }
 
-  const stepNodes = nodes.filter((n) => !n.id.startsWith('lane_'))
-  const hasPositions = stepNodes.some((n) => n.position.x !== 0 || n.position.y !== 0)
-
-  let stepNodesForOutput = stepNodes
-  if (hasPositions) {
-    const dimById = new Map(stepNodes.map((n) => [n.id, getNodeDimensions(n)]))
-    const filteredEdges = edges.filter((e) => {
-      const idSet = new Set(stepNodes.map((n) => n.id))
-      return idSet.has(e.source) && idSet.has(e.target)
-    })
-    stepNodesForOutput = alignPlacedNodes(stepNodes, filteredEdges, dimById, 'DOWN')
-  }
+  const laneNodesFromPositions = computeLaneNodesFromPlaced(graph, stepNodes)
 
   return {
-    nodes: [...laneNodes, ...stepNodesForOutput],
-    edges: computeSmartHandles(stepNodesForOutput, edges, 'DOWN'),
+    nodes: [...laneNodesFromPositions, ...stepNodes],
+    edges: computeSmartHandles(stepNodes, edges, 'DOWN'),
   }
 }
+
 
 /* =========================================================================
-   ELK layout (async) — Mennens-style: DOWN, process-friendly spacing
-   Spacing uses constants above to keep edge labels clear of nodes/layers.
+   autoArrangeNodes — Sugiyama layout + position-based handles.
+   Options: { graph }. Returns { nodes, edges (with handles), positions }.
    ========================================================================= */
 
-const MENNENS_ELK_OPTIONS = {
-  'elk.direction': 'DOWN',
-  'elk.spacing.nodeNode': String(NODE_NODE_SPACING),
-  'elk.layered.spacing.nodeNodeBetweenLayers': String(LAYER_SPACING),
-  'elk.layered.spacing.edgeNodeBetweenLayers': String(EDGE_LABEL_CLEARANCE),
-  'elk.spacing.edgeNode': String(EDGE_NODE_SPACING),
-  'elk.spacing.edgeEdge': String(EDGE_EDGE_SPACING),
-}
-
-async function runElkLayout(stepNodes, edges, direction, layoutOptionsOverride = {}) {
-  const dimById = new Map(stepNodes.map((n) => [n.id, getNodeDimensions(n)]))
-  const idSet = new Set(stepNodes.map((n) => n.id))
-
-  const defaultOptions = {
-    'elk.algorithm': 'layered',
-    'elk.direction': direction,
-    'elk.edgeRouting': 'ORTHOGONAL',
-    'elk.spacing.nodeNode': '60',
-    'elk.layered.spacing.nodeNodeBetweenLayers': '100',
-    'elk.layered.spacing.edgeNodeBetweenLayers': '30',
-    'elk.spacing.edgeNode': '30',
-    'elk.spacing.edgeEdge': '15',
-    'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-    'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-  }
-  const layoutOptions = { ...defaultOptions, ...layoutOptionsOverride }
-
-  const elkGraph = {
-    id: 'root',
-    layoutOptions,
-    children: stepNodes.map((n) => {
-      const { width, height } = dimById.get(n.id)
-      return { id: n.id, width, height }
-    }),
-    edges: edges
-      .filter((e) => idSet.has(e.source) && idSet.has(e.target))
-      .map((e) => ({
-        id: e.id,
-        sources: [e.source],
-        targets: [e.target],
-      })),
-  }
-
-  const result = await elk.layout(elkGraph)
-  const childMap = new Map((result.children || []).map((c) => [c.id, c]))
-
-  let placed = stepNodes.map((node) => {
-    const elkNode = childMap.get(node.id)
-    if (!elkNode) return node
-    return { ...node, position: { x: elkNode.x, y: elkNode.y } }
-  })
-
-  placed = alignPlacedNodes(placed, edges.filter((e) => idSet.has(e.source) && idSet.has(e.target)), dimById, direction)
-
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const node of placed) {
-    const { width, height } = dimById.get(node.id)
-    minX = Math.min(minX, node.position.x)
-    minY = Math.min(minY, node.position.y)
-    maxX = Math.max(maxX, node.position.x + width)
-    maxY = Math.max(maxY, node.position.y + height)
-  }
-
-  const bboxW = maxX - minX || 1
-  const bboxH = maxY - minY || 1
-  const aspectRatio = Math.max(bboxW, bboxH) / Math.min(bboxW, bboxH)
-
-  return { placed, aspectRatio, direction }
-}
-
-/* =========================================================================
-   Post-layout alignment.
-   - Series (linear chain): center nodes on one vertical axis → straight vertical edges.
-   - Parallel (branches): only snap to grid; keep ELK’s horizontal spread.
-   ========================================================================= */
-
-const ALIGN_GRID_SIZE = 20
-
-function isLinearChain(placed, edges, idSet) {
-  const inDeg = new Map()
-  const outDeg = new Map()
-  for (const id of idSet) {
-    inDeg.set(id, 0)
-    outDeg.set(id, 0)
-  }
-  for (const e of edges) {
-    if (!idSet.has(e.source) || !idSet.has(e.target)) continue
-    outDeg.set(e.source, (outDeg.get(e.source) || 0) + 1)
-    inDeg.set(e.target, (inDeg.get(e.target) || 0) + 1)
-  }
-  let starts = 0, ends = 0
-  for (const id of idSet) {
-    if (inDeg.get(id) === 0) starts++
-    if (outDeg.get(id) === 0) ends++
-    if (inDeg.get(id) > 1 || outDeg.get(id) > 1) return false
-  }
-  return starts === 1 && ends === 1
-}
-
-function alignPlacedNodes(placed, edges, dimById, direction = null) {
-  if (placed.length === 0) return placed
-
-  const idSet = new Set(placed.map((n) => n.id))
-  const filteredEdges = edges.filter((e) => idSet.has(e.source) && idSet.has(e.target))
-  const series = direction === 'DOWN' && isLinearChain(placed, filteredEdges, idSet)
-
-  if (series) {
-    const centers = placed.map((n) => {
-      const { width } = dimById.get(n.id) || getNodeDimensions(n)
-      return n.position.x + width / 2
-    })
-    centers.sort((a, b) => a - b)
-    const medianCenterX = centers[Math.floor(centers.length / 2)]
-    placed = placed.map((node) => {
-      const { width, height } = dimById.get(node.id) || getNodeDimensions(node)
-      return {
-        ...node,
-        position: { x: medianCenterX - width / 2, y: node.position.y },
-      }
-    })
-  }
-
-  const g = ALIGN_GRID_SIZE
-  return placed.map((node) => {
-    const { width, height } = dimById.get(node.id) || getNodeDimensions(node)
-    const cx = node.position.x + width / 2
-    const cy = node.position.y + height / 2
-    const newCx = Math.round(cx / g) * g
-    const newCy = Math.round(cy / g) * g
-    return {
-      ...node,
-      position: { x: newCx - width / 2, y: newCy - height / 2 },
-    }
-  })
-}
-
-export { alignPlacedNodes }
-
-/* =========================================================================
-   autoArrangeNodes (async) — Mennens layout only
-   Options: { graph, viewportAspect } (viewportAspect unused; single algorithm).
-   Returns { nodes, edges (with smart handles), positions }.
-   ========================================================================= */
-
-export async function autoArrangeNodes(nodes, edges, options = {}) {
+export function autoArrangeNodes(nodes, edges, options = {}) {
   const { graph = null } = options
 
   const stepNodes = nodes.filter((n) => !n.id.startsWith('lane_'))
   const laneNodes = nodes.filter((n) => n.id.startsWith('lane_'))
   if (stepNodes.length === 0) return { nodes, edges, positions: {} }
 
-  const hasEdges = edges.some((e) => {
-    const ids = new Set(stepNodes.map((n) => n.id))
-    return ids.has(e.source) && ids.has(e.target)
-  })
-
-  let placed = stepNodes
-  const direction = 'DOWN'
-
-  if (hasEdges) {
-    try {
-      const result = await runElkLayout(stepNodes, edges, 'DOWN', MENNENS_ELK_OPTIONS)
-      placed = result.placed
-    } catch (err) {
-      console.warn('Auto-arrange (ELK) failed, keeping current positions', err)
-    }
-  }
-
-  const smartEdges = computeSmartHandles(placed, edges, direction)
+  const { placed } = runSugiyamaLayout(stepNodes, edges)
   const positions = {}
-  for (const node of placed) {
-    positions[node.id] = { x: Math.round(node.position.x), y: Math.round(node.position.y) }
-  }
-
-  const outLaneNodes = graph ? computeLaneNodesFromPlaced(graph, placed) : laneNodes
+  const placedTopLeft = placed.map((node) => {
+    const centerPos = node.position
+    positions[node.id] = { x: Math.round(centerPos.x), y: Math.round(centerPos.y) }
+    const dims = getNodeDimensions(node)
+    return {
+      ...node,
+      position: centerToTopLeft(centerPos, node),
+      style: { width: dims.width, height: dims.height },
+    }
+  })
+  const smartEdges = computeSmartHandles(placedTopLeft, edges, 'DOWN')
+  const outLaneNodes = graph ? computeLaneNodesFromPlaced(graph, placedTopLeft) : laneNodes
 
   return {
-    nodes: [...outLaneNodes, ...placed],
+    nodes: [...outLaneNodes, ...placedTopLeft],
     edges: smartEdges,
     positions,
   }
