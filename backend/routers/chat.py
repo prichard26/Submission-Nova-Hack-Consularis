@@ -9,18 +9,43 @@ from fastapi import APIRouter
 from pydantic import BaseModel, field_validator
 
 import db
+import stats
 from agent import run_chat
 from config import SESSION_ID_MAX_LEN
 
 logger = logging.getLogger("consularis")
 
+# Tools that change graph structure; when any is used we set meta.structural_change so the frontend can auto-arrange.
+STRUCTURAL_TOOLS = frozenset({
+    "add_node", "delete_node", "add_edge", "delete_edge",
+    "add_lane", "delete_lane", "move_node", "reorder_steps", "reorder_lanes",
+})
+
 
 def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None):
     """Append user message, run agent, append assistant message."""
     db.append_chat_message(session_id, "user", user_message)
-    message, graph_json_str, tools_used = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id)
+    message, graph_json_str, tools_used, tools_called, api_calls, input_tokens, output_tokens = run_chat(
+        session_id, db.get_chat_history(session_id), process_id=process_id
+    )
     db.append_chat_message(session_id, "assistant", message)
-    meta = {"tools_used": tools_used, "session_id": session_id, "process_id": process_id}
+    structural_change = any(t in STRUCTURAL_TOOLS for t in tools_called)
+    stats.add_usage(api_calls=api_calls, input_tokens=input_tokens, output_tokens=output_tokens)
+    cumulative = stats.get_stats()
+    meta = {
+        "tools_used": tools_used,
+        "structural_change": structural_change,
+        "session_id": session_id,
+        "process_id": process_id,
+        "tool_calls_this_turn": tools_called,
+        "api_calls_this_turn": api_calls,
+        "input_tokens_this_turn": input_tokens,
+        "output_tokens_this_turn": output_tokens,
+        "total_api_calls": cumulative["total_api_calls"],
+        "total_input_tokens": cumulative["total_input_tokens"],
+        "total_output_tokens": cumulative["total_output_tokens"],
+        "total_tokens": cumulative["total_tokens"],
+    }
     return message, graph_json_str, meta
 
 
@@ -61,8 +86,17 @@ class ChatRequest(BaseModel):
 
 class ChatResponseMeta(BaseModel):
     tools_used: bool
+    structural_change: bool = False
     session_id: str
     process_id: str | None = None
+    tool_calls_this_turn: list[str] = []
+    api_calls_this_turn: int = 0
+    input_tokens_this_turn: int = 0
+    output_tokens_this_turn: int = 0
+    total_api_calls: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_tokens: int = 0
 
 
 class ChatResponse(BaseModel):
@@ -70,6 +104,12 @@ class ChatResponse(BaseModel):
     graph_json: dict | None = None
     process_id: str | None = None
     meta: ChatResponseMeta
+
+
+@router.get("/stats")
+async def api_stats():
+    """Return cumulative API usage: total_api_calls, total_input_tokens, total_output_tokens, total_tokens."""
+    return stats.get_stats()
 
 
 @router.post("/chat", response_model=ChatResponse)

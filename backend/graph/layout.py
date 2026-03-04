@@ -44,3 +44,5 @@ def step_size(step: dict) -> tuple[int, int]:
     w = max(len(name) * 9, STEP_WIDTH)
     w = min(w, 360)
     return (w, STEP_HEIGHT)
+
+
