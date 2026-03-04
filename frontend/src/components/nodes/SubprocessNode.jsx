@@ -19,7 +19,7 @@ function SubprocessNode({ data, selected }) {
       })}
       <div className="subprocess-node__icon">▶▶</div>
       <div className="subprocess-node__content">
-        <span className="subprocess-node__name">{data.name}</span>
+        <span className="subprocess-node__name">{data.workspaceInfo?.name || data.name}</span>
         {data.workspaceInfo?.summary && (
           <span className="subprocess-node__summary">
             {data.workspaceInfo.summary.step_count || 0} steps

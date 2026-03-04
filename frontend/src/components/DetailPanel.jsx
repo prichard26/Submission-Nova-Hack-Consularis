@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { updateStepFields } from '../services/api'
+import { updateStepFields, renameProcess } from '../services/api'
 import './DetailPanel.css'
 
 const TEXT_FIELDS = [
@@ -94,7 +94,13 @@ export default function DetailPanel({ step, sessionId, processId, onClose, onUpd
             payload[k] = v
           }
         }
-        updateStepFields(sessionId, processId, step.id, payload)
+        const promises = [updateStepFields(sessionId, processId, step.id, payload)]
+        if (payload.name && step.called_element) {
+          promises.push(
+            renameProcess(sessionId, step.called_element, payload.name).catch(() => {})
+          )
+        }
+        Promise.all(promises)
           .then(() => onUpdate?.())
           .catch((err) => console.warn('Save failed', err))
       }, 800)

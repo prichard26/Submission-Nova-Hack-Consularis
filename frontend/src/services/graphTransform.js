@@ -95,15 +95,26 @@ function buildDAG(stepNodes, edges) {
 
   const edgesForRanking = filteredEdges.filter((e) => !backEdges.has(`${e.source}->${e.target}`))
 
+  // Order for source handles so that "left" comes before "right", etc. (fixes swapped children on right branches)
+  const SOURCE_HANDLE_ORDER = { 'left-source': 0, 'right-source': 1, 'top-source': 2, 'bottom-source': 3 }
+  const bySourceThenHandle = [...edgesForRanking].sort((a, b) => {
+    if (a.source !== b.source) return 0
+    const ha = SOURCE_HANDLE_ORDER[a.sourceHandle] ?? 99
+    const hb = SOURCE_HANDLE_ORDER[b.sourceHandle] ?? 99
+    return ha - hb
+  })
+
   const predForRanking = new Map()
   const succForRanking = new Map()
   for (const id of nodeIds) {
     predForRanking.set(id, [])
     succForRanking.set(id, [])
   }
-  for (const e of edgesForRanking) {
-    succForRanking.get(e.source).push(e.target)
-    predForRanking.get(e.target).push(e.source)
+  for (const e of bySourceThenHandle) {
+    const succ = succForRanking.get(e.source)
+    if (!succ.includes(e.target)) succ.push(e.target)
+    const preds = predForRanking.get(e.target)
+    if (!preds.includes(e.source)) preds.push(e.source)
   }
 
   const componentVisited = new Set()
@@ -200,8 +211,24 @@ function orderNodesInRanks(rankToNodes, dag) {
   }
 
   let order = new Map()
+  for (const r of rankIndices) order.set(r, [])
+  const placed = new Set()
+  function dfsOrder(id) {
+    if (placed.has(id)) return
+    placed.add(id)
+    const r = nodeToRank.get(id)
+    if (r !== undefined) order.get(r).push(id)
+    for (const child of succForRanking.get(id) || []) dfsOrder(child)
+  }
+  const roots = [...(rankToNodes.get(rankIndices[0]) || [])]
+  for (const root of roots) dfsOrder(root)
   for (const r of rankIndices) {
-    order.set(r, [...(rankToNodes.get(r) || [])])
+    for (const id of rankToNodes.get(r) || []) {
+      if (!placed.has(id)) {
+        placed.add(id)
+        order.get(r).push(id)
+      }
+    }
   }
 
   function barycenterDown() {
@@ -211,12 +238,12 @@ function orderNodesInRanks(rankToNodes, dag) {
       const nodes = order.get(r) || []
       const withBc = nodes.map((id) => {
         const preds = (predForRanking.get(id) || []).filter((p) => nodeToRank.get(p) === r - 1)
-        const prevOrder = order.get(r - 1) || []
+        const prevOrder = next.get(r - 1) || []
         const indices = preds.map((p) => prevOrder.indexOf(p)).filter((i) => i >= 0)
         const bc = indices.length === 0 ? 0 : indices.reduce((a, b) => a + b, 0) / indices.length
         return { id, bc }
       })
-      withBc.sort((a, b) => a.bc - b.bc || (a.id < b.id ? -1 : 1))
+      withBc.sort((a, b) => a.bc - b.bc || 0)
       next.set(r, withBc.map((x) => x.id))
     }
     order = next
@@ -225,16 +252,16 @@ function orderNodesInRanks(rankToNodes, dag) {
   function barycenterUp() {
     const next = new Map()
     for (const r of rankIndices) next.set(r, [])
-    for (const r of rankIndices) {
+    for (const r of [...rankIndices].reverse()) {
       const nodes = order.get(r) || []
       const withBc = nodes.map((id) => {
         const succs = (succForRanking.get(id) || []).filter((s) => nodeToRank.get(s) === r + 1)
-        const nextOrder = order.get(r + 1) || []
+        const nextOrder = next.get(r + 1) || []
         const indices = succs.map((s) => nextOrder.indexOf(s)).filter((i) => i >= 0)
         const bc = indices.length === 0 ? 0 : indices.reduce((a, b) => a + b, 0) / indices.length
         return { id, bc }
       })
-      withBc.sort((a, b) => a.bc - b.bc || (a.id < b.id ? -1 : 1))
+      withBc.sort((a, b) => a.bc - b.bc || 0)
       next.set(r, withBc.map((x) => x.id))
     }
     order = next
