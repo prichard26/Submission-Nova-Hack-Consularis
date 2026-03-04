@@ -46,9 +46,6 @@ function StepNode({ data, selected }) {
           <span className="step-node__auto-label">{autoPotential} automation</span>
         </div>
       )}
-      {data.risks && data.risks.length > 0 && (
-        <div className="step-node__risk-indicator" title={data.risks.join(', ')}>⚠</div>
-      )}
     </div>
   )
 }

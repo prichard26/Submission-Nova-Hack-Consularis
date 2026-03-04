@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import {
   ReactFlow,
-  MiniMap,
   Background,
   useNodesState,
   useEdgesState,
@@ -34,6 +33,7 @@ import DataViewState from './DataViewState'
 import FloatingToolbar from './FloatingToolbar'
 import EdgeEditorModal from './EdgeEditorModal'
 import ProcessNameHeader from './ProcessNameHeader'
+import LandscapeMinimap from './LandscapeMinimap'
 import './ProcessCanvas.css'
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
@@ -334,17 +334,25 @@ function Canvas({
   )
 
   const handleAutoArrange = useCallback(async () => {
-    const { nodes: nextNodes, edges: nextEdges, positions } = await autoArrangeNodes(nodes, edges)
+    const flowEl = flowWrapper.current
+    const viewportAspect = flowEl && flowEl.clientHeight > 0
+      ? flowEl.clientWidth / flowEl.clientHeight
+      : undefined
+    const { nodes: nextNodes, edges: nextEdges, positions } = await autoArrangeNodes(nodes, edges, {
+      graph: graph ?? undefined,
+      viewportAspect,
+    })
     if (Object.keys(positions).length === 0) return
     setNodes(nextNodes)
     setEdges(nextEdges)
+    setTimeout(() => fitView(), 100)
     try {
       await updatePositions(sessionId, processId, positions)
       onRequestRefresh?.()
     } catch (err) {
       console.warn('Auto-arrange position update failed', err)
     }
-  }, [nodes, edges, sessionId, processId, setNodes, setEdges, onRequestRefresh])
+  }, [nodes, edges, graph, sessionId, processId, setNodes, setEdges, fitView, onRequestRefresh])
 
   const handleConnect = useCallback(
     (connection) => {
@@ -664,18 +672,21 @@ function Canvas({
           maxZoom={4}
           edgesReconnectable
           connectionLineType={ConnectionLineType.SmoothStep}
-          defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: 'var(--edge-stroke, #c97d3a)' } }}
+          defaultEdgeOptions={{
+            type: 'smoothstep',
+            markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: 'var(--edge-stroke, #c97d3a)' },
+            labelStyle: { fill: 'var(--node-text, #4a3020)', fontWeight: 600, fontSize: 11 },
+            labelBgStyle: { fill: 'var(--bg-secondary, #faf8f5)', stroke: 'var(--edge-stroke, #c97d3a)' },
+            labelBgPadding: [6, 4],
+            labelBgBorderRadius: 4,
+          }}
           proOptions={{ hideAttribution: true }}
           deleteKeyCode={['Backspace', 'Delete']}
         >
-          <MiniMap
-            position="top-right"
-            pannable
-            zoomable
-            nodeStrokeColor="var(--node-stroke, #c97d3a)"
-            nodeColor="var(--node-fill, #f5d4b8)"
-            maskColor="color-mix(in srgb, var(--accent-contrast, #ffffff) 70%, transparent)"
-            style={{ width: 180, height: 120, background: 'var(--bg-secondary, #1a1510)' }}
+          <LandscapeMinimap
+            workspace={{ process_tree: { processes: workspaceProcesses } }}
+            currentProcessId={processId}
+            onProcessSelect={onDrillDown}
           />
           <Background variant="dots" color="var(--border, #ccc4b8)" gap={20} size={1.5} />
         </ReactFlow>

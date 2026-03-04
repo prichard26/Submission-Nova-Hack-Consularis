@@ -1,0 +1,55 @@
+.landscape-minimap {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-secondary, #1a1510);
+  border: 1px solid var(--border, #2e2820);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.landscape-minimap__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: default;
+}
+
+.landscape-minimap__edge {
+  stroke: var(--edge-stroke, #c97d3a);
+  stroke-width: 1.5;
+  stroke-opacity: 0.7;
+  fill: none;
+}
+
+.landscape-minimap__node {
+  fill: var(--node-fill, #f5d4b8);
+  stroke: var(--node-stroke, #c97d3a);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: fill 0.15s, stroke 0.15s;
+}
+
+.landscape-minimap__node:hover {
+  fill: color-mix(in srgb, var(--node-fill, #f5d4b8) 85%, var(--accent, #e85d04));
+  stroke: var(--accent, #e85d04);
+}
+
+.landscape-minimap__node--current {
+  fill: var(--accent-soft, rgba(232, 93, 4, 0.25));
+  stroke: var(--accent, #e85d04);
+  stroke-width: 2.5;
+}
+
+.landscape-minimap--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landscape-minimap__placeholder {
+  font-size: 10px;
+  color: var(--text-muted, #7a6f60);
+}

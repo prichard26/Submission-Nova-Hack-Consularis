@@ -6,36 +6,19 @@ import {
   ReactFlowProvider,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import dagre from 'dagre'
+import { layoutTree } from '../services/landscapeLayout'
 import './LandscapeView.css'
 
-function layoutTree(workspace) {
-  const nodes = []
-  const edges = []
-  if (!workspace?.process_tree?.processes) return { nodes, edges }
+function buildFlowNodesAndEdges(workspace) {
+  const { nodes: layoutNodes, edges: layoutEdges } = layoutTree(workspace)
+  const processes = workspace?.process_tree?.processes || {}
 
-  const processes = workspace.process_tree.processes
-  const g = new dagre.graphlib.Graph()
-  g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 100 })
-
-  for (const [pid, info] of Object.entries(processes)) {
-    g.setNode(pid, { width: 220, height: 100 })
-    for (const child of info.children || []) {
-      if (processes[child]) {
-        g.setEdge(pid, child)
-      }
-    }
-  }
-
-  dagre.layout(g)
-
-  for (const [pid, info] of Object.entries(processes)) {
-    const pos = g.node(pid)
-    nodes.push({
-      id: pid,
+  const nodes = layoutNodes.map((n) => {
+    const info = processes[n.id] || {}
+    return {
+      id: n.id,
       type: 'default',
-      position: { x: pos.x - 110, y: pos.y - 50 },
+      position: { x: n.x, y: n.y },
       data: {
         label: (
           <div className="landscape-card">
@@ -62,25 +45,23 @@ function layoutTree(workspace) {
         border: '2px solid var(--node-stroke, #c97d3a)',
         borderRadius: '10px',
         padding: 0,
-        width: 220,
+        width: n.width,
       },
-    })
-  }
+    }
+  })
 
-  for (const e of g.edges()) {
-    edges.push({
-      id: `${e.v}->${e.w}`,
-      source: e.v,
-      target: e.w,
-      style: { stroke: 'var(--edge-stroke, #c97d3a)' },
-    })
-  }
+  const edges = layoutEdges.map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    style: { stroke: 'var(--edge-stroke, #c97d3a)' },
+  }))
 
   return { nodes, edges }
 }
 
 function LandscapeCanvas({ workspace, onProcessSelect, onSwitchView }) {
-  const { nodes, edges } = useMemo(() => layoutTree(workspace), [workspace])
+  const { nodes, edges } = useMemo(() => buildFlowNodesAndEdges(workspace), [workspace])
   const handleNodeClick = useCallback(
     (_event, node) => onProcessSelect?.(node.id),
     [onProcessSelect],
