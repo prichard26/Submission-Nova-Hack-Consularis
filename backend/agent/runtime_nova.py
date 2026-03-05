@@ -1,7 +1,7 @@
 """Agent runtime using Amazon Nova via AWS Bedrock Converse API.
 
-Single API call per user turn: one request, execute any tool_calls once, no follow-up round.
-Same contract as Groq: (final_message, graph_json, tools_used, tools_called).
+Multi-agent flow: Planner (top) decides and talks to user; Executor (bottom) runs graph tools.
+Same contract: (final_message, graph_json, tools_used, tools_called, api_calls, input_tokens, output_tokens).
 """
 import json
 import logging
@@ -21,21 +21,21 @@ from config import (
     NOVA_MODEL_ID,
 )
 from graph.store import get_full_graph_summary, get_graph_json
-from agent.prompt import SYSTEM_PROMPT
-from agent.tools import TOOL_SCHEMAS, run_tool
+from agent.prompt import EXECUTOR_SYSTEM_PROMPT, MULTIAGENT_CONTEXT, PLANNER_SYSTEM_PROMPT
+from agent.tools import PLANNER_TOOL_SCHEMAS, TOOL_SCHEMAS, run_tool
 
 logger = logging.getLogger("consularis.agent")
 
-READ_ONLY_TOOLS = frozenset()  # no tools in this mode
+READ_ONLY_TOOLS = frozenset()
 
 # ---------------------------------------------------------------------------
 # Helpers: translate OpenAI-style tool schemas → Bedrock toolConfig
 # ---------------------------------------------------------------------------
 
-def _build_bedrock_tools() -> list[dict]:
-    """Convert TOOL_SCHEMAS (OpenAI function-calling format) to Bedrock toolSpec list."""
+def _build_bedrock_tools_from_schemas(schemas: list[dict]) -> list[dict]:
+    """Convert OpenAI-style function schemas to Bedrock toolSpec list."""
     specs = []
-    for schema in TOOL_SCHEMAS:
+    for schema in schemas:
         fn = schema["function"]
         params = fn.get("parameters", {})
         input_schema = {
@@ -53,7 +53,8 @@ def _build_bedrock_tools() -> list[dict]:
     return specs
 
 
-BEDROCK_TOOLS = _build_bedrock_tools()
+BEDROCK_PLANNER_TOOLS = _build_bedrock_tools_from_schemas(PLANNER_TOOL_SCHEMAS)
+BEDROCK_EXECUTOR_TOOLS = _build_bedrock_tools_from_schemas(TOOL_SCHEMAS)
 
 
 def _get_client():
@@ -102,8 +103,84 @@ def _sanitize_reply(text: str) -> str:
     return text.strip() or text
 
 
+def _run_executor(
+    client,
+    session_id: str,
+    instructions: str,
+    steps: list[dict] | None,
+    full_graph: str,
+    process_id: str | None,
+) -> tuple[str, list[str], int, int, int]:
+    """Run executor agent (multi-round): execute planner instructions with graph tools. Returns (summary, tools_called, api_calls, input_tokens, output_tokens)."""
+    executor_system = [{"text": MULTIAGENT_CONTEXT + "\n\n" + EXECUTOR_SYSTEM_PROMPT + "\n\n" + full_graph}]
+    body = "Execute the following.\n\n**Instructions:**\n" + instructions
+    if steps:
+        body += "\n\n**Suggested steps (execute or adapt using the graph):**\n" + json.dumps(steps, indent=2)
+    executor_messages: list[dict] = [{"role": "user", "content": [{"text": body}]}]
+    tools_called: list[str] = []
+    total_api = 0
+    total_in = 0
+    total_out = 0
+    executor_summary = ""
+
+    max_executor_rounds = 5
+    for _round in range(max_executor_rounds):
+        kwargs = {
+            "modelId": NOVA_MODEL_ID,
+            "system": executor_system,
+            "messages": executor_messages,
+            "inferenceConfig": {"maxTokens": 2048, "temperature": 0.2},
+            "toolConfig": {"tools": BEDROCK_EXECUTOR_TOOLS},
+        }
+        try:
+            response = client.converse(**kwargs)
+        except Exception as e:
+            logger.exception("[AGENT][NOVA] executor session_id=%s error: %s", session_id, e)
+            return "Executor failed.", tools_called, total_api, total_in, total_out
+
+        total_api += 1
+        total_in += response.get("usage", {}).get("inputTokens", 0) or 0
+        total_out += response.get("usage", {}).get("outputTokens", 0) or 0
+        output = response.get("output", {})
+        output_message = output.get("message", {})
+        content_blocks = output_message.get("content", [])
+        executor_messages.append(output_message)
+
+        for block in content_blocks:
+            if "text" in block:
+                executor_summary = block["text"].strip()
+
+        tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
+        if not tool_use_blocks:
+            break
+
+        tool_results = []
+        for block in tool_use_blocks:
+            tu = block["toolUse"]
+            name = tu["name"]
+            tool_use_id = tu.get("toolUseId", "")
+            args = tu.get("input", {})
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {}
+            tools_called.append(name)
+            result = run_tool(session_id, name, args, process_id=process_id)
+            tool_results.append({
+                "toolUseId": tool_use_id,
+                "content": [{"text": result}],
+                "status": "success",
+            })
+        executor_messages.append({"role": "user", "content": [{"toolResult": tr} for tr in tool_results]})
+
+    if not executor_summary:
+        executor_summary = "Executed: " + ", ".join(tools_called) if tools_called else "No tools were called."
+    return executor_summary, tools_called, total_api, total_in, total_out
+
+
 # ---------------------------------------------------------------------------
-# Single-round: one API call, execute tool_calls once, no follow-up
+# Multi-agent: Planner → (optional Executor) → Planner final reply
 # ---------------------------------------------------------------------------
 
 def run_chat(
@@ -112,7 +189,7 @@ def run_chat(
     max_rounds: int | None = None,
     process_id: str | None = None,
 ) -> tuple[str, str, bool, list[str], int, int, int]:
-    """One Bedrock Converse call per user turn. Returns (final_message, graph_json, tools_used, tools_called_list, api_calls, input_tokens, output_tokens)."""
+    """Planner decides and talks to user; when it calls request_execution, Executor runs graph tools; then Planner replies with summary. Returns (final_message, graph_json, tools_used, tools_called_list, api_calls, input_tokens, output_tokens)."""
     tools_used = False
     tools_called: list[str] = []
     _empty_usage = (0, 0, 0)
@@ -129,18 +206,21 @@ def run_chat(
 
     client = _get_client()
     full_graph = get_full_graph_summary(session_id)
-    system_block = [{"text": SYSTEM_PROMPT + "\n\n" + full_graph}]
+    system_block = [{"text": MULTIAGENT_CONTEXT + "\n\n" + PLANNER_SYSTEM_PROMPT + "\n\n" + full_graph}]
     bedrock_messages = _chat_history_to_bedrock(messages)
     kwargs = {
         "modelId": NOVA_MODEL_ID,
         "system": system_block,
         "messages": bedrock_messages,
         "inferenceConfig": {"maxTokens": 2048, "temperature": 0.3},
+        "toolConfig": {"tools": BEDROCK_PLANNER_TOOLS},
     }
-    if BEDROCK_TOOLS:
-        kwargs["toolConfig"] = {"tools": BEDROCK_TOOLS}
 
-    final_message = ""
+    api_calls = 0
+    input_tokens = 0
+    output_tokens = 0
+    planner_reply = ""
+
     for attempt in range(BEDROCK_MAX_RETRIES + 1):
         try:
             response = client.converse(**kwargs)
@@ -156,6 +236,7 @@ def run_chat(
                 get_graph_json(session_id, process_id=process_id),
                 False,
                 [],
+                1,
                 *_empty_usage,
             )
         except Exception as e:
@@ -165,45 +246,79 @@ def run_chat(
                 get_graph_json(session_id, process_id=process_id),
                 False,
                 [],
+                1,
                 *_empty_usage,
             )
 
-    output = response.get("output", {})
-    output_message = output.get("message", {})
+    api_calls += 1
+    input_tokens += response.get("usage", {}).get("inputTokens", 0) or 0
+    output_tokens += response.get("usage", {}).get("outputTokens", 0) or 0
+    output_message = response.get("output", {}).get("message", {})
     content_blocks = output_message.get("content", [])
 
     for block in content_blocks:
         if "text" in block:
-            final_message = block["text"].strip()
+            planner_reply = block["text"].strip()
 
-    last_tool_result = None
     tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
-    if tool_use_blocks:
-        tools_used = True
-        tool_names = [b["toolUse"]["name"] for b in tool_use_blocks]
-        tools_called.extend(tool_names)
-        logger.info("[AGENT][NOVA] session_id=%s invoking %d tool(s) (single round): %s", session_id, len(tool_use_blocks), ", ".join(tool_names))
-        for block in tool_use_blocks:
-            tu = block["toolUse"]
-            name = tu["name"]
-            args = tu.get("input", {})
-            if isinstance(args, str):
-                try:
-                    args = json.loads(args)
-                except json.JSONDecodeError:
-                    args = {}
-            last_tool_result = run_tool(session_id, name, args, process_id=process_id)
+    request_execution_block = next((b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "request_execution"), None)
 
-    if not final_message and tools_used:
-        if last_tool_result and tools_called and all(t in READ_ONLY_TOOLS for t in tools_called):
-            final_message = last_tool_result
-        else:
-            final_message = "I have applied the changes. The graph has been updated."
+    if request_execution_block is None:
+        final_message = _sanitize_reply(planner_reply) if planner_reply else "I didn't catch that. What would you like to do?"
+        return final_message, get_graph_json(session_id, process_id=process_id), False, [], api_calls, input_tokens, output_tokens
+
+    tu = request_execution_block["toolUse"]
+    args = tu.get("input", {})
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except json.JSONDecodeError:
+            args = {}
+    instructions = args.get("instructions", "") or "Apply the changes discussed."
+    steps = args.get("steps")
+    if not isinstance(steps, list):
+        steps = None
+
+    logger.info("[AGENT][NOVA] session_id=%s running executor (instructions len=%s, steps=%s)", session_id, len(instructions), len(steps) if steps else 0)
+    executor_summary, tools_called, exec_api, exec_in, exec_out = _run_executor(
+        client, session_id, instructions, steps, full_graph, process_id
+    )
+    api_calls += exec_api
+    input_tokens += exec_in
+    output_tokens += exec_out
+    tools_used = True
+
+    # Second planner call: summarize execution for the user
+    followup_messages = list(bedrock_messages)
+    followup_messages.append(output_message)
+    followup_messages.append({
+        "role": "user",
+        "content": [{"text": "Execution completed.\n\n**Results:** " + executor_summary + "\n\nReply to the user in a few sentences summarizing what was done. Do not call any tool."}],
+    })
+    kwargs_followup = {
+        "modelId": NOVA_MODEL_ID,
+        "system": system_block,
+        "messages": followup_messages,
+        "inferenceConfig": {"maxTokens": 1024, "temperature": 0.3},
+    }
+    try:
+        response2 = client.converse(**kwargs_followup)
+    except Exception as e:
+        logger.exception("[AGENT][NOVA] planner follow-up session_id=%s error: %s", session_id, e)
+        final_message = _sanitize_reply(planner_reply) + "\n\n" + executor_summary
+        return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, api_calls, input_tokens, output_tokens
+
+    api_calls += 1
+    input_tokens += response2.get("usage", {}).get("inputTokens", 0) or 0
+    output_tokens += response2.get("usage", {}).get("outputTokens", 0) or 0
+    content2 = response2.get("output", {}).get("message", {}).get("content", [])
+    final_message = ""
+    for block in content2:
+        if "text" in block:
+            final_message = block["text"].strip()
+            break
     if not final_message:
-        final_message = "I did not quite understand. Please say which step or phase you mean and what you would like to change."
-
-    final_message = _sanitize_reply(final_message)
-    usage = response.get("usage", {})
-    input_tokens = usage.get("inputTokens", 0) or 0
-    output_tokens = usage.get("outputTokens", 0) or 0
-    return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, 1, input_tokens, output_tokens
+        final_message = _sanitize_reply(planner_reply) + "\n\n" + executor_summary
+    else:
+        final_message = _sanitize_reply(final_message)
+    return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, api_calls, input_tokens, output_tokens

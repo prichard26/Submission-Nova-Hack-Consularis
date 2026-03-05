@@ -12,6 +12,7 @@ import db
 import stats
 from agent import run_chat
 from config import SESSION_ID_MAX_LEN
+from graph.store import get_graph_json
 
 logger = logging.getLogger("consularis")
 
@@ -128,6 +129,12 @@ async def api_chat(req: ChatRequest):
         if graph_json_str:
             try:
                 graph_dict = json.loads(graph_json_str)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        # When tools ran, ensure frontend gets updated graph (refetch if parse failed)
+        if meta.get("tools_used") and graph_dict is None:
+            try:
+                graph_dict = json.loads(get_graph_json(session_id, process_id=req.process_id))
             except (json.JSONDecodeError, TypeError):
                 pass
         return {

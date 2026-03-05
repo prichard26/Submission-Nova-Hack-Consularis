@@ -1,4 +1,4 @@
-"""Tool schemas and dispatch. Step 2 + 3: update_node, edges. Step 4: add_node, delete_node."""
+"""Tool schemas and dispatch. Step 2 + 3: update_node, edges. Step 4: add_node, delete_node. Multi-agent: planner uses request_execution."""
 import json
 import logging
 from typing import Callable
@@ -117,6 +117,38 @@ TOOL_SCHEMAS: list[dict] = [
     },
 ]
 TOOLS = TOOL_SCHEMAS
+
+# Planner-only tool: orchestrator asks executor to run graph changes. Handled in runtime, not in run_tool.
+PLANNER_TOOL_SCHEMAS: list[dict] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "request_execution",
+            "description": "Tell the executor to run graph changes. Call this whenever the user asked for something executable: edit a step, add/remove edges, add/remove nodes or subprocesses. For simple requests call it in the same turn; for complex ones call it after the user confirms. Prefer providing the steps list so the executor does exactly those actions and nothing more.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "instructions": {
+                        "type": "string",
+                        "description": "Step-by-step instructions for the executor: what to do, in what order, which process_id and step ids (e.g. Process_P1, P1.1, P1.2). Be specific.",
+                    },
+                    "steps": {
+                        "type": "array",
+                        "description": "Preferred: exact list of tool calls so the executor does only this. Each item: { \"tool_name\": \"update_node\" | \"add_edge\" | \"delete_edge\" | \"update_edge\" | \"add_node\" | \"delete_node\", \"arguments\": { step_id, process_id, source, target, lane_id, name, type, updates, ... } }.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "tool_name": {"type": "string"},
+                                "arguments": {"type": "object", "additionalProperties": True},
+                            },
+                        },
+                    },
+                },
+                "required": ["instructions"],
+            },
+        },
+    },
+]
 
 TOOL_HANDLERS: dict[str, ToolHandler] = {}
 

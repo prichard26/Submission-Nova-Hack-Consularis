@@ -74,12 +74,13 @@ export default function Dashboard({ companyName }) {
             total_tokens: data.meta.total_tokens ?? 0,
           })
         }
-        if (data.graph_json) {
+        // When tools ran, always refresh the graph so updates are visible (refetch + optional structural layout)
+        if (data.meta?.tools_used) {
           handleExternalGraphUpdate()
-          if (data.meta?.structural_change) {
-            setStructuralChangeGraph(data.graph_json)
-            setStructuralChangeFromChat(true)
-          }
+        }
+        if (data.graph_json && data.meta?.structural_change) {
+          setStructuralChangeGraph(data.graph_json)
+          setStructuralChangeFromChat(true)
         }
       } catch (err) {
         const text = err.status ? `Request failed (${err.status}). Please try again.` : 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.'
