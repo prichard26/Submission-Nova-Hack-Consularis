@@ -70,8 +70,91 @@ We improve the model step by step. Each step adds capability.
 
 ---
 
-## Next steps (later)
+## Step 2: Read the graph, dialogue, and edit steps
 
-- **Step 2:** Add tools to edit the graph (update_node, add_node, delete_node, add_edge, delete_edge).
-- **Step 3:** Add decisions, subprocess, create_subprocess_page.
-- **Step 4:** Discovery and initial questions (company size, etc.) with edit capability.
+**Goal:** Same as Step 1, plus the agent can **modify one or more steps (nodes)** when the user asks. It can update everything inside each node: name, actor, duration, description, inputs, outputs, risks, cost, automation fields, etc. It does not add/delete steps, edges, or lanes.
+
+**Tool (1):**
+
+| # | Tool | Purpose |
+|---|------|--------|
+| 1 | **update_node** | Update a step. Arguments: `process_id` (optional), `step_id` (e.g. P1.1), `updates` (object with name, actor, duration_min, description, inputs, outputs, risks, cost_per_execution, etc.). Call multiple times per turn to update multiple steps. |
+
+The agent still receives the **full graph** in context every time (all processes, any depth). It uses that to find the right step_id and process_id, then calls update_node for each step to change (one or more per turn).
+
+**What it can do in Step 2:**
+- Everything from Step 1: read the full graph, answer questions, ask clarifying questions, use markdown.
+- **Edit one or more steps per turn:** change any step’s name, actor, duration, description, inputs, outputs, risks, cost, automation fields, SLA, pain points, etc. (all fields inside the node). Can update multiple steps in a single turn.
+- It does **not** add or delete steps, edges, or lanes; it does not create subprocesses.
+
+**Expected behaviour:**
+- Same read/dialogue as Step 1.
+- When the user asks to change something about one or more steps, the agent calls update_node for each step to update, with the correct step_id and process_id from the graph.
+- If the user asks to add/delete steps or edges, the agent says it can only edit existing steps in this step.
+
+---
+
+### Possible prompts for Step 2
+
+**Read / dialogue (same as Step 1 — no tool)**
+
+- *"What's in the Prescription process?"*
+- *"Who does Verify Prescription?"*
+- *"List the steps in Dispensing."*
+- *"What's the flow in this process?"*
+
+**Edit step(s) — name**
+
+- *"Rename Verify Prescription to Pharmacist verification."*
+- *"Change the name of P1.2 to Prescription check."*
+- *"Call the first step 'Receive request' instead."*
+
+**Edit step(s) — actor / who**
+
+- *"Set the actor of Verify Prescription to Pharmacist."*
+- *"P1.1 should be performed by the doctor."*
+- *"Who does Approve Prescription? Set it to Senior pharmacist."*
+- *"Set the actor to Pharmacist for both Verify Prescription and Approve Prescription."*
+
+**Edit step(s) — duration / time**
+
+- *"Set the duration of Verify Prescription to 5 minutes."*
+- *"Change P1.2 to 10 minutes."*
+- *"How long is Approve Prescription? Make it 3 minutes."*
+- *"Set duration to 5 min for P1.1, P1.2, and P1.3."*
+
+**Edit step(s) — description**
+
+- *"Add a description to Verify Prescription: the pharmacist checks the prescription for validity and dosage."*
+- *"Update the description of P1.1."*
+
+**Edit step(s) — inputs / outputs / risks**
+
+- *"Add 'prescription' to the inputs of Approve Prescription."*
+- *"Set the outputs of P1.2 to approved prescription, rejection reason."*
+- *"Add a risk to Verify Prescription: wrong dosage if not checked."*
+- *"What are the risks of P1.1? Add 'missing signature'."*
+
+**Edit step(s) — cost / volume / automation**
+
+- *"Set the cost of Approve Prescription to 2.50."*
+- *"Change cost_per_execution of P1.2 to 3."*
+- *"Set annual_volume for Verify Prescription to 50000."*
+- *"Set automation_potential of P1.1 to high."*
+- *"Set cost to 2 EUR for all three steps in Prescription."*
+
+**Edit step(s) — other metadata**
+
+- *"Set the SLA for Verify Prescription to 24 hours."*
+- *"Add 'legacy system' to current_systems for P1.2."*
+- *"Set data_format of Approve Prescription to PDF."*
+
+**Requests that should be declined in Step 2 (no add/delete/structure)**
+
+- *"Add a new step called Compliance check."* → Agent says it can only edit existing steps.
+- *"Delete the Approve Prescription step."* → Same.
+- *"Connect P1.1 to P1.3."* / *"Add an edge from P1.1 to P1.3."* → Same.
+- *"Create a subprocess for this."* → Same.
+
+---
+
