@@ -171,6 +171,18 @@ export function getUsageStats(options = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Session init (template vs blank)
+// ---------------------------------------------------------------------------
+
+export function initSession(sessionId, fromBlank = false, options = {}) {
+  return request('/api/session/init', {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, from_blank: fromBlank }),
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Analyze (automation advisor) and appointment
 // ---------------------------------------------------------------------------
 

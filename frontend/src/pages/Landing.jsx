@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, useEffect } from 'react'
 import BotFace from '../components/BotFace'
+import { initSession } from '../services/api'
 import './Landing.css'
 
 const SECTORS = [
@@ -14,8 +15,10 @@ const BOT_INTRO =
   "You'll get a living process graph you can refine by chatting with me. Let's start simple."
 
 const BOT_ASK_NAME = "First, what should I call you? Your name, or your company's—either works."
-const BOT_ASK_SECTOR = (name) => `Nice to meet you, ${name}. What type of company do you run? Pick one and I'll generate a starter process graph for you.`
+const BOT_ASK_SECTOR = (name) => `Nice to meet you, ${name}. What type of company do you run? Pick one.`
+const BOT_ASK_START_FROM = "Do you want to start from a template (pre-filled process for your sector) or from a blank canvas (just start and end nodes)?"
 const BOT_GENERATING = (name) => `Perfect. Generating ${name}'s process graph… One moment.`
+const BOT_CREATING_BLANK = "Creating your blank canvas… One moment."
 
 const GENERATING_DELAY_MS = 2500
 
@@ -24,12 +27,14 @@ export default function Landing({ onSubmit }) {
     { id: 1, role: 'bot', content: BOT_INTRO },
     { id: 2, role: 'bot', content: BOT_ASK_NAME },
   ])
-  const [step, setStep] = useState('name') // 'name' | 'sector' | 'generating' | 'done'
+  const [step, setStep] = useState('name') // 'name' | 'sector' | 'start_from' | 'generating' | 'done'
   const [nameInput, setNameInput] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [selectedSector, setSelectedSector] = useState(null)
+  const [fromBlank, setFromBlank] = useState(false)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const generatingTimerRef = useRef(null)
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -73,20 +78,50 @@ export default function Landing({ onSubmit }) {
       if (!sector.available || step !== 'sector') return
       setSelectedSector(sector)
       addUserMessage(`${sector.icon} ${sector.label}`)
-      addBotMessage(BOT_GENERATING(companyName))
-      setStep('generating')
+      addBotMessage(BOT_ASK_START_FROM)
+      setStep('start_from')
     },
-    [companyName, step, addUserMessage, addBotMessage]
+    [step, addUserMessage, addBotMessage]
   )
+
+  const handleStartFromTemplate = useCallback(() => {
+    if (step !== 'start_from') return
+    setFromBlank(false)
+    addUserMessage('From template')
+    addBotMessage(BOT_GENERATING(companyName))
+    setStep('generating')
+  }, [step, companyName, addUserMessage, addBotMessage])
+
+  const handleStartFromBlank = useCallback(() => {
+    if (step !== 'start_from') return
+    setFromBlank(true)
+    addUserMessage('From blank')
+    addBotMessage(BOT_CREATING_BLANK)
+    setStep('generating')
+  }, [step, addUserMessage, addBotMessage])
 
   useEffect(() => {
     if (step !== 'generating' || !selectedSector) return
-    const t = setTimeout(() => {
+    const doSubmit = () => {
       setStep('done')
-      onSubmit({ companyName, sector: selectedSector.id })
-    }, GENERATING_DELAY_MS)
-    return () => clearTimeout(t)
-  }, [step, selectedSector, companyName, onSubmit])
+      onSubmit({ companyName, sector: selectedSector.id, fromBlank })
+    }
+    if (fromBlank) {
+      initSession(companyName, true).then(() => {
+        generatingTimerRef.current = setTimeout(doSubmit, GENERATING_DELAY_MS)
+      }).catch(() => {
+        doSubmit()
+      })
+    } else {
+      generatingTimerRef.current = setTimeout(doSubmit, GENERATING_DELAY_MS)
+    }
+    return () => {
+      if (generatingTimerRef.current) {
+        clearTimeout(generatingTimerRef.current)
+        generatingTimerRef.current = null
+      }
+    }
+  }, [step, selectedSector, companyName, fromBlank, onSubmit])
 
   return (
     <div className="landing">
@@ -163,6 +198,25 @@ export default function Landing({ onSubmit }) {
                     )}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {step === 'start_from' && (
+              <div className="landing__start-from">
+                <button
+                  type="button"
+                  className="landing__start-from-btn landing__start-from-btn--template"
+                  onClick={handleStartFromTemplate}
+                >
+                  From template
+                </button>
+                <button
+                  type="button"
+                  className="landing__start-from-btn landing__start-from-btn--blank"
+                  onClick={handleStartFromBlank}
+                >
+                  From blank
+                </button>
               </div>
             )}
 

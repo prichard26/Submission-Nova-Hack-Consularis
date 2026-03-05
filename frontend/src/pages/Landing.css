@@ -263,6 +263,47 @@
   letter-spacing: 0.03em;
 }
 
+/* ── Template vs blank ── */
+.landing__start-from {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.landing__start-from-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.landing__start-from-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.landing__start-from-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.landing__start-from-btn--template {
+  border-color: var(--border-accent);
+}
+
+.landing__start-from-btn--blank {
+  border-color: var(--border);
+}
+
 /* ── Generating state ── */
 .landing__generating {
   display: flex;

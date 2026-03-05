@@ -20,6 +20,7 @@ export default function App() {
     return {
       companyName: session.companyName,
       sector: session.sector || 'pharmacy',
+      fromBlank: session.fromBlank ?? false,
     }
   }, [session])
 
@@ -27,6 +28,7 @@ export default function App() {
     const normalized = {
       companyName: nextSession.companyName,
       sector: nextSession.sector || 'pharmacy',
+      fromBlank: nextSession.fromBlank ?? false,
     }
     setSession(normalized)
     sessionStorage.setItem('consularis_session', JSON.stringify(normalized))

@@ -195,6 +195,74 @@ def clone_baseline_to_session(session_id: str) -> None:
         conn.commit()
 
 
+def _empty_graph_json(session_id: str) -> str:
+    """Minimal graph: one lane, Start and End only."""
+    name = f"{session_id}_map"
+    return json.dumps({
+        "format_version": "1.0",
+        "process_id": "Process_Global",
+        "name": name,
+        "metadata": {},
+        "lanes": [
+            {"id": "GLOBAL", "name": "Main", "description": "", "node_refs": ["Start_Global", "End_Global"]}
+        ],
+        "steps": [
+            {"id": "Start_Global", "name": "Start", "type": "start", "lane_id": "GLOBAL", "position": {"x": 200, "y": 80}},
+            {"id": "End_Global", "name": "End", "type": "end", "lane_id": "GLOBAL", "position": {"x": 500, "y": 80}},
+        ],
+        "flows": [{"from": "Start_Global", "to": "End_Global", "label": ""}],
+    }, ensure_ascii=False, indent=2)
+
+
+def _empty_workspace_json(session_id: str) -> str:
+    """Minimal workspace: root Process_Global, no children."""
+    name = f"{session_id}_map"
+    return json.dumps({
+        "format_version": "1.0",
+        "workspace_id": "ws_session",
+        "name": session_id,
+        "process_tree": {
+            "root": "Process_Global",
+            "processes": {
+                "Process_Global": {
+                    "name": name,
+                    "depth": 0,
+                    "path": "/Process_Global",
+                    "children": [],
+                    "summary": {"step_count": 0, "subprocess_count": 0},
+                }
+            },
+        },
+        "cross_links": [],
+        "tags": {},
+    }, ensure_ascii=False, indent=2)
+
+
+def init_empty_session(session_id: str) -> None:
+    """Create a session with an empty graph (start + end only). Idempotent: no-op if session already has data."""
+    sid = str(session_id).strip()
+    if not sid:
+        return
+    with _conn_lock:
+        conn = get_conn()
+        row = conn.execute(
+            "SELECT count(*) FROM session_processes WHERE session_id = ?", (sid,)
+        ).fetchone()
+        if row is not None and (row[0] or 0) > 0:
+            return
+        graph_json = _empty_graph_json(sid)
+        workspace_json = _empty_workspace_json(sid)
+        conn.execute(
+            "INSERT INTO session_processes (session_id, process_id, graph_json) VALUES (?, 'Process_Global', ?)",
+            (sid, graph_json),
+        )
+        conn.execute(
+            "INSERT INTO session_workspace (session_id, workspace_json) VALUES (?, ?)",
+            (sid, workspace_json),
+        )
+        conn.commit()
+
+
 # ---------------------------------------------------------------------------
 # Session graph reads / writes
 # ---------------------------------------------------------------------------
