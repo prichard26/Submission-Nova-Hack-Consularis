@@ -1,16 +1,17 @@
-"""Chat endpoint: POST /api/chat."""
+"""Chat endpoint: POST /api/chat and POST /api/chat/confirm."""
 import asyncio
 import json
 import logging
 import threading
 from collections import OrderedDict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
 import db
 import stats
 from agent import run_chat
+from agent.runtime_nova import run_chat_confirm
 from config import SESSION_ID_MAX_LEN
 from graph.store import get_graph_json
 
@@ -26,9 +27,8 @@ STRUCTURAL_TOOLS = frozenset({
 def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None):
     """Append user message, run agent, append assistant message."""
     db.append_chat_message(session_id, "user", user_message)
-    message, graph_json_str, tools_used, tools_called, api_calls, input_tokens, output_tokens = run_chat(
-        session_id, db.get_chat_history(session_id), process_id=process_id
-    )
+    result = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id)
+    message, graph_json_str, tools_used, tools_called, api_calls, input_tokens, output_tokens, pending_plan, requires_confirmation = result
     db.append_chat_message(session_id, "assistant", message)
     structural_change = any(t in STRUCTURAL_TOOLS for t in tools_called)
     stats.add_usage(api_calls=api_calls, input_tokens=input_tokens, output_tokens=output_tokens)
@@ -46,6 +46,8 @@ def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None
         "total_input_tokens": cumulative["total_input_tokens"],
         "total_output_tokens": cumulative["total_output_tokens"],
         "total_tokens": cumulative["total_tokens"],
+        "requires_confirmation": requires_confirmation,
+        "pending_plan": pending_plan,
     }
     return message, graph_json_str, meta
 
@@ -98,6 +100,8 @@ class ChatResponseMeta(BaseModel):
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     total_tokens: int = 0
+    requires_confirmation: bool = False
+    pending_plan: dict | None = None
 
 
 class ChatResponse(BaseModel):
@@ -105,6 +109,20 @@ class ChatResponse(BaseModel):
     graph_json: dict | None = None
     process_id: str | None = None
     meta: ChatResponseMeta
+
+
+class ChatConfirmRequest(BaseModel):
+    session_id: str
+    process_id: str | None = None
+
+    @field_validator("session_id")
+    @classmethod
+    def session_id_non_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("session_id is required")
+        if len(v) > SESSION_ID_MAX_LEN:
+            raise ValueError(f"session_id must be at most {SESSION_ID_MAX_LEN} characters")
+        return v.strip()
 
 
 @router.get("/stats")
@@ -143,3 +161,52 @@ async def api_chat(req: ChatRequest):
             "process_id": req.process_id,
             "meta": meta,
         }
+
+
+@router.post("/chat/confirm", response_model=ChatResponse)
+async def api_chat_confirm(req: ChatConfirmRequest):
+    """Run the stored pending plan (from propose_plan). Returns same shape as /chat."""
+    session_id = req.session_id
+    lock = _lock_for_session(session_id)
+    with lock:
+        result = await asyncio.to_thread(run_chat_confirm, session_id, req.process_id)
+    if result is None:
+        raise HTTPException(status_code=400, detail="No pending plan to apply. Send a message and ask for a plan first.")
+    message, graph_json_str, tools_used, tools_called, api_calls, input_tokens, output_tokens, _, _ = result
+    db.append_chat_message(session_id, "assistant", message)
+    structural_change = any(t in STRUCTURAL_TOOLS for t in tools_called)
+    stats.add_usage(api_calls=api_calls, input_tokens=input_tokens, output_tokens=output_tokens)
+    cumulative = stats.get_stats()
+    meta = {
+        "tools_used": tools_used,
+        "structural_change": structural_change,
+        "session_id": session_id,
+        "process_id": req.process_id,
+        "tool_calls_this_turn": tools_called,
+        "api_calls_this_turn": api_calls,
+        "input_tokens_this_turn": input_tokens,
+        "output_tokens_this_turn": output_tokens,
+        "total_api_calls": cumulative["total_api_calls"],
+        "total_input_tokens": cumulative["total_input_tokens"],
+        "total_output_tokens": cumulative["total_output_tokens"],
+        "total_tokens": cumulative["total_tokens"],
+        "requires_confirmation": False,
+        "pending_plan": None,
+    }
+    graph_dict = None
+    if graph_json_str:
+        try:
+            graph_dict = json.loads(graph_json_str)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if meta.get("tools_used") and graph_dict is None:
+        try:
+            graph_dict = json.loads(get_graph_json(session_id, process_id=req.process_id))
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return {
+        "message": message,
+        "graph_json": graph_dict,
+        "process_id": req.process_id,
+        "meta": meta,
+    }

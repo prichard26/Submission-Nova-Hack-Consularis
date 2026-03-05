@@ -115,7 +115,9 @@ def _run_executor(
     executor_system = [{"text": MULTIAGENT_CONTEXT + "\n\n" + EXECUTOR_SYSTEM_PROMPT + "\n\n" + full_graph}]
     body = "Execute the following.\n\n**Instructions:**\n" + instructions
     if steps:
-        body += "\n\n**Suggested steps (execute or adapt using the graph):**\n" + json.dumps(steps, indent=2)
+        body += "\n\n**Steps to execute (call these tools in this order with these arguments; include process_id in each if not present):**\n" + json.dumps(steps, indent=2)
+    if process_id:
+        body += f"\n\n**Current process_id (use for any step that does not specify it):** {process_id}"
     executor_messages: list[dict] = [{"role": "user", "content": [{"text": body}]}]
     tools_called: list[str] = []
     total_api = 0
@@ -180,6 +182,10 @@ def _run_executor(
 
 
 # ---------------------------------------------------------------------------
+# Pending plan: when planner calls propose_plan we store it here; confirm endpoint runs executor.
+_pending_plans: dict[str, dict] = {}  # session_id -> { instructions, steps, process_id }
+
+
 # Multi-agent: Planner → (optional Executor) → Planner final reply
 # ---------------------------------------------------------------------------
 
@@ -188,11 +194,16 @@ def run_chat(
     messages: list[dict],
     max_rounds: int | None = None,
     process_id: str | None = None,
-) -> tuple[str, str, bool, list[str], int, int, int]:
-    """Planner decides and talks to user; when it calls request_execution, Executor runs graph tools; then Planner replies with summary. Returns (final_message, graph_json, tools_used, tools_called_list, api_calls, input_tokens, output_tokens)."""
+) -> tuple[str, str, bool, list[str], int, int, int, dict | None, bool]:
+    """Planner decides and talks to user; when it calls request_execution, Executor runs; when it calls propose_plan, we store plan and return requires_confirmation. Returns (final_message, graph_json, tools_used, tools_called_list, api_calls, input_tokens, output_tokens, pending_plan, requires_confirmation)."""
     tools_used = False
     tools_called: list[str] = []
     _empty_usage = (0, 0, 0)
+    pending_plan: dict | None = None
+    requires_confirmation = False
+
+    # Clear any previous pending plan when starting a new turn (e.g. user sent a new message)
+    _pending_plans.pop(session_id, None)
 
     if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
         return (
@@ -202,6 +213,8 @@ def run_chat(
             False,
             [],
             *_empty_usage,
+            None,
+            False,
         )
 
     client = _get_client()
@@ -238,6 +251,8 @@ def run_chat(
                 [],
                 1,
                 *_empty_usage,
+                None,
+                False,
             )
         except Exception as e:
             logger.exception("[AGENT][NOVA] session_id=%s error: %s", session_id, e)
@@ -248,6 +263,8 @@ def run_chat(
                 [],
                 1,
                 *_empty_usage,
+                None,
+                False,
             )
 
     api_calls += 1
@@ -261,11 +278,48 @@ def run_chat(
             planner_reply = block["text"].strip()
 
     tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
+    propose_plan_block = next((b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "propose_plan"), None)
     request_execution_block = next((b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "request_execution"), None)
+
+    # Planner proposed a plan for user confirmation: store it and return without running executor
+    if propose_plan_block is not None and request_execution_block is None:
+        tu = propose_plan_block["toolUse"]
+        args = tu.get("input", {})
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                args = {}
+        instructions = args.get("instructions", "") or "Apply the changes discussed."
+        steps = args.get("steps")
+        if not isinstance(steps, list):
+            steps = None
+        _pending_plans[session_id] = {
+            "instructions": instructions,
+            "steps": steps,
+            "process_id": process_id,
+        }
+        reply = _sanitize_reply(planner_reply) if planner_reply else ""
+        if not reply or len(reply.strip()) < 30:
+            reply = "**Plan:**\n\n" + instructions.replace("\n", "\n\n") + "\n\nClick **Apply plan** when you're ready, or say what you'd like to change."
+        elif "apply plan" not in reply.lower() and "apply" not in reply.lower():
+            reply = reply.rstrip() + "\n\nClick **Apply plan** when you're ready."
+        final_message = reply
+        return (
+            final_message,
+            get_graph_json(session_id, process_id=process_id),
+            False,
+            [],
+            api_calls,
+            input_tokens,
+            output_tokens,
+            {"instructions": instructions, "steps": steps},
+            True,
+        )
 
     if request_execution_block is None:
         final_message = _sanitize_reply(planner_reply) if planner_reply else "I didn't catch that. What would you like to do?"
-        return final_message, get_graph_json(session_id, process_id=process_id), False, [], api_calls, input_tokens, output_tokens
+        return final_message, get_graph_json(session_id, process_id=process_id), False, [], api_calls, input_tokens, output_tokens, None, False
 
     tu = request_execution_block["toolUse"]
     args = tu.get("input", {})
@@ -306,7 +360,7 @@ def run_chat(
     except Exception as e:
         logger.exception("[AGENT][NOVA] planner follow-up session_id=%s error: %s", session_id, e)
         final_message = _sanitize_reply(planner_reply) + "\n\n" + executor_summary
-        return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, api_calls, input_tokens, output_tokens
+        return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, api_calls, input_tokens, output_tokens, None, False
 
     api_calls += 1
     input_tokens += response2.get("usage", {}).get("inputTokens", 0) or 0
@@ -321,4 +375,38 @@ def run_chat(
         final_message = _sanitize_reply(planner_reply) + "\n\n" + executor_summary
     else:
         final_message = _sanitize_reply(final_message)
-    return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, api_calls, input_tokens, output_tokens
+    return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, api_calls, input_tokens, output_tokens, None, False
+
+
+def run_chat_confirm(
+    session_id: str,
+    process_id: str | None = None,
+) -> tuple[str, str, bool, list[str], int, int, int, None, bool] | None:
+    """Run the executor with the stored pending plan (from propose_plan). Returns same 9-tuple as run_chat, or None if no pending plan."""
+    plan = _pending_plans.pop(session_id, None)
+    if not plan:
+        return None
+    if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
+        _pending_plans[session_id] = plan  # restore so they can retry after setting creds
+        return None
+    client = _get_client()
+    full_graph = get_full_graph_summary(session_id)
+    instructions = plan.get("instructions", "") or "Apply the changes discussed."
+    steps = plan.get("steps")
+    pid = plan.get("process_id") or process_id
+    logger.info("[AGENT][NOVA] session_id=%s confirm: running executor (instructions len=%s, steps=%s)", session_id, len(instructions), len(steps) if steps else 0)
+    executor_summary, tools_called, api_calls, input_tokens, output_tokens = _run_executor(
+        client, session_id, instructions, steps, full_graph, pid
+    )
+    final_message = "Done. " + executor_summary
+    return (
+        final_message,
+        get_graph_json(session_id, process_id=pid),
+        True,
+        tools_called,
+        api_calls,
+        input_tokens,
+        output_tokens,
+        None,
+        False,
+    )

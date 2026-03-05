@@ -3,7 +3,7 @@ import AureliusChat, { WELCOME_MSG } from '../components/AureliusChat'
 import ProcessCanvas from '../components/ProcessCanvas'
 import LandscapeView from '../components/LandscapeView'
 import { useWorkspace } from '../hooks/useWorkspace'
-import { sendChat } from '../services/api'
+import { sendChat, confirmChatPlan } from '../services/api'
 import './Dashboard.css'
 
 const DEFAULT_PROCESS_ID = 'Process_Global'
@@ -21,6 +21,8 @@ export default function Dashboard({ companyName }) {
   const [structuralChangeFromChat, setStructuralChangeFromChat] = useState(false)
   const [structuralChangeGraph, setStructuralChangeGraph] = useState(null)
   const [usage, setUsage] = useState(null)
+  const [pendingMessageId, setPendingMessageId] = useState(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
 
   const { workspace } = useWorkspace(companyName, refreshTrigger)
 
@@ -54,10 +56,15 @@ export default function Dashboard({ companyName }) {
       setChatInput('')
       setChatMessages((prev) => [...prev, { id: Date.now(), role: 'user', text: userText }])
       setChatLoading(true)
+      setPendingMessageId(null)
       try {
         const data = await sendChat(companyName, userText, { processId: activeProcessId })
         const reply = data.message || 'I could not process that. Please try again.'
-        setChatMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text: reply }])
+        const assistantId = Date.now() + 1
+        setChatMessages((prev) => [...prev, { id: assistantId, role: 'assistant', text: reply }])
+        if (data.meta?.requires_confirmation && data.meta?.pending_plan) {
+          setPendingMessageId(assistantId)
+        }
         if (data.meta) {
           const toolCalls = data.meta.tool_calls_this_turn ?? []
           if (toolCalls.length > 0) {
@@ -74,7 +81,6 @@ export default function Dashboard({ companyName }) {
             total_tokens: data.meta.total_tokens ?? 0,
           })
         }
-        // When tools ran, always refresh the graph so updates are visible (refetch + optional structural layout)
         if (data.meta?.tools_used) {
           handleExternalGraphUpdate()
         }
@@ -92,6 +98,46 @@ export default function Dashboard({ companyName }) {
     [companyName, activeProcessId, handleExternalGraphUpdate],
   )
 
+  const handleApplyPlan = useCallback(async () => {
+    if (confirmLoading) return
+    setConfirmLoading(true)
+    try {
+      const data = await confirmChatPlan(companyName, { processId: activeProcessId })
+      const reply = data.message || 'Plan applied.'
+      setChatMessages((prev) => [...prev, { id: Date.now(), role: 'assistant', text: reply }])
+      setPendingMessageId(null)
+      if (data.meta) {
+        setUsage({
+          tool_calls_this_turn: data.meta.tool_calls_this_turn ?? [],
+          api_calls_this_turn: data.meta.api_calls_this_turn ?? 0,
+          input_tokens_this_turn: data.meta.input_tokens_this_turn ?? 0,
+          output_tokens_this_turn: data.meta.output_tokens_this_turn ?? 0,
+          total_api_calls: data.meta.total_api_calls ?? 0,
+          total_input_tokens: data.meta.total_input_tokens ?? 0,
+          total_output_tokens: data.meta.total_output_tokens ?? 0,
+          total_tokens: data.meta.total_tokens ?? 0,
+        })
+      }
+      if (data.meta?.tools_used) {
+        handleExternalGraphUpdate()
+      }
+      if (data.graph_json && data.meta?.structural_change) {
+        setStructuralChangeGraph(data.graph_json)
+        setStructuralChangeFromChat(true)
+      }
+    } catch (err) {
+      const text = err?.message || (err?.status ? `Request failed (${err.status}). Please try again.` : 'Could not apply plan. Please try again.')
+      setChatMessages((prev) => [...prev, { id: Date.now(), role: 'assistant', text }])
+      setPendingMessageId(null)
+    } finally {
+      setConfirmLoading(false)
+    }
+  }, [companyName, activeProcessId, handleExternalGraphUpdate])
+
+  const handleCancelPlan = useCallback(() => {
+    setPendingMessageId(null)
+  }, [])
+
   const panelFooter = useMemo(
     () => (
       <>
@@ -105,6 +151,10 @@ export default function Dashboard({ companyName }) {
           input={chatInput}
           onInputChange={setChatInput}
           loading={chatLoading}
+          pendingMessageId={pendingMessageId}
+          onApplyPlan={handleApplyPlan}
+          onCancelPlan={handleCancelPlan}
+          confirmLoading={confirmLoading}
         />
         {usage != null && (
           <div className="dashboard-usage" aria-label="API usage">
@@ -123,7 +173,7 @@ export default function Dashboard({ companyName }) {
         )}
       </>
     ),
-    [companyName, activeProcessId, handleExternalGraphUpdate, chatMessages, handleChatSend, chatInput, chatLoading, usage],
+    [companyName, activeProcessId, handleExternalGraphUpdate, chatMessages, handleChatSend, chatInput, chatLoading, usage, pendingMessageId, handleApplyPlan, handleCancelPlan, confirmLoading],
   )
 
   const handleProcessSelect = useCallback(

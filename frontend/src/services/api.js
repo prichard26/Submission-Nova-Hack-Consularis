@@ -165,6 +165,16 @@ export function sendChat(sessionId, message, options = {}) {
   })
 }
 
+/** Apply a pending plan (after planner called propose_plan). Same response shape as sendChat. */
+export function confirmChatPlan(sessionId, options = {}) {
+  const { processId, ...rest } = options
+  return request('/api/chat/confirm', {
+    ...rest,
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, process_id: processId || null }),
+  })
+}
+
 /** Cumulative usage: total_api_calls, total_input_tokens, total_output_tokens, total_tokens */
 export function getUsageStats(options = {}) {
   return request('/api/stats', { ...options, method: 'GET' })

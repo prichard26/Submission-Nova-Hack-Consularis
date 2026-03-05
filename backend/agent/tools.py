@@ -118,13 +118,41 @@ TOOL_SCHEMAS: list[dict] = [
 ]
 TOOLS = TOOL_SCHEMAS
 
-# Planner-only tool: orchestrator asks executor to run graph changes. Handled in runtime, not in run_tool.
+# Planner-only tools: orchestrator proposes or requests execution. Handled in runtime, not in run_tool.
 PLANNER_TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "propose_plan",
+            "description": "Use for COMPLEX plans only. You MUST also write in your text reply a numbered plan (1. ... 2. ...) so the user sees what will happen. Do NOT call request_execution in the same turn. Call propose_plan with instructions and, when possible, the exact steps array (list of {tool_name, arguments}) so the executor runs it when the user clicks Apply plan. Include process_id in instructions and in each step's arguments.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "instructions": {
+                        "type": "string",
+                        "description": "Step-by-step instructions for the executor. Be specific (process_id, step ids).",
+                    },
+                    "steps": {
+                        "type": "array",
+                        "description": "Exact list of tool calls: each item { \"tool_name\": \"update_node\"|\"add_edge\"|\"delete_edge\"|\"update_edge\"|\"add_node\"|\"delete_node\", \"arguments\": {...} }.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "tool_name": {"type": "string"},
+                                "arguments": {"type": "object", "additionalProperties": True},
+                            },
+                        },
+                    },
+                },
+                "required": ["instructions"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "request_execution",
-            "description": "Tell the executor to run graph changes. Call this whenever the user asked for something executable: edit a step, add/remove edges, add/remove nodes or subprocesses. For simple requests call it in the same turn; for complex ones call it after the user confirms. Prefer providing the steps list so the executor does exactly those actions and nothing more.",
+            "description": "Tell the executor to run graph changes immediately. Call this for SIMPLE requests (one or two actions) or when the user has already confirmed. For complex plans use propose_plan first so the user sees an Apply button.",
             "parameters": {
                 "type": "object",
                 "properties": {
