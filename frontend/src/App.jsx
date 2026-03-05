@@ -2,6 +2,7 @@ import { useMemo, useCallback, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
+import AnalyzePage from './pages/AnalyzePage'
 
 export default function App() {
   const [session, setSession] = useState(() => {
@@ -48,6 +49,16 @@ export default function App() {
         element={
           safeSession ? (
             <Dashboard companyName={safeSession.companyName} />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+      <Route
+        path="/dashboard/analyze"
+        element={
+          safeSession ? (
+            <AnalyzePage sessionId={safeSession.companyName} />
           ) : (
             <Navigate to="/" replace />
           )

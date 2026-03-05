@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import GROQ_KEY, ALLOWED_CORS_ORIGINS
 from db import get_conn
 from graph.store import init_baseline
-from routers import health_router, chat_router, graph_router
+from routers import health_router, chat_router, graph_router, analyze_router
 
 logger = logging.getLogger("consularis")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
@@ -38,3 +38,4 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(chat_router)
 app.include_router(graph_router)
+app.include_router(analyze_router)

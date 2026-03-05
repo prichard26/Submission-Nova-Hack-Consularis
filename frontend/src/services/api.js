@@ -171,6 +171,26 @@ export function getUsageStats(options = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Analyze (automation advisor) and appointment
+// ---------------------------------------------------------------------------
+
+export function analyzeGraph(sessionId, options = {}) {
+  return request('/api/analyze', {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId }),
+  })
+}
+
+export function requestAppointment(sessionId, email, name = null, options = {}) {
+  return request('/api/appointment', {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, email, name: name || null }),
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Undo
 // ---------------------------------------------------------------------------
 

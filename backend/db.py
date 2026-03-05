@@ -74,6 +74,14 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS appointment_requests (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            email      TEXT NOT NULL,
+            name       TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_session_processes_sid
             ON session_processes(session_id);
         CREATE INDEX IF NOT EXISTS idx_chat_messages_sid
@@ -82,7 +90,20 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             ON session_process_history(session_id, process_id);
         CREATE INDEX IF NOT EXISTS idx_session_process_redo_sid_pid
             ON session_process_redo(session_id, process_id);
+        CREATE INDEX IF NOT EXISTS idx_appointment_requests_sid
+            ON appointment_requests(session_id);
     """)
+
+
+def insert_appointment_request(session_id: str, email: str, name: str | None = None) -> None:
+    """Store an appointment request (user wants to be contacted for automation help)."""
+    with _conn_lock:
+        conn = get_conn()
+        conn.execute(
+            "INSERT INTO appointment_requests (session_id, email, name) VALUES (?, ?, ?)",
+            (session_id.strip(), email.strip(), (name or "").strip() or None),
+        )
+        conn.commit()
 
 
 # ---------------------------------------------------------------------------

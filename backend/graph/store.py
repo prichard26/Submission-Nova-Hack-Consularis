@@ -281,6 +281,143 @@ def get_full_graph_summary(session_id: str) -> str:
     return "\n\n".join(parts)
 
 
+def get_graph_summary_for_analysis(session_id: str, process_id: str | None = None) -> str:
+    """Like get_graph_summary but includes automation_notes per step for the analyzer LLM."""
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, process_id)
+    parts = []
+    for lane in graph.lanes:
+        refs = set(lane.get("node_refs", []))
+        listed = []
+        for step in graph.steps:
+            if step.get("id") not in refs:
+                continue
+            stype = step.get("type", "")
+            if stype in ("start", "end"):
+                continue
+            sid = step.get("short_id") or step.get("id", "")
+            label = step.get("name", "").strip()
+            actor = (step.get("actor") or "").strip()
+            duration = (step.get("duration_min") or "").strip()
+            cost = (step.get("cost_per_execution") or "").strip()
+            err = (step.get("error_rate_percent") or "").strip()
+            auto = (step.get("automation_potential") or "").strip().upper()
+            notes = (step.get("automation_notes") or "").strip()
+            entry = f"{sid} ({label})" if label else sid
+            extras = []
+            if actor:
+                extras.append(actor)
+            if duration:
+                extras.append(duration)
+            if cost:
+                extras.append(f"${cost}")
+            if err:
+                extras.append(f"{err}% err")
+            if auto:
+                extras.append(f"{auto} automation")
+            if extras:
+                entry += ", " + ", ".join(extras)
+            if notes:
+                entry += " | Notes: " + notes
+            listed.append(entry)
+        parts.append(f"{lane.get('id', '')} {lane.get('name', '')}: {', '.join(listed)}")
+    edges = [f"{f.get('from', '')}->{f.get('to', '')}" for f in graph.flows]
+    if edges:
+        parts.append("Edges: " + ", ".join(edges))
+    try:
+        ws = _get_workspace(session_id)
+        root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
+        if pid == root_id:
+            children = ws.get_children(pid)
+            if children:
+                sub_list = [f"{((ws.get_process_info(cid)) or {}).get('name', cid)}={cid}" for cid in children]
+                parts.append("Subprocesses: " + ", ".join(sub_list))
+    except Exception:
+        pass
+    return " | ".join(parts)
+
+
+def get_full_graph_summary_for_analysis(session_id: str) -> str:
+    """Full graph summary with automation_notes included for the analyzer LLM."""
+    _ws_cache.pop(session_id, None)
+    for key in list(_cache):
+        if key[0] == session_id:
+            del _cache[key]
+    ws = _get_workspace(session_id)
+    root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
+    procs = ws.data.get("process_tree", {}).get("processes", {})
+    order = _all_process_ids_in_tree_order(ws, root_id)
+    parts = []
+    for pid in order:
+        info = procs.get(pid) or {}
+        name = info.get("name", pid)
+        path = ws.get_path(pid)
+        summary = get_graph_summary_for_analysis(session_id, process_id=pid)
+        header = f"--- {pid} ({name}) ---"
+        if path:
+            header += f"\nPath: {path}"
+        parts.append(f"{header}\n{summary}")
+    return "\n\n".join(parts)
+
+
+def get_analysis_metrics(session_id: str) -> dict[str, Any]:
+    """Compute metrics for the analyze page: counts by automation potential, overall score, categories."""
+    _ws_cache.pop(session_id, None)
+    for key in list(_cache):
+        if key[0] == session_id:
+            del _cache[key]
+    ws = _get_workspace(session_id)
+    root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
+    order = _all_process_ids_in_tree_order(ws, root_id)
+    high = medium = low = none = 0
+    processes_with_steps = 0
+    for pid in order:
+        graph = _get_graph(session_id, pid)
+        step_count_here = 0
+        for step in graph.steps:
+            if step.get("type") in ("start", "end"):
+                continue
+            step_count_here += 1
+            auto = (step.get("automation_potential") or "").strip().upper()
+            if "HIGH" in auto or auto == "H":
+                high += 1
+            elif "MEDIUM" in auto or "MED" in auto or auto == "M":
+                medium += 1
+            elif "LOW" in auto or auto == "L":
+                low += 1
+            else:
+                none += 1
+        if step_count_here > 0:
+            processes_with_steps += 1
+    total_steps = high + medium + low + none
+    # Overall score 0–100: weighted by potential (high=100, medium=60, low=30, none=0)
+    if total_steps:
+        raw = (high * 100 + medium * 60 + low * 30 + none * 0) / total_steps
+        overall_score = round(min(100, max(0, raw)))
+    else:
+        overall_score = 0
+    total_processes = len(order)
+    # Category: automation potential is the same as overall; process coverage = % of processes that have steps
+    process_coverage = round((processes_with_steps / total_processes * 100) if total_processes else 0)
+    return {
+        "overall_score": overall_score,
+        "categories": {
+            "automation_potential": overall_score,
+            "process_coverage": process_coverage,
+            "step_count": total_steps,
+            "process_count": total_processes,
+        },
+        "counts": {
+            "high": high,
+            "medium": medium,
+            "low": low,
+            "none": none,
+            "total_steps": total_steps,
+            "processes": total_processes,
+        },
+    }
+
+
 def _score_match(needle: str, name: str, id_val: str) -> float:
     if not name and not id_val:
         return 0.0

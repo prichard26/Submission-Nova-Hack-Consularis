@@ -4,7 +4,7 @@ import { sendChat } from '../services/api'
 import BotFace from './BotFace'
 import './AureliusChat.css'
 
-export const WELCOME_MSG = "Salve! I am Aurelius, your process consul. Describe your process or tell me what you'd like to change — I shall refine your graph accordingly."
+export const WELCOME_MSG = "Here you're looking at an example process graph. I can help you understand it—which steps do what, who is responsible, how the flow runs—and modify it: add or remove steps, change actors or durations, connect or disconnect flows, and add subprocesses. Describe what you see, ask questions, or tell me what you'd like to change, and I'll update the graph accordingly."
 
 const MIN_INPUT_ROWS = 1
 const MAX_INPUT_ROWS = 8

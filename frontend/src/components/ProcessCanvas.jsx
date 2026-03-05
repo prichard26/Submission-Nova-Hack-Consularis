@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ReactFlow,
   Background,
@@ -56,6 +57,7 @@ function Canvas({
   structuralChangeGraph = null,
   onConsumedStructuralChange,
 }) {
+  const navigate = useNavigate()
   const { screenToFlowPosition, flowToScreenPosition, zoomIn, zoomOut, fitView } = useReactFlow()
   const { zoom } = useViewport()
   const { graph, loading, error } = useProcessGraph(sessionId, processId, refreshTrigger)
@@ -610,7 +612,11 @@ function Canvas({
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="1.5" y="3" width="5" height="4.5" rx="1" /><rect x="9.5" y="3" width="5" height="4.5" rx="1" /><rect x="5.5" y="9" width="5" height="4.5" rx="1" /></svg>
               Landscape
             </button>
-            <button className="panel-actions-row__btn panel-actions-row__btn--accent" disabled>
+            <button
+              type="button"
+              className="panel-actions-row__btn panel-actions-row__btn--accent"
+              onClick={() => navigate('/dashboard/analyze')}
+            >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 1v6M5 4l3-3 3 3" /><path d="M2 8.5a6 6 0 0 0 12 0" /><circle cx="8" cy="12" r="1" fill="currentColor" /></svg>
               Analyze
             </button>
