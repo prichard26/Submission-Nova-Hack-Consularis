@@ -1,21 +1,21 @@
 import { useCallback, useRef, useState, useEffect } from 'react'
-import BotFace from '../components/BotFace'
+import Robot from '../components/Robot'
 import { initSession } from '../services/api'
 import './Landing.css'
 
 const SECTORS = [
-  { id: 'pharmacy', label: 'Pharmacy', icon: '⚕️', available: true },
-  { id: 'logistics', label: 'Logistics', icon: '🚚', available: false },
-  { id: 'manufacturing', label: 'Manufacturing', icon: '🏭', available: false },
-  { id: 'finance', label: 'Finance', icon: '📊', available: false },
+  { id: 'pharmacy', label: 'Pharmacy', available: true },
+  { id: 'logistics', label: 'Logistics', available: false },
+  { id: 'manufacturing', label: 'Manufacturing', available: false },
+  { id: 'finance', label: 'Finance', available: false },
 ]
 
 const BOT_INTRO =
   "I'm Aurelius. Think of me as your process advisor: I help you map how your company works—steps, who does what, and how it all connects. " +
   "You'll get a living process graph you can refine by chatting with me. Let's start simple."
 
-const BOT_ASK_NAME = "First, what should I call you? Your name, or your company's—either works."
-const BOT_ASK_SECTOR = (name) => `Nice to meet you, ${name}. What type of company do you run? Pick one.`
+const BOT_ASK_COMPANY = "What's your company name?"
+const BOT_ASK_SECTOR = (companyName) => `What type of company is ${companyName}? Pick one.`
 const BOT_ASK_START_FROM = "Do you want to start from a template (pre-filled process for your sector) or from a blank canvas (just start and end nodes)?"
 const BOT_GENERATING = (name) => `Perfect. Generating ${name}'s process graph… One moment.`
 const BOT_CREATING_BLANK = "Creating your blank canvas… One moment."
@@ -23,40 +23,13 @@ const BOT_CREATING_BLANK = "Creating your blank canvas… One moment."
 const GENERATING_DELAY_MS = 2500
 
 export default function Landing({ onSubmit }) {
-  const [messages, setMessages] = useState(() => [
-    { id: 1, role: 'bot', content: BOT_INTRO },
-    { id: 2, role: 'bot', content: BOT_ASK_NAME },
-  ])
   const [step, setStep] = useState('name') // 'name' | 'sector' | 'start_from' | 'generating' | 'done'
   const [nameInput, setNameInput] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [selectedSector, setSelectedSector] = useState(null)
   const [fromBlank, setFromBlank] = useState(false)
-  const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const generatingTimerRef = useRef(null)
-
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, step, scrollToBottom])
-
-  const addBotMessage = useCallback((content) => {
-    setMessages((prev) => [
-      ...prev,
-      { id: prev.length + 1, role: 'bot', content },
-    ])
-  }, [])
-
-  const addUserMessage = useCallback((content) => {
-    setMessages((prev) => [
-      ...prev,
-      { id: prev.length + 1, role: 'user', content },
-    ])
-  }, [])
 
   const handleSendName = useCallback(
     (e) => {
@@ -64,41 +37,33 @@ export default function Landing({ onSubmit }) {
       const name = nameInput.trim()
       if (!name || step !== 'name') return
       setCompanyName(name)
-      addUserMessage(name)
-      addBotMessage(BOT_ASK_SECTOR(name))
       setStep('sector')
       setNameInput('')
       inputRef.current?.focus()
     },
-    [nameInput, step, addUserMessage, addBotMessage]
+    [nameInput, step]
   )
 
   const handleSelectSector = useCallback(
     (sector) => {
       if (!sector.available || step !== 'sector') return
       setSelectedSector(sector)
-      addUserMessage(`${sector.icon} ${sector.label}`)
-      addBotMessage(BOT_ASK_START_FROM)
       setStep('start_from')
     },
-    [step, addUserMessage, addBotMessage]
+    [step]
   )
 
   const handleStartFromTemplate = useCallback(() => {
     if (step !== 'start_from') return
     setFromBlank(false)
-    addUserMessage('From template')
-    addBotMessage(BOT_GENERATING(companyName))
     setStep('generating')
-  }, [step, companyName, addUserMessage, addBotMessage])
+  }, [step])
 
   const handleStartFromBlank = useCallback(() => {
     if (step !== 'start_from') return
     setFromBlank(true)
-    addUserMessage('From blank')
-    addBotMessage(BOT_CREATING_BLANK)
     setStep('generating')
-  }, [step, addUserMessage, addBotMessage])
+  }, [step])
 
   useEffect(() => {
     if (step !== 'generating' || !selectedSector) return
@@ -123,6 +88,14 @@ export default function Landing({ onSubmit }) {
     }
   }, [step, selectedSector, companyName, fromBlank, onSubmit])
 
+  const robotMessage = step === 'name'
+    ? BOT_INTRO + '\n\n' + BOT_ASK_COMPANY
+    : step === 'sector'
+      ? BOT_ASK_SECTOR(companyName)
+      : step === 'start_from'
+        ? BOT_ASK_START_FROM
+        : ''
+
   return (
     <div className="landing">
       <div className="landing__bg-glow" />
@@ -137,25 +110,21 @@ export default function Landing({ onSubmit }) {
 
       <main className="landing__main">
         <div className="landing__chat">
-          <div className="landing__chat-messages">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`landing__msg landing__msg--${msg.role}`}
-              >
-                {msg.role === 'bot' && (
-                  <div className="landing__msg-avatar" aria-hidden="true">
-                    <BotFace talking={false} size={32} />
-                  </div>
-                )}
-                <div className="landing__msg-bubble">
-                  <p>{msg.content}</p>
-                </div>
-              </div>
-            ))}
+          {(step === 'name' || step === 'sector' || step === 'start_from') && (
+            <div className={step === 'name' ? 'landing__robot-hero' : 'landing__robot-prompt'}>
+              <Robot speaking message={robotMessage} size={step === 'name' ? 'normal' : 'small'} />
+            </div>
+          )}
 
-            <div ref={messagesEndRef} />
-          </div>
+          {(step === 'generating' || step === 'done') && (
+            <div className="landing__robot-prompt">
+              <Robot
+                speaking={step === 'generating'}
+                message={step === 'done' ? 'Taking you to your graph…' : (fromBlank ? BOT_CREATING_BLANK : BOT_GENERATING(companyName))}
+                size="small"
+              />
+            </div>
+          )}
 
           <div className="landing__chat-input-area">
             {step === 'name' && (
@@ -164,11 +133,11 @@ export default function Landing({ onSubmit }) {
                   ref={inputRef}
                   type="text"
                   className="landing__chat-input"
-                  placeholder="Your name or company name..."
+                  placeholder="Company name..."
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   autoFocus
-                  aria-label="Your name"
+                  aria-label="Company name"
                 />
                 <button
                   type="submit"
@@ -182,37 +151,34 @@ export default function Landing({ onSubmit }) {
             )}
 
             {step === 'sector' && (
-              <div className="landing__sectors">
+              <div className="landing__actions">
                 {SECTORS.map((s) => (
                   <button
                     key={s.id}
                     type="button"
-                    className={`landing__sector-btn ${s.available ? 'landing__sector-btn--active' : 'landing__sector-btn--disabled'}`}
+                    className={`landing__action-btn ${s.available ? 'landing__action-btn--primary' : 'landing__action-btn--secondary landing__action-btn--disabled'}`}
                     onClick={() => handleSelectSector(s)}
                     disabled={!s.available}
                   >
-                    <span className="landing__sector-icon">{s.icon}</span>
-                    <span className="landing__sector-label">{s.label}</span>
-                    {!s.available && (
-                      <span className="landing__sector-badge">Soon</span>
-                    )}
+                    {s.label}
+                    {!s.available && <span className="landing__action-badge">Soon</span>}
                   </button>
                 ))}
               </div>
             )}
 
             {step === 'start_from' && (
-              <div className="landing__start-from">
+              <div className="landing__actions">
                 <button
                   type="button"
-                  className="landing__start-from-btn landing__start-from-btn--template"
+                  className="landing__action-btn landing__action-btn--primary"
                   onClick={handleStartFromTemplate}
                 >
                   From template
                 </button>
                 <button
                   type="button"
-                  className="landing__start-from-btn landing__start-from-btn--blank"
+                  className="landing__action-btn landing__action-btn--secondary"
                   onClick={handleStartFromBlank}
                 >
                   From blank
