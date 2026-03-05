@@ -1,11 +1,13 @@
-"""Tool schemas and dispatch. Step 2 + 3: update_node + add_edge, delete_edge, update_edge."""
+"""Tool schemas and dispatch. Step 2 + 3: update_node, edges. Step 4: add_node, delete_node."""
 import json
 import logging
 from typing import Callable
 
 from graph.store import (
     add_edge as store_add_edge,
+    add_node as store_add_node,
     delete_edge as store_delete_edge,
+    delete_node as store_delete_node,
     update_edge as store_update_edge,
     update_node as store_update_node,
 )
@@ -13,7 +15,7 @@ from graph.store import (
 ToolHandler = Callable[[str, dict, str | None], str]
 logger = logging.getLogger("consularis.agent")
 
-# Step 2: update_node. Step 3: add_edge, delete_edge, update_edge.
+# Step 2: update_node. Step 3: add_edge, delete_edge, update_edge. Step 4: add_node, delete_node.
 TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
@@ -81,6 +83,38 @@ TOOL_SCHEMAS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_node",
+            "description": "Add a new step or decision to a process. Use lane_id from the graph (e.g. P1 for a process with one lane). Pass type 'step' or 'decision' and a name. Call multiple times per turn to add multiple nodes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "process_id": {"type": "string", "description": "Process to add the node to (e.g. Process_P1). Omit for root/current."},
+                    "lane_id": {"type": "string", "description": "Lane id from the graph (e.g. P1, GLOBAL)."},
+                    "name": {"type": "string", "description": "Display name for the new step or decision."},
+                    "type": {"type": "string", "description": "Either 'step' or 'decision'.", "enum": ["step", "decision"]},
+                },
+                "required": ["lane_id", "name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_node",
+            "description": "Remove a step or decision from the process. Cannot delete start or end nodes. Use the step id from the graph (e.g. P1.2). Call multiple times per turn to remove multiple nodes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "process_id": {"type": "string", "description": "Process containing the node (e.g. Process_P1). Omit for root/current."},
+                    "node_id": {"type": "string", "description": "Step id to remove (e.g. P1.2)."},
+                },
+                "required": ["node_id"],
+            },
+        },
+    },
 ]
 TOOLS = TOOL_SCHEMAS
 
@@ -124,5 +158,25 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
         if result is None:
             return json.dumps({"ok": False, "error": f"Edge not found: {source} -> {target}"})
         return json.dumps({"ok": True, "edge": result})
+    if name == "add_node":
+        lane_id = arguments.get("lane_id")
+        name_val = arguments.get("name")
+        if not lane_id or not name_val:
+            return json.dumps({"ok": False, "error": "lane_id and name are required"})
+        step_type = arguments.get("type", "step")
+        if step_type not in ("step", "decision"):
+            step_type = "step"
+        result = store_add_node(session_id, lane_id, {"name": name_val, "type": step_type}, process_id=pid)
+        if result is None:
+            return json.dumps({"ok": False, "error": f"Could not add node (invalid lane_id or process): {lane_id}"})
+        return json.dumps({"ok": True, "node": result})
+    if name == "delete_node":
+        node_id = arguments.get("node_id")
+        if not node_id:
+            return json.dumps({"ok": False, "error": "node_id is required"})
+        ok = store_delete_node(session_id, node_id, process_id=pid)
+        if not ok:
+            return json.dumps({"ok": False, "error": f"Node not found or cannot delete (start/end): {node_id}"})
+        return json.dumps({"ok": True, "removed": True})
     logger.info("[AGENT][GRAPH] %s (no handler) session_id=%s", name, session_id)
     return json.dumps({"error": "Unknown tool"})

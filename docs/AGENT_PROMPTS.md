@@ -175,7 +175,7 @@ The agent still receives the **full graph** in context every time (all processes
 - **Delete an edge:** remove the connection between two steps.
 - **Update an edge:** change an edge's label or condition.
 - The frontend **auto-arranges** the canvas after any add_edge, delete_edge, or update_edge so the layout stays readable.
-- It does **not** add or delete steps or lanes; it does not create subprocesses.
+- It does **not** add or delete steps/lanes in Step 3 (Step 4 adds that).
 
 **Possible prompts for Step 3 (edges)**
 
@@ -184,6 +184,33 @@ The agent still receives the **full graph** in context every time (all processes
 - *"Delete the edge from P1.2 to P1.3."*
 - *"Change the label on the edge from P1.1 to P1.2 to 'Submitted'."*
 - *"Add a connection from Start to P1.2 as well."* (multiple edges from one step are allowed)
+
+---
+
+## Step 4: Add and delete nodes and decisions
+
+**Goal:** Same as Step 3, plus the agent can **add new steps or decisions** and **delete existing steps or decisions**. It uses the same graph context to choose the right lane_id and process_id.
+
+**Tools (in addition to update_node and edge tools):**
+
+| # | Tool | Purpose |
+|---|------|--------|
+| 1 | **add_node** | Add a new step or decision. Arguments: `process_id` (optional), `lane_id` (e.g. P1 from the graph), `name`, `type` ("step" or "decision"). |
+| 2 | **delete_node** | Remove a step or decision. Arguments: `process_id` (optional), `node_id` (step id, e.g. P1.2). Cannot delete start or end nodes. |
+
+**What it can do in Step 4:**
+- Everything from Step 1–3 (read, dialogue, edit steps, add/delete/update edges).
+- **Add a step or decision:** e.g. "Add a step called Compliance check after P1.2" → add_node with lane_id from the process, name, and type "step" or "decision". Then add edges to connect it.
+- **Delete a step or decision:** e.g. "Remove the step P1.2" → delete_node with that node_id. Start and end cannot be deleted.
+- It does **not** create subprocesses or add/delete lanes.
+
+**Possible prompts for Step 4 (nodes and decisions)**
+
+- *"Add a step called Compliance check."*
+- *"Add a decision node: Approved or Rejected."*
+- *"Add a new step after Verify Prescription called Double-check."*
+- *"Remove the step P1.2."* / *"Delete the Approve Prescription step."*
+- *"Delete the decision node P2.2."*
 
 ---
 
