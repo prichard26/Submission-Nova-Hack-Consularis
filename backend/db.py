@@ -301,6 +301,25 @@ def clear_redo(session_id: str, process_id: str) -> None:
         conn.commit()
 
 
+def delete_session_process(session_id: str, process_id: str) -> None:
+    """Remove a process's graph from the session (e.g. when deleting a subprocess)."""
+    with _conn_lock:
+        conn = get_conn()
+        conn.execute(
+            "DELETE FROM session_processes WHERE session_id = ? AND process_id = ?",
+            (session_id, process_id),
+        )
+        conn.execute(
+            "DELETE FROM session_process_history WHERE session_id = ? AND process_id = ?",
+            (session_id, process_id),
+        )
+        conn.execute(
+            "DELETE FROM session_process_redo WHERE session_id = ? AND process_id = ?",
+            (session_id, process_id),
+        )
+        conn.commit()
+
+
 # ---------------------------------------------------------------------------
 # Chat messages
 # ---------------------------------------------------------------------------

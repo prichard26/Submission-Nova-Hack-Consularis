@@ -59,7 +59,7 @@ def test_update_node_allows_called_element_link():
     sid = "test-called-element-update"
     updated = update_node(
         sid,
-        "Call_P1",
+        "P1",
         {"called_element": "Process_P2"},
         process_id="Process_Global",
     )

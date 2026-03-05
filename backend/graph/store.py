@@ -6,6 +6,7 @@ objects avoids re-parsing JSON on every request within a session.
 from __future__ import annotations
 
 import json
+import re
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -507,7 +508,31 @@ def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | N
 
     _persist(session_id, process_id)
     _refresh_workspace_summary(session_id, process_id)
-    return get_node(session_id, new_id, process_id=process_id)
+
+    # When adding a subprocess node, create and link the subprocess page automatically.
+    # Use the name from step_data so we use the exact name the agent sent (e.g. "Final Prescription").
+    final_node_id = new_id
+    if new_step.get("type") == "subprocess":
+        subprocess_display_name = (step_data.get("name") or new_step.get("name") or "").strip()
+        create_result = create_subprocess_page(
+            session_id,
+            parent_process_id=process_id,
+            node_id=new_id,
+            name=subprocess_display_name or None,
+        )
+        # Id by level: global map = P8, P9, ...; inside a process = keep lane-based id (P1.4, P1.5).
+        if create_result and create_result.get("created") and create_result.get("process_id"):
+            pid_norm = _normalize_process_id(process_id)
+            if pid_norm == DEFAULT_PROCESS_ID:
+                # Global map: use P<n> so agent sees P1, P2, ... P8, P9 (same pattern for edges).
+                global_id = _next_global_subprocess_id(graph)
+                if global_id != new_id:
+                    _rename_step_in_graph(graph, new_id, global_id)
+                    final_node_id = global_id
+                    _persist(session_id, process_id)
+            # Else: inside a subprocess (e.g. Process_P1), keep new_id (P1.4, P1.5) so id reflects level Px.x.
+
+    return get_node(session_id, final_node_id, process_id=process_id)
 
 
 def create_subprocess_page(
@@ -535,8 +560,13 @@ def create_subprocess_page(
             "node": get_node(session_id, node_id, process_id=parent_pid),
         }
 
+    # Use the name the user/agent gave (e.g. "Final Prescription"), not a generic id-based label.
     process_name = (name or step.get("name") or "New Subprocess").strip() or "New Subprocess"
+    # Keep the parent's subprocess node label in sync so the map shows the same name as the page.
+    if not (step.get("name") or "").strip():
+        step["name"] = process_name
     new_process_id = _next_custom_process_id(session_id, ws)
+    print(f"[AGENT SUBPROCESS] create_subprocess_page name={process_name!r} process_id={new_process_id!r}")
     new_graph_dict = _starter_process_graph(new_process_id, process_name, parent_info)
     db.upsert_session_json(session_id, new_process_id, json.dumps(new_graph_dict, ensure_ascii=False, indent=2))
     _cache[(session_id, new_process_id)] = ProcessGraph.from_dict(new_graph_dict)
@@ -582,13 +612,73 @@ def create_subprocess_page(
     }
 
 
+def _collect_descendant_process_ids(ws: WorkspaceManifest, process_id: str) -> list[str]:
+    """Return process_id and all its descendants (depth-first), so we can remove leaves first."""
+    result: list[str] = []
+    for child_id in ws.get_children(process_id):
+        result.extend(_collect_descendant_process_ids(ws, child_id))
+    result.append(process_id)
+    return result
+
+
+def _teardown_linked_subprocess(
+    session_id: str, parent_pid: str, called_element: str
+) -> None:
+    """Remove the linked subprocess and all its descendants from the workspace and DB."""
+    ws = _get_workspace(session_id)
+    to_remove = _collect_descendant_process_ids(ws, called_element)
+
+    for pid in to_remove:
+        info = ws.get_process_info(pid)
+        if not info:
+            continue
+        path = (info.get("path") or "").strip("/")
+        parts = [p for p in path.split("/") if p]
+        parent_id = parts[-2] if len(parts) >= 2 else None
+        if parent_id is not None:
+            parent_info = ws.get_process_info(parent_id)
+            if parent_info and "children" in parent_info:
+                parent_info["children"] = [c for c in parent_info["children"] if c != pid]
+        tree = ws.data.get("process_tree", {})
+        processes = tree.get("processes", {})
+        if pid in processes:
+            del processes[pid]
+        db.delete_session_process(session_id, pid)
+        _cache.pop((session_id, pid), None)
+
+    for tag_list in ws.data.get("tags", {}).values():
+        if isinstance(tag_list, list):
+            for pid in to_remove:
+                if pid in tag_list:
+                    tag_list.remove(pid)
+
+    db.upsert_session_workspace(session_id, ws.to_json())
+    _ws_cache.pop(session_id, None)
+
+
+def delete_subprocess(
+    session_id: str,
+    parent_process_id: str,
+    node_id: str,
+) -> dict | None:
+    """Remove a subprocess node and its linked process. Delegates to delete_node (API compatibility)."""
+    ok = delete_node(session_id, node_id, process_id=parent_process_id)
+    return {"removed": ok, "node_id": node_id}
+
+
 def delete_node(session_id: str, node_id: str, process_id: str | None = None) -> bool:
-    graph = _get_graph(session_id, process_id)
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, pid)
     step = graph.get_step(node_id)
     if not step:
         return False
     if step.get("type") in ("start", "end"):
         return False
+
+    # When deleting a subprocess node that has a linked page, tear it down first.
+    if step.get("type") == "subprocess" and step.get("called_element"):
+        _teardown_linked_subprocess(session_id, pid, step["called_element"])
+
     lane_id = step.get("lane_id")
     if lane_id:
         lane = graph.get_lane(lane_id)
@@ -599,9 +689,51 @@ def delete_node(session_id: str, node_id: str, process_id: str | None = None) ->
         f for f in graph.flows
         if f.get("from") != node_id and f.get("to") != node_id
     ]
-    _persist(session_id, process_id)
-    _refresh_workspace_summary(session_id, process_id)
+    _persist(session_id, pid)
+    _refresh_workspace_summary(session_id, pid)
     return True
+
+
+def _next_global_subprocess_id(graph: ProcessGraph) -> str:
+    """Return next P<n> id for a subprocess on the global map (P8, P9, ...)."""
+    max_n = 0
+    for step in graph.steps:
+        sid = step.get("id") or ""
+        if re.match(r"^P\d+$", sid):
+            n = int(sid[1:])
+            max_n = max(max_n, n)
+    return f"P{max_n + 1}"
+
+
+def _rename_step_in_graph(graph: ProcessGraph, old_id: str, new_id: str) -> None:
+    """Rename a step's id throughout the graph (step, lane node_refs, flows)."""
+    step = graph.get_step(old_id)
+    if not step:
+        return
+    step["id"] = new_id
+    step["short_id"] = new_id
+    for lane in graph.lanes:
+        refs = lane.get("node_refs", [])
+        if old_id in refs:
+            lane["node_refs"] = [new_id if r == old_id else r for r in refs]
+    for flow in graph.flows:
+        if flow.get("from") == old_id:
+            flow["from"] = new_id
+        if flow.get("to") == old_id:
+            flow["to"] = new_id
+
+
+def _looks_like_global_map_step(step_id: str) -> bool:
+    """True if step_id is typical of the global map (P1, P2, ... or Start_Global, End_Global)."""
+    if not step_id:
+        return False
+    if step_id in ("Start_Global", "End_Global"):
+        return True
+    # P1, P2, ... (single number) = global subprocess node; P1.1 has a dot = inside a process
+    if step_id.startswith("P") and step_id[1:].isdigit():
+        return True
+    # Backwards compatibility: session data may still have Call_P*
+    return step_id.startswith("Call_")
 
 
 def add_edge(
@@ -614,10 +746,22 @@ def add_edge(
     target_handle: str | None = None,
     process_id: str | None = None,
 ) -> dict | None:
-    graph = _get_graph(session_id, process_id)
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, pid)
     ids = graph.all_step_ids()
     if source not in ids or target not in ids:
-        return None
+        # Fallback: agent may have omitted process_id while user was viewing a subprocess
+        if pid != DEFAULT_PROCESS_ID and (
+            _looks_like_global_map_step(source) or _looks_like_global_map_step(target)
+        ):
+            graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
+            ids = graph.all_step_ids()
+            if source in ids and target in ids:
+                pid = DEFAULT_PROCESS_ID
+            else:
+                return None
+        else:
+            return None
     existing = graph.get_flow(source, target)
     if existing:
         if label:
@@ -628,7 +772,7 @@ def add_edge(
             existing["source_handle"] = source_handle
         if target_handle:
             existing["target_handle"] = target_handle
-        _persist(session_id, process_id)
+        _persist(session_id, pid)
         return {
             "from": source,
             "to": target,
@@ -647,7 +791,7 @@ def add_edge(
     if target_handle:
         flow["target_handle"] = target_handle
     graph.flows.append(flow)
-    _persist(session_id, process_id)
+    _persist(session_id, pid)
     return {
         "from": source,
         "to": target,
@@ -659,10 +803,19 @@ def add_edge(
 
 
 def update_edge(session_id: str, source: str, target: str, updates: dict, process_id: str | None = None) -> dict | None:
-    graph = _get_graph(session_id, process_id)
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, pid)
     flow = graph.get_flow(source, target)
     if not flow:
-        return None
+        if pid != DEFAULT_PROCESS_ID and (
+            _looks_like_global_map_step(source) or _looks_like_global_map_step(target)
+        ):
+            graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
+            flow = graph.get_flow(source, target)
+            if flow:
+                pid = DEFAULT_PROCESS_ID
+        if not flow:
+            return None
     if "label" in updates:
         flow["label"] = updates["label"]
     if "condition" in updates:
@@ -670,18 +823,28 @@ def update_edge(session_id: str, source: str, target: str, updates: dict, proces
             flow["condition"] = updates["condition"]
         else:
             flow.pop("condition", None)
-    _persist(session_id, process_id)
+    _persist(session_id, pid)
     return {"from": source, "to": target, "label": flow.get("label", ""),
             **({"condition": flow["condition"]} if flow.get("condition") else {})}
 
 
 def delete_edge(session_id: str, source: str, target: str, process_id: str | None = None) -> bool:
-    graph = _get_graph(session_id, process_id)
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, pid)
     for i, f in enumerate(graph.flows):
         if f.get("from") == source and f.get("to") == target:
             graph.flows.pop(i)
-            _persist(session_id, process_id)
+            _persist(session_id, pid)
             return True
+    if pid != DEFAULT_PROCESS_ID and (
+        _looks_like_global_map_step(source) or _looks_like_global_map_step(target)
+    ):
+        graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
+        for i, f in enumerate(graph.flows):
+            if f.get("from") == source and f.get("to") == target:
+                graph.flows.pop(i)
+                _persist(session_id, DEFAULT_PROCESS_ID)
+                return True
     return False
 
 

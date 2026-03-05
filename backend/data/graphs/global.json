@@ -14,13 +14,13 @@
       "description": "",
       "node_refs": [
         "Start_Global",
-        "Call_P1",
-        "Call_P2",
-        "Call_P3",
-        "Call_P4",
-        "Call_P5",
-        "Call_P6",
-        "Call_P7",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6",
+        "P7",
         "End_Global"
       ]
     }
@@ -37,7 +37,7 @@
       }
     },
     {
-      "id": "Call_P1",
+      "id": "P1",
       "name": "Prescription",
       "type": "subprocess",
       "called_element": "Process_P1",
@@ -48,7 +48,7 @@
       }
     },
     {
-      "id": "Call_P2",
+      "id": "P2",
       "name": "Selection, Acquisition, and Reception",
       "type": "subprocess",
       "called_element": "Process_P2",
@@ -59,7 +59,7 @@
       }
     },
     {
-      "id": "Call_P3",
+      "id": "P3",
       "name": "Storage and Storage Management",
       "type": "subprocess",
       "called_element": "Process_P3",
@@ -70,7 +70,7 @@
       }
     },
     {
-      "id": "Call_P4",
+      "id": "P4",
       "name": "Distribution",
       "type": "subprocess",
       "called_element": "Process_P4",
@@ -81,7 +81,7 @@
       }
     },
     {
-      "id": "Call_P5",
+      "id": "P5",
       "name": "Dispensing and Preparation",
       "type": "subprocess",
       "called_element": "Process_P5",
@@ -92,7 +92,7 @@
       }
     },
     {
-      "id": "Call_P6",
+      "id": "P6",
       "name": "Administration",
       "type": "subprocess",
       "called_element": "Process_P6",
@@ -103,7 +103,7 @@
       }
     },
     {
-      "id": "Call_P7",
+      "id": "P7",
       "name": "Monitoring and Waste Management",
       "type": "subprocess",
       "called_element": "Process_P7",
@@ -127,41 +127,41 @@
   "flows": [
     {
       "from": "Start_Global",
-      "to": "Call_P1",
+      "to": "P1",
       "label": "Start"
     },
     {
-      "from": "Call_P1",
-      "to": "Call_P2",
-      "label": "Call_P1 → Call_P2"
+      "from": "P1",
+      "to": "P2",
+      "label": "P1 → P2"
     },
     {
-      "from": "Call_P2",
-      "to": "Call_P3",
-      "label": "Call_P2 → Call_P3"
+      "from": "P2",
+      "to": "P3",
+      "label": "P2 → P3"
     },
     {
-      "from": "Call_P3",
-      "to": "Call_P4",
-      "label": "Call_P3 → Call_P4"
+      "from": "P3",
+      "to": "P4",
+      "label": "P3 → P4"
     },
     {
-      "from": "Call_P4",
-      "to": "Call_P5",
-      "label": "Call_P4 → Call_P5"
+      "from": "P4",
+      "to": "P5",
+      "label": "P4 → P5"
     },
     {
-      "from": "Call_P5",
-      "to": "Call_P6",
-      "label": "Call_P5 → Call_P6"
+      "from": "P5",
+      "to": "P6",
+      "label": "P5 → P6"
     },
     {
-      "from": "Call_P6",
-      "to": "Call_P7",
-      "label": "Call_P6 → Call_P7"
+      "from": "P6",
+      "to": "P7",
+      "label": "P6 → P7"
     },
     {
-      "from": "Call_P7",
+      "from": "P7",
       "to": "End_Global",
       "label": "Complete"
     }

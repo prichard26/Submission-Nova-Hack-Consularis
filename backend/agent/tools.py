@@ -37,13 +37,13 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "add_edge",
-            "description": "Add an edge (connection) between two steps. Call multiple times per turn to add multiple edges. Use step ids from the graph (e.g. P1.1, P1.2). If an edge already exists from source to target, it is updated.",
+            "description": "Add an edge between two steps in the same process. Use step ids: global map = P1, P2, P3, ... (and Start_Global, End_Global); inside a process = P1.1, P1.2, P1.4, ... Pass process_id (Process_Global or e.g. Process_P1). Same id pattern everywhere.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process containing the steps (e.g. Process_P1). Omit for root/current."},
-                    "source": {"type": "string", "description": "Source step id (e.g. P1.1)."},
-                    "target": {"type": "string", "description": "Target step id (e.g. P1.2)."},
+                    "process_id": {"type": "string", "description": "Process that contains both steps (Process_Global for global map; Process_P1 etc. for inside that process)."},
+                    "source": {"type": "string", "description": "Source step id (e.g. P1 or P1.1)."},
+                    "target": {"type": "string", "description": "Target step id (e.g. P2 or P1.2)."},
                     "label": {"type": "string", "description": "Optional edge label."},
                 },
                 "required": ["source", "target"],
@@ -54,13 +54,13 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "delete_edge",
-            "description": "Remove an edge (connection) between two steps. Call multiple times per turn to remove multiple edges. Use step ids from the graph.",
+            "description": "Remove an edge. Pass process_id and source/target step ids (same scheme: P1, P2 on global; P1.1, P1.2 inside a process).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process containing the edge (e.g. Process_P1). Omit for root/current."},
-                    "source": {"type": "string", "description": "Source step id of the edge."},
-                    "target": {"type": "string", "description": "Target step id of the edge."},
+                    "process_id": {"type": "string", "description": "Process that contains the edge."},
+                    "source": {"type": "string", "description": "Source step id (e.g. P1, P1.1)."},
+                    "target": {"type": "string", "description": "Target step id (e.g. P2, P1.2)."},
                 },
                 "required": ["source", "target"],
             },
@@ -70,11 +70,11 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "update_edge",
-            "description": "Update an existing edge's label or condition. Call multiple times per turn to update multiple edges. The edge must already exist (source -> target).",
+            "description": "Update an existing edge's label or condition. Pass process_id and source/target (same id scheme: P1, P2 or P1.1, P1.2).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process containing the edge (e.g. Process_P1). Omit for root/current."},
+                    "process_id": {"type": "string", "description": "Process that contains the edge (e.g. Process_Global or Process_P1)."},
                     "source": {"type": "string", "description": "Source step id of the edge."},
                     "target": {"type": "string", "description": "Target step id of the edge."},
                     "updates": {"type": "object", "description": "Fields to set: label, condition.", "additionalProperties": True},
@@ -87,14 +87,14 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "add_node",
-            "description": "Add a new step or decision to a process. Use lane_id from the graph (e.g. P1 for a process with one lane). Pass type 'step' or 'decision' and a name. Call multiple times per turn to add multiple nodes.",
+            "description": "Add a step, decision, or subprocess. Level: global = Process_Global + GLOBAL (new subprocess ids P8, P9, ...); inside = e.g. Process_P1 + P1 (new subprocess ids P1.4, P1.5, ...). Response gives the new node id—use it for add_edge. Same id pattern everywhere (Px on global, Px.x inside).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process to add the node to (e.g. Process_P1). Omit for root/current."},
-                    "lane_id": {"type": "string", "description": "Lane id from the graph (e.g. P1, GLOBAL)."},
-                    "name": {"type": "string", "description": "Display name for the new step or decision."},
-                    "type": {"type": "string", "description": "Either 'step' or 'decision'.", "enum": ["step", "decision"]},
+                    "process_id": {"type": "string", "description": "Process at the level where you add (Process_Global for global map; Process_P1 etc. for inside that subprocess)."},
+                    "lane_id": {"type": "string", "description": "Lane id at that level (GLOBAL for global map; P1, P2, etc. for inside that process)."},
+                    "name": {"type": "string", "description": "Display name for the new step, decision, or subprocess."},
+                    "type": {"type": "string", "description": "One of: 'step', 'decision', 'subprocess'.", "enum": ["step", "decision", "subprocess"]},
                 },
                 "required": ["lane_id", "name"],
             },
@@ -104,12 +104,12 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "delete_node",
-            "description": "Remove a step or decision from the process. Cannot delete start or end nodes. Use the step id from the graph (e.g. P1.2). Call multiple times per turn to remove multiple nodes.",
+            "description": "Remove a step, decision, or subprocess from the process. Cannot delete start or end nodes. For subprocess nodes the linked page is deleted automatically.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "process_id": {"type": "string", "description": "Process containing the node (e.g. Process_P1). Omit for root/current."},
-                    "node_id": {"type": "string", "description": "Step id to remove (e.g. P1.2)."},
+                    "node_id": {"type": "string", "description": "Step id to remove (e.g. P1.2, P1.4, P8)."},
                 },
                 "required": ["node_id"],
             },
@@ -121,8 +121,28 @@ TOOLS = TOOL_SCHEMAS
 TOOL_HANDLERS: dict[str, ToolHandler] = {}
 
 
+def _debug_tool_call(
+    session_id: str,
+    name: str,
+    arguments: dict,
+    process_id_from_runtime: str | None,
+    resolved_pid: str | None,
+) -> None:
+    """Print a readable log line for every agent tool call."""
+    # Build a compact args summary (skip process_id here, we show it separately)
+    args_copy = {k: v for k, v in arguments.items() if v is not None and v != ""}
+    args_str = ", ".join(f"{k}={v!r}" for k, v in sorted(args_copy.items()))
+    print(
+        f"[AGENT TOOL] {name} | session={session_id!r} | "
+        f"process_id(runtime)={process_id_from_runtime!r} → resolved={resolved_pid!r} | {args_str}"
+    )
+
+
 def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None = None) -> str:
     pid = arguments.get("process_id") or process_id
+    # Debug: log every tool call in a consistent format
+    _debug_tool_call(session_id, name, arguments, process_id, pid)
+
     if name == "update_node":
         step_id = arguments.get("step_id")
         updates = arguments.get("updates")
@@ -163,8 +183,12 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
         name_val = arguments.get("name")
         if not lane_id or not name_val:
             return json.dumps({"ok": False, "error": "lane_id and name are required"})
+        # Coerce to string so we never pass a number or object; use strip for subprocess display name.
+        name_val = str(name_val).strip() if name_val is not None else ""
+        if not name_val:
+            return json.dumps({"ok": False, "error": "lane_id and name are required"})
         step_type = arguments.get("type", "step")
-        if step_type not in ("step", "decision"):
+        if step_type not in ("step", "decision", "subprocess"):
             step_type = "step"
         result = store_add_node(session_id, lane_id, {"name": name_val, "type": step_type}, process_id=pid)
         if result is None:
