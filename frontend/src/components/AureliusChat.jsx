@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { sendChat } from '../services/api'
 import BotFace from './BotFace'
 import './AureliusChat.css'
@@ -127,7 +128,13 @@ export default function AureliusChat({
                 <BotFace talking={false} size={22} />
               </div>
             )}
-            <div className="chat-msg__bubble">{msg.text}</div>
+            <div className="chat-msg__bubble chat-msg__bubble--md">
+              {msg.role === 'assistant' ? (
+                <ReactMarkdown>{msg.text}</ReactMarkdown>
+              ) : (
+                msg.text
+              )}
+            </div>
           </div>
         ))}
         {loading && (

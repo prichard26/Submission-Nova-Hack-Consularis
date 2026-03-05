@@ -243,6 +243,43 @@ def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
     return " | ".join(parts)
 
 
+def _all_process_ids_in_tree_order(ws: WorkspaceManifest, root_id: str) -> list[str]:
+    """Return all process IDs in depth-first order (root, then each branch)."""
+    order: list[str] = []
+
+    def visit(pid: str) -> None:
+        order.append(pid)
+        for c in ws.get_children(pid):
+            visit(c)
+
+    visit(root_id)
+    return order
+
+
+def get_full_graph_summary(session_id: str) -> str:
+    """Return summaries for all processes in the workspace tree (any depth) for full context."""
+    # Force fresh read from DB so agent sees latest edits (and new subprocesses)
+    _ws_cache.pop(session_id, None)
+    for key in list(_cache):
+        if key[0] == session_id:
+            del _cache[key]
+    ws = _get_workspace(session_id)
+    root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
+    procs = ws.data.get("process_tree", {}).get("processes", {})
+    order = _all_process_ids_in_tree_order(ws, root_id)
+    parts = []
+    for pid in order:
+        info = procs.get(pid) or {}
+        name = info.get("name", pid)
+        path = ws.get_path(pid)
+        summary = get_graph_summary(session_id, process_id=pid)
+        header = f"--- {pid} ({name}) ---"
+        if path:
+            header += f"\nPath: {path}"
+        parts.append(f"{header}\n{summary}")
+    return "\n\n".join(parts)
+
+
 def _score_match(needle: str, name: str, id_val: str) -> float:
     if not name and not id_val:
         return 0.0
@@ -534,6 +571,7 @@ def create_subprocess_page(
     step["called_element"] = new_process_id
     _persist(session_id, parent_pid)
     db.upsert_session_workspace(session_id, ws.to_json())
+    _ws_cache.pop(session_id, None)  # so next read gets updated tree from DB (e.g. chat agent)
     _refresh_workspace_summary(session_id, parent_pid)
     _refresh_workspace_summary(session_id, new_process_id)
 

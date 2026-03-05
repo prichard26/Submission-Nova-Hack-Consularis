@@ -20,14 +20,13 @@ from config import (
     BEDROCK_TIMEOUT,
     NOVA_MODEL_ID,
 )
-from graph.store import get_graph_json, get_graph_summary
+from graph.store import get_full_graph_summary, get_graph_json
 from agent.prompt import SYSTEM_PROMPT
 from agent.tools import TOOL_SCHEMAS, run_tool
 
 logger = logging.getLogger("consularis.agent")
 
-# When only these tools were called and the model returned no text, show the tool result as the reply.
-READ_ONLY_TOOLS = frozenset({"get_graph_summary", "resolve_step"})
+READ_ONLY_TOOLS = frozenset()  # no tools in this mode
 
 # ---------------------------------------------------------------------------
 # Helpers: translate OpenAI-style tool schemas → Bedrock toolConfig
@@ -129,21 +128,22 @@ def run_chat(
         )
 
     client = _get_client()
-    graph_context = get_graph_summary(session_id, process_id=process_id)
-    system_block = [{"text": SYSTEM_PROMPT + "\n\nGraph: " + graph_context}]
+    full_graph = get_full_graph_summary(session_id)
+    system_block = [{"text": SYSTEM_PROMPT + "\n\n" + full_graph}]
     bedrock_messages = _chat_history_to_bedrock(messages)
-    tool_config = {"tools": BEDROCK_TOOLS}
+    kwargs = {
+        "modelId": NOVA_MODEL_ID,
+        "system": system_block,
+        "messages": bedrock_messages,
+        "inferenceConfig": {"maxTokens": 2048, "temperature": 0.3},
+    }
+    if BEDROCK_TOOLS:
+        kwargs["toolConfig"] = {"tools": BEDROCK_TOOLS}
 
     final_message = ""
     for attempt in range(BEDROCK_MAX_RETRIES + 1):
         try:
-            response = client.converse(
-                modelId=NOVA_MODEL_ID,
-                system=system_block,
-                messages=bedrock_messages,
-                toolConfig=tool_config,
-                inferenceConfig={"maxTokens": 2048, "temperature": 0.3},
-            )
+            response = client.converse(**kwargs)
             break
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")

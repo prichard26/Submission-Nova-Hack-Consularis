@@ -12,8 +12,6 @@ from agent.prompt import SYSTEM_PROMPT
 from agent.tools import TOOLS, run_tool
 
 logger = logging.getLogger("consularis.agent")
-
-# When only these tools were called and the model returned no text, show the tool result as the reply.
 READ_ONLY_TOOLS = frozenset({"get_graph_summary", "resolve_step"})
 
 
@@ -51,7 +49,6 @@ def run_chat(
 
     client = Groq(api_key=GROQ_KEY, timeout=GROQ_TIMEOUT)
     graph_context = get_graph_summary(session_id, process_id=process_id)
-
     full_messages = [
         {"role": "system", "content": SYSTEM_PROMPT + "\n\nGraph: " + graph_context},
         *messages,
