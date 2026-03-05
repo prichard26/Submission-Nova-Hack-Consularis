@@ -17,7 +17,7 @@ logger = logging.getLogger("consularis")
 
 # Tools that change graph structure; when any is used we set meta.structural_change so the frontend can auto-arrange.
 STRUCTURAL_TOOLS = frozenset({
-    "add_node", "delete_node", "add_edge", "delete_edge",
+    "add_node", "delete_node", "add_edge", "delete_edge", "update_edge",
     "add_lane", "delete_lane", "move_node", "reorder_steps", "reorder_lanes",
 })
 

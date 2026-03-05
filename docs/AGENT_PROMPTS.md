@@ -149,12 +149,41 @@ The agent still receives the **full graph** in context every time (all processes
 - *"Add 'legacy system' to current_systems for P1.2."*
 - *"Set data_format of Approve Prescription to PDF."*
 
-**Requests that should be declined in Step 2 (no add/delete/structure)**
+**Requests that should be declined in Step 2 (no add/delete steps, no edges, no subprocesses)**
 
-- *"Add a new step called Compliance check."* → Agent says it can only edit existing steps.
+- *"Add a new step called Compliance check."* → Agent says it can only edit existing steps (and in Step 3, edges).
 - *"Delete the Approve Prescription step."* → Same.
-- *"Connect P1.1 to P1.3."* / *"Add an edge from P1.1 to P1.3."* → Same.
 - *"Create a subprocess for this."* → Same.
+
+---
+
+## Step 3: Read, dialogue, edit steps, and edit edges
+
+**Goal:** Same as Step 2, plus the agent can **add, delete, and update edges** (connections between steps). When the agent adds, deletes, or updates an edge, the frontend auto-arranges the graph.
+
+**Tools (in addition to update_node):**
+
+| # | Tool | Purpose |
+|---|------|--------|
+| 1 | **add_edge** | Add a connection between two steps. Arguments: `process_id` (optional), `source` (step id), `target` (step id), optional `label`. If the edge already exists, it is updated. |
+| 2 | **delete_edge** | Remove the edge from source step to target step. Arguments: `process_id` (optional), `source`, `target`. |
+| 3 | **update_edge** | Update an existing edge's label or condition. Arguments: `process_id` (optional), `source`, `target`, `updates` (object with label, condition). |
+
+**What it can do in Step 3:**
+- Everything from Step 1 and 2 (read, dialogue, edit one or more steps).
+- **Add an edge:** connect step A to step B (e.g. "Connect P1.1 to P1.3").
+- **Delete an edge:** remove the connection between two steps.
+- **Update an edge:** change an edge's label or condition.
+- The frontend **auto-arranges** the canvas after any add_edge, delete_edge, or update_edge so the layout stays readable.
+- It does **not** add or delete steps or lanes; it does not create subprocesses.
+
+**Possible prompts for Step 3 (edges)**
+
+- *"Connect P1.1 to P1.3."* / *"Add an edge from P1.1 to P1.3."*
+- *"Remove the connection between Verify Prescription and Approve Prescription."*
+- *"Delete the edge from P1.2 to P1.3."*
+- *"Change the label on the edge from P1.1 to P1.2 to 'Submitted'."*
+- *"Add a connection from Start to P1.2 as well."* (multiple edges from one step are allowed)
 
 ---
 
