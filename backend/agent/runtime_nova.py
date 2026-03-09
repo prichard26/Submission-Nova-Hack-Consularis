@@ -115,9 +115,7 @@ def _run_executor(
     executor_system = [{"text": MULTIAGENT_CONTEXT + "\n\n" + EXECUTOR_SYSTEM_PROMPT + "\n\n" + full_graph}]
     body = "Execute the following.\n\n**Instructions:**\n" + instructions
     if steps:
-        body += "\n\n**Steps to execute (call these tools in this order with these arguments; include process_id in each if not present):**\n" + json.dumps(steps, indent=2)
-    if process_id:
-        body += f"\n\n**Current process_id (use for any step that does not specify it):** {process_id}"
+        body += "\n\n**Steps to execute (call these tools in this order with these arguments; ids only, process is inferred from ids):**\n" + json.dumps(steps, indent=2)
     executor_messages: list[dict] = [{"role": "user", "content": [{"text": body}]}]
     tools_called: list[str] = []
     total_api = 0

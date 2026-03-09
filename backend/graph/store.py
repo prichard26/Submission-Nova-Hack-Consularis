@@ -207,6 +207,68 @@ def get_step_ids(session_id: str, process_id: str | None = None) -> set[str]:
     return graph.all_step_ids()
 
 
+def get_process_id_for_step(session_id: str, step_id: str) -> str | None:
+    """Return the process_id whose graph contains step_id, or None if not found."""
+    if not step_id:
+        return None
+    # Global-style: P1, P2, P7, P8, Start_Global, End_Global
+    if step_id in ("Start_Global", "End_Global"):
+        try:
+            graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
+            if step_id in graph.all_step_ids():
+                return DEFAULT_PROCESS_ID
+        except Exception:
+            pass
+        return None
+    if step_id.startswith("P") and len(step_id) > 1 and step_id[1:].isdigit():
+        try:
+            graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
+            if step_id in graph.all_step_ids():
+                return DEFAULT_PROCESS_ID
+        except Exception:
+            pass
+        return None
+    # One-dot: P7.1, P7.2 → Process_P7
+    if "." in step_id:
+        parts = step_id.split(".", 1)
+        prefix = parts[0]  # P7
+        process_id = f"Process_{prefix}" if prefix.startswith("P") else prefix
+        try:
+            graph = _get_graph(session_id, process_id)
+            if step_id in graph.all_step_ids():
+                return process_id
+        except Exception:
+            pass
+        # Two-dot: P7.2.1 → step in subprocess of P7.2
+        if step_id.count(".") >= 2:
+            parent_id = ".".join(step_id.split(".")[:-1])  # P7.2
+            parent_pid = get_process_id_for_step(session_id, parent_id)
+            if parent_pid:
+                try:
+                    parent_graph = _get_graph(session_id, parent_pid)
+                    parent_step = parent_graph.get_step(parent_id)
+                    if parent_step and parent_step.get("type") == "subprocess":
+                        called = parent_step.get("called_element")
+                        if called:
+                            child_graph = _get_graph(session_id, called)
+                            if step_id in child_graph.all_step_ids():
+                                return called
+                except Exception:
+                    pass
+    # Fallback: search all processes
+    try:
+        for pid in get_process_ids(session_id):
+            try:
+                graph = _get_graph(session_id, pid)
+                if step_id in graph.all_step_ids():
+                    return pid
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return None
+
+
 def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
     """Compact step summary + edges for LLM context. Uses step_order."""
     pid = _normalize_process_id(process_id)

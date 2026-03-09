@@ -8,6 +8,7 @@ from graph.store import (
     add_node as store_add_node,
     delete_edge as store_delete_edge,
     delete_node as store_delete_node,
+    get_process_id_for_step,
     update_edge as store_update_edge,
     update_node as store_update_node,
 )
@@ -15,21 +16,24 @@ from graph.store import (
 ToolHandler = Callable[[str, dict, str | None], str]
 logger = logging.getLogger("consularis.agent")
 
-# All tools: always use IDs from the graph (step_id, process_id, source, target, node_id). Never pass display names.
+# Tools: id-only. Process is derived from id (e.g. P7.1 → Process_P7).
 TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
         "function": {
             "name": "update_node",
-            "description": "Update a step. Pass step_id (step id from graph, e.g. P1.1, P3.3) and updates (object). Use cost_per_execution for cost (add ' EUR'), duration_min for duration (add ' min'). Never use process_id as step_id.",
+            "description": "Update a node by id. Process inferred from id (e.g. P7.1 → Process_P7). Pass id and an updates object with any of: name, actor, duration_min (duration/time), cost_per_execution (cost), description, inputs, outputs, risks, automation_potential, automation_notes, current_state, frequency, annual_volume, error_rate_percent, current_systems, data_format, external_dependencies, regulatory_constraints, sla_target, pain_points, called_element. Only these fields are applied; others are ignored.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process id from graph (e.g. Process_P1). Omit for current."},
-                    "step_id": {"type": "string", "description": "Step id from graph (e.g. P1.1, P2.2)."},
-                    "updates": {"type": "object", "description": "Fields to set (name, actor, duration_min, description, etc.).", "additionalProperties": True},
+                    "id": {"type": "string", "description": "Node id (e.g. P1.1, P7.2). Process is inferred from it."},
+                    "updates": {
+                        "type": "object",
+                        "description": "Fields to set. Allowed: name, actor, duration_min (or duration/time), cost_per_execution (or cost), description, inputs, outputs, risks, automation_*, current_state, frequency, annual_volume, error_rate_percent, current_systems, data_format, external_dependencies, regulatory_constraints, sla_target, pain_points, called_element.",
+                        "additionalProperties": True,
+                    },
                 },
-                "required": ["step_id", "updates"],
+                "required": ["id", "updates"],
             },
         },
     },
@@ -37,14 +41,13 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "add_edge",
-            "description": "Add an edge between two steps in the same process. source and target must be step ids that exist in that process (from the graph or returned by add_node). Pass process_id and both source and target step ids.",
+            "description": "Connect two nodes. Process inferred from source/target.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process id (Process_Global, Process_P1, etc.)—the process that contains both source and target."},
-                    "source": {"type": "string", "description": "Source step id in that process (e.g. P7.1, or the id returned by add_node)."},
-                    "target": {"type": "string", "description": "Target step id in that process (e.g. P7.2, or the id returned by add_node)."},
-                    "label": {"type": "string", "description": "Optional edge label."},
+                    "source": {"type": "string", "description": "Source node id."},
+                    "target": {"type": "string", "description": "Target node id."},
+                    "label": {"type": "string", "description": "Optional label."},
                 },
                 "required": ["source", "target"],
             },
@@ -54,13 +57,12 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "delete_edge",
-            "description": "Remove an edge. Pass source, target (step ids in that process), and process_id.",
+            "description": "Remove an edge. Process inferred from source/target.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process id from graph."},
-                    "source": {"type": "string", "description": "Source step id."},
-                    "target": {"type": "string", "description": "Target step id."},
+                    "source": {"type": "string", "description": "Source node id."},
+                    "target": {"type": "string", "description": "Target node id."},
                 },
                 "required": ["source", "target"],
             },
@@ -70,14 +72,17 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "update_edge",
-            "description": "Update an edge's label or condition. Pass source, target (step ids in that process), process_id, updates.",
+            "description": "Update an edge by source and target ids. Process inferred from source/target. Only two fields can be updated: label (string, e.g. transition name) and condition (string, e.g. for decision branches; use empty string to clear).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process id from graph."},
-                    "source": {"type": "string", "description": "Source step id."},
-                    "target": {"type": "string", "description": "Target step id."},
-                    "updates": {"type": "object", "description": "e.g. {\"label\": \"...\"}.", "additionalProperties": True},
+                    "source": {"type": "string", "description": "Source node id of the edge."},
+                    "target": {"type": "string", "description": "Target node id of the edge."},
+                    "updates": {
+                        "type": "object",
+                        "description": "Object with optional keys: label (string), condition (string). Only label and condition are applied; other keys are ignored.",
+                        "additionalProperties": True,
+                    },
                 },
                 "required": ["source", "target", "updates"],
             },
@@ -87,15 +92,15 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "add_node",
-            "description": "Add a step, decision, or subprocess. Pass process_id and name (display name only, e.g. 'Escalate to Physician'—do not include step id in the name). Type: step, decision, or subprocess. Response returns the new step id (e.g. P7.4)—use that exact id in add_edge for source or target.",
+            "description": "Add a node. location_id = process or any node id in that process. Type: step|decision|subprocess. System assigns id; subprocess gets Start/End.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process id (Process_Global, Process_P1, etc.)."},
-                    "name": {"type": "string", "description": "Display name only (e.g. 'Verify Data'). Do not put step id in name (e.g. not 'P7.4 (Verify Data)')."},
+                    "location_id": {"type": "string", "description": "Process id (Process_P7) or node id in that process (P7.1)."},
                     "type": {"type": "string", "description": "step, decision, or subprocess.", "enum": ["step", "decision", "subprocess"]},
+                    "name": {"type": "string", "description": "Optional display name."},
                 },
-                "required": ["name"],
+                "required": ["location_id", "type"],
             },
         },
     },
@@ -103,37 +108,33 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "delete_node",
-            "description": "Remove a step or subprocess. node_id must be the STEP ID from the graph (e.g. P1.2, P8, P1.4). On the global map, subprocess boxes are P1, P2, P8, P9—never use process_id (e.g. Process_P1, Process_Custom_4) as node_id. Cannot delete start or end.",
+            "description": "Remove a node. Process inferred from id. Cannot delete start/end.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "process_id": {"type": "string", "description": "Process id from graph. Omit for current."},
-                    "node_id": {"type": "string", "description": "Step id from graph (e.g. P1.2, P1.4, P8)."},
+                    "id": {"type": "string", "description": "Node id."},
                 },
-                "required": ["node_id"],
+                "required": ["id"],
             },
         },
     },
 ]
 TOOLS = TOOL_SCHEMAS
 
-# Planner-only tools: orchestrator proposes or requests execution. Handled in runtime, not in run_tool. All step/process references in steps must be IDs.
+# Planner tools: propose_plan / request_execution. Steps = list of {tool_name, arguments} (ids only).
 PLANNER_TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
         "function": {
             "name": "propose_plan",
-            "description": "Call for any multi-step plan or when the plan includes deletes, or when you want the user to confirm. The UI will show Apply plan so the user can one-click apply. Write a short numbered plan in your reply, then call propose_plan with instructions and steps. In steps, use step_id/node_id = step ids (P1.2, P8), never process_id (Process_P1) as node_id.",
+            "description": "Propose plan so user can Apply. Pass steps (list of {tool_name, arguments}).",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "instructions": {
-                        "type": "string",
-                        "description": "Step-by-step instructions for the executor. Be specific (process_id, step ids).",
-                    },
+                    "instructions": {"type": "string", "description": "Optional. What to do, in order."},
                     "steps": {
                         "type": "array",
-                        "description": "Exact list of tool calls: each item { \"tool_name\": \"update_node\"|\"add_edge\"|\"delete_edge\"|\"update_edge\"|\"add_node\"|\"delete_node\", \"arguments\": {...} }.",
+                        "description": "List of {tool_name, arguments}. Ids only.",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -143,7 +144,7 @@ PLANNER_TOOL_SCHEMAS: list[dict] = [
                         },
                     },
                 },
-                "required": ["instructions"],
+                "required": ["steps"],
             },
         },
     },
@@ -151,17 +152,14 @@ PLANNER_TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "request_execution",
-            "description": "Run graph changes immediately. Use only for SIMPLE (one or two) actions, or after user confirmed. Use step ids (P1.1, P8) for step_id/node_id; use process_id (Process_Global, Process_P1) only for process. Never use process_id as node_id.",
+            "description": "Run plan after user confirmed. Pass steps.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "instructions": {
-                        "type": "string",
-                        "description": "Step-by-step instructions for the executor: what to do, in what order, which process_id and step ids (e.g. Process_P1, P1.1, P1.2). Be specific.",
-                    },
+                    "instructions": {"type": "string", "description": "Optional. What to do, in order."},
                     "steps": {
                         "type": "array",
-                        "description": "Preferred: exact list of tool calls so the executor does only this. Each item: { \"tool_name\": \"update_node\" | \"add_edge\" | \"delete_edge\" | \"update_edge\" | \"add_node\" | \"delete_node\", \"arguments\": { step_id, process_id, source, target, lane_id, name, type, updates, ... } }.",
+                        "description": "List of {tool_name, arguments}.",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -171,7 +169,7 @@ PLANNER_TOOL_SCHEMAS: list[dict] = [
                         },
                     },
                 },
-                "required": ["instructions"],
+                "required": ["steps"],
             },
         },
     },
@@ -198,28 +196,42 @@ def _debug_tool_call(
 
 
 def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None = None) -> str:
-    pid = arguments.get("process_id") or process_id
-    # Debug: log every tool call in a consistent format
-    _debug_tool_call(session_id, name, arguments, process_id, pid)
+    # Process is inferred from id when not in arguments (id-only tools)
+    pid_from_args = arguments.get("process_id")
+
+    def resolve_pid(step_or_location_id: str) -> str | None:
+        if pid_from_args:
+            return pid_from_args
+        return get_process_id_for_step(session_id, step_or_location_id)
+
+    _debug_tool_call(session_id, name, arguments, process_id, pid_from_args)
 
     if name == "update_node":
-        step_id = arguments.get("step_id")
+        node_id = arguments.get("id") or arguments.get("step_id")
         updates = dict(arguments.get("updates") or {})
-        if not step_id or not updates:
-            return json.dumps({"ok": False, "error": "step_id and updates (object) are required"})
+        if not node_id or not updates:
+            return json.dumps({"ok": False, "error": "id and updates (object) are required"})
+        pid = resolve_pid(node_id)
+        if not pid:
+            return json.dumps({"ok": False, "error": f"Process not found for node: {node_id}"})
         if "cost" in updates and "cost_per_execution" not in updates:
             updates["cost_per_execution"] = updates.pop("cost")
         if "duration" in updates and "duration_min" not in updates:
             updates["duration_min"] = updates.pop("duration")
-        result = store_update_node(session_id, step_id, updates, process_id=pid)
+        if "time" in updates and "duration_min" not in updates:
+            updates["duration_min"] = updates.pop("time")
+        result = store_update_node(session_id, node_id, updates, process_id=pid)
         if result is None:
-            return json.dumps({"ok": False, "error": f"Step not found: {step_id}"})
+            return json.dumps({"ok": False, "error": f"Step not found: {node_id}"})
         return json.dumps({"ok": True, "node": result})
     if name == "add_edge":
         source = arguments.get("source")
         target = arguments.get("target")
         if not source or not target:
             return json.dumps({"ok": False, "error": "source and target are required"})
+        pid = resolve_pid(source) or resolve_pid(target)
+        if not pid:
+            return json.dumps({"ok": False, "error": f"Process not found for edge: {source} -> {target}"})
         result = store_add_edge(session_id, source, target, label=arguments.get("label") or "", process_id=pid)
         if result is None:
             return json.dumps({"ok": False, "error": f"Edge not added (step not found or invalid): {source} -> {target}"})
@@ -229,6 +241,9 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
         target = arguments.get("target")
         if not source or not target:
             return json.dumps({"ok": False, "error": "source and target are required"})
+        pid = resolve_pid(source) or resolve_pid(target)
+        if not pid:
+            return json.dumps({"ok": False, "error": f"Process not found for edge: {source} -> {target}"})
         ok = store_delete_edge(session_id, source, target, process_id=pid)
         return json.dumps({"ok": ok, "removed": ok})
     if name == "update_edge":
@@ -237,34 +252,45 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
         updates = arguments.get("updates")
         if not source or not target or not isinstance(updates, dict):
             return json.dumps({"ok": False, "error": "source, target and updates (object) are required"})
+        pid = resolve_pid(source) or resolve_pid(target)
+        if not pid:
+            return json.dumps({"ok": False, "error": f"Process not found for edge: {source} -> {target}"})
         result = store_update_edge(session_id, source, target, updates, process_id=pid)
         if result is None:
             return json.dumps({"ok": False, "error": f"Edge not found: {source} -> {target}"})
         return json.dumps({"ok": True, "edge": result})
     if name == "add_node":
-        name_val = arguments.get("name")
+        location_id = arguments.get("location_id")
+        step_type = arguments.get("type", "step")
+        if not location_id:
+            return json.dumps({"ok": False, "error": "location_id and type are required"})
+        if step_type not in ("step", "decision", "subprocess"):
+            step_type = "step"
+        if location_id.startswith("Process_"):
+            pid = location_id
+        else:
+            pid = get_process_id_for_step(session_id, location_id)
+        if not pid:
+            return json.dumps({"ok": False, "error": f"Process not found for location: {location_id}"})
+        name_val = (arguments.get("name") or "").strip()
         if not name_val:
-            return json.dumps({"ok": False, "error": "name is required"})
-        name_val = str(name_val).strip() if name_val is not None else ""
-        if not name_val:
-            return json.dumps({"ok": False, "error": "name is required"})
-        # If model put step id in name (e.g. "P7.4 (Escalate to Physician)"), keep only the display part.
+            name_val = "New step" if step_type == "step" else "New decision" if step_type == "decision" else "New subprocess"
         if " (" in name_val and name_val.endswith(")"):
             idx = name_val.find(" (")
             prefix = name_val[:idx].strip()
             if prefix and (prefix.startswith("P") and "." in prefix or prefix.startswith("GLOBAL.")):
                 name_val = name_val[idx + 2 : -1].strip() or name_val
-        step_type = arguments.get("type", "step")
-        if step_type not in ("step", "decision", "subprocess"):
-            step_type = "step"
         result = store_add_node(session_id, "default", {"name": name_val, "type": step_type}, process_id=pid)
         if result is None:
             return json.dumps({"ok": False, "error": "Could not add node (invalid process)"})
         return json.dumps({"ok": True, "node": result})
     if name == "delete_node":
-        node_id = arguments.get("node_id")
+        node_id = arguments.get("id") or arguments.get("node_id")
         if not node_id:
-            return json.dumps({"ok": False, "error": "node_id is required"})
+            return json.dumps({"ok": False, "error": "id is required"})
+        pid = resolve_pid(node_id)
+        if not pid:
+            return json.dumps({"ok": False, "error": f"Process not found for node: {node_id}"})
         ok = store_delete_node(session_id, node_id, process_id=pid)
         if not ok:
             return json.dumps({"ok": False, "error": f"Node not found or cannot delete (start/end): {node_id}"})
