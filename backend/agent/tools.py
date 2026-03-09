@@ -3,6 +3,7 @@ import json
 import logging
 from typing import Callable
 
+from graph.model import LIST_METADATA_KEYS
 from graph.store import (
     add_edge as store_add_edge,
     add_node as store_add_node,
@@ -22,14 +23,14 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "update_node",
-            "description": "Update a node by id. Process inferred from id (e.g. P7.1 → Process_P7). Pass id and an updates object with any of: name, actor, duration_min (duration/time), cost_per_execution (cost), description, inputs, outputs, risks, automation_potential, automation_notes, current_state, frequency, annual_volume, error_rate_percent, current_systems, data_format, external_dependencies, regulatory_constraints, sla_target, pain_points, called_element. Only these fields are applied; others are ignored.",
+            "description": "Update a node by id. Process inferred from id. Use strings for all values (e.g. duration_min: '15 min', error_rate_percent: '5', cost_per_execution: '10'). Fields: name, actor, duration_min, cost_per_execution, description, inputs, outputs, risks, automation_potential, automation_notes, current_state, frequency, annual_volume, error_rate_percent, current_systems, data_format, external_dependencies, regulatory_constraints, sla_target, pain_points, called_element.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "id": {"type": "string", "description": "Node id (e.g. P1.1, P7.2). Process is inferred from it."},
                     "updates": {
                         "type": "object",
-                        "description": "Fields to set. Allowed: name, actor, duration_min (or duration/time), cost_per_execution (or cost), description, inputs, outputs, risks, automation_*, current_state, frequency, annual_volume, error_rate_percent, current_systems, data_format, external_dependencies, regulatory_constraints, sla_target, pain_points, called_element.",
+                        "description": "Fields to set. Use strings for every value (e.g. '15 min', '5', '10'). Lists (inputs, outputs, risks, etc.) as arrays of strings.",
                         "additionalProperties": True,
                     },
                 },
@@ -72,7 +73,7 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "update_edge",
-            "description": "Update an edge by source and target ids. Process inferred from source/target. Only two fields can be updated: label (string, e.g. transition name) and condition (string, e.g. for decision branches; use empty string to clear).",
+            "description": "Update an edge by source and target ids. Process inferred from source/target. Use strings only: label and condition (e.g. label: 'Yes', condition: 'if approved'; empty string to clear condition).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -80,7 +81,7 @@ TOOL_SCHEMAS: list[dict] = [
                     "target": {"type": "string", "description": "Target node id of the edge."},
                     "updates": {
                         "type": "object",
-                        "description": "Object with optional keys: label (string), condition (string). Only label and condition are applied; other keys are ignored.",
+                        "description": "Use strings: label (e.g. 'Yes'), condition (e.g. 'if approved'; '' to clear).",
                         "additionalProperties": True,
                     },
                 },
@@ -108,11 +109,11 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "delete_node",
-            "description": "Remove a node. Process inferred from id. Cannot delete start/end.",
+            "description": "Remove a node by its node id (e.g. P1, P2, P7.1). Use node ids from the graph—not process names like Process_P1. Deleting P1 on the global map removes that subprocess and its page. Process inferred from id. Cannot delete start/end.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "string", "description": "Node id."},
+                    "id": {"type": "string", "description": "Node id (e.g. P1, P2, P7.1). Use node id, not Process_P1."},
                 },
                 "required": ["id"],
             },
@@ -178,6 +179,19 @@ PLANNER_TOOL_SCHEMAS: list[dict] = [
 TOOL_HANDLERS: dict[str, ToolHandler] = {}
 
 
+def _updates_to_strings(updates: dict, list_keys: frozenset) -> dict:
+    """Coerce update values to strings so the graph always stores strings. Lists become list of strings."""
+    out = {}
+    for k, v in updates.items():
+        if v is None:
+            out[k] = ""
+        elif k in list_keys and isinstance(v, list):
+            out[k] = [str(x).strip() for x in v]
+        else:
+            out[k] = str(v).strip() if v != "" else ""
+    return out
+
+
 def _debug_tool_call(
     session_id: str,
     name: str,
@@ -220,6 +234,7 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
             updates["duration_min"] = updates.pop("duration")
         if "time" in updates and "duration_min" not in updates:
             updates["duration_min"] = updates.pop("time")
+        updates = _updates_to_strings(updates, LIST_METADATA_KEYS)
         result = store_update_node(session_id, node_id, updates, process_id=pid)
         if result is None:
             return json.dumps({"ok": False, "error": f"Step not found: {node_id}"})
@@ -255,7 +270,13 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
         pid = resolve_pid(source) or resolve_pid(target)
         if not pid:
             return json.dumps({"ok": False, "error": f"Process not found for edge: {source} -> {target}"})
-        result = store_update_edge(session_id, source, target, updates, process_id=pid)
+        # Coerce to strings; only pass keys the agent sent so we don't clear the other
+        edge_updates = {}
+        if "label" in updates:
+            edge_updates["label"] = str(updates.get("label") or "").strip()
+        if "condition" in updates:
+            edge_updates["condition"] = str(updates.get("condition") or "").strip()
+        result = store_update_edge(session_id, source, target, edge_updates, process_id=pid)
         if result is None:
             return json.dumps({"ok": False, "error": f"Edge not found: {source} -> {target}"})
         return json.dumps({"ok": True, "edge": result})

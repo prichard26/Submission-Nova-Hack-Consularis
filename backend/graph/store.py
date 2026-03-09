@@ -269,6 +269,13 @@ def get_process_id_for_step(session_id: str, step_id: str) -> str | None:
     return None
 
 
+def _safe_str(val: Any) -> str:
+    """Coerce to string and strip; handles numbers (e.g. error_rate_percent as int)."""
+    if val is None:
+        return ""
+    return str(val).strip()
+
+
 def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
     """Compact step summary + edges for LLM context. Uses step_order."""
     pid = _normalize_process_id(process_id)
@@ -280,12 +287,12 @@ def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
         if stype in ("start", "end"):
             continue
         sid = step.get("id", "")
-        label = step.get("name", "").strip()
-        actor = (step.get("actor") or "").strip()
-        duration = (step.get("duration_min") or "").strip()
-        cost = (step.get("cost_per_execution") or "").strip()
-        err = (step.get("error_rate_percent") or "").strip()
-        auto = (step.get("automation_potential") or "").strip().upper()
+        label = _safe_str(step.get("name"))
+        actor = _safe_str(step.get("actor"))
+        duration = _safe_str(step.get("duration_min"))
+        cost = _safe_str(step.get("cost_per_execution"))
+        err = _safe_str(step.get("error_rate_percent"))
+        auto = _safe_str(step.get("automation_potential")).upper()
         entry = f"{sid} ({label})" if label else sid
         extras = []
         if actor:
@@ -367,13 +374,13 @@ def get_graph_summary_for_analysis(session_id: str, process_id: str | None = Non
         if stype in ("start", "end"):
             continue
         sid = step.get("id", "")
-        label = step.get("name", "").strip()
-        actor = (step.get("actor") or "").strip()
-        duration = (step.get("duration_min") or "").strip()
-        cost = (step.get("cost_per_execution") or "").strip()
-        err = (step.get("error_rate_percent") or "").strip()
-        auto = (step.get("automation_potential") or "").strip().upper()
-        notes = (step.get("automation_notes") or "").strip()
+        label = _safe_str(step.get("name"))
+        actor = _safe_str(step.get("actor"))
+        duration = _safe_str(step.get("duration_min"))
+        cost = _safe_str(step.get("cost_per_execution"))
+        err = _safe_str(step.get("error_rate_percent"))
+        auto = _safe_str(step.get("automation_potential")).upper()
+        notes = _safe_str(step.get("automation_notes"))
         entry = f"{sid} ({label})" if label else sid
         extras = []
         if actor:
@@ -450,7 +457,7 @@ def get_analysis_metrics(session_id: str) -> dict[str, Any]:
             if step.get("type") in ("start", "end"):
                 continue
             step_count_here += 1
-            auto = (step.get("automation_potential") or "").strip().upper()
+            auto = _safe_str(step.get("automation_potential")).upper()
             if "HIGH" in auto or auto == "H":
                 high += 1
             elif "MEDIUM" in auto or "MED" in auto or auto == "M":
