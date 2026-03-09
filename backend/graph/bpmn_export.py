@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import xml.etree.ElementTree as ET
 
-from graph.model import ProcessGraph, STEP_METADATA_KEYS, LIST_METADATA_KEYS
+from graph.model import ProcessGraph, STEP_METADATA_KEYS, LIST_METADATA_KEYS, _node_attrs
 
 BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 CONSULARIS_NS = "http://consularis.example/bpmn"
@@ -47,10 +47,11 @@ def _sub(parent: ET.Element, tag: str, ns: str = BPMN_NS, text: str | None = Non
 
 
 def _extension_elements(step: dict) -> ET.Element | None:
+    attrs = _node_attrs(step)
     has_any = False
     ext_el = _elem("extensionElements", BPMN_NS)
     for key in STEP_METADATA_KEYS:
-        val = step.get(key)
+        val = attrs.get(key)
         if val is None:
             continue
         xml_tag = _KEY_TO_XML.get(key)
@@ -95,39 +96,35 @@ def export_bpmn_xml(graph: ProcessGraph, process_id: str | None = None) -> str:
         for ref in order:
             _sub(lane_el, "flowNodeRef", text=ref)
 
-    # Steps -> BPMN elements
+    # Nodes -> BPMN elements
     for step in graph.steps:
         sid = step["id"]
         stype = step.get("type", "step")
+        name = _node_attrs(step).get("name", step.get("name", ""))
         if stype == "start":
-            _sub(process, "startEvent", id=sid, name=step.get("name", "Start"))
+            _sub(process, "startEvent", id=sid, name=name or "Start")
         elif stype == "end":
-            _sub(process, "endEvent", id=sid, name=step.get("name", "End"))
+            _sub(process, "endEvent", id=sid, name=name or "End")
         elif stype == "decision":
-            _sub(process, "exclusiveGateway", id=sid, name=step.get("name", ""))
+            _sub(process, "exclusiveGateway", id=sid, name=name or "")
         elif stype == "subprocess":
-            call_el = _sub(process, "callActivity", id=sid,
-                          name=step.get("name", ""),
-                          calledElement=step.get("called_element", ""))
+            called = step.get("called_element") or step.get("id")
+            call_el = _sub(process, "callActivity", id=sid, name=name or "", calledElement=called or "")
             ext = _extension_elements(step)
             if ext is not None:
                 call_el.append(ext)
         else:
-            task_el = _sub(process, "task", id=sid, name=step.get("name", ""))
+            task_el = _sub(process, "task", id=sid, name=name or "")
             ext = _extension_elements(step)
             if ext is not None:
                 task_el.append(ext)
 
-    # Flows
-    for flow in graph.flows:
+    # Edges
+    for flow in graph.edges:
         src = flow["from"]
         tgt = flow["to"]
         fid = f"flow_{src}_{tgt}"
-        flow_el = _sub(process, "sequenceFlow", id=fid, sourceRef=src, targetRef=tgt,
-                      name=flow.get("label", ""))
-        if flow.get("condition"):
-            cond = _sub(flow_el, "conditionExpression", text=flow["condition"])
-            cond.set(f"{{{XSI_NS}}}type", "bpmn:tFormalExpression")
+        _sub(process, "sequenceFlow", id=fid, sourceRef=src, targetRef=tgt, name=flow.get("label", ""))
 
     ET.indent(definitions, space="  ")
     return ET.tostring(definitions, encoding="unicode", default_namespace="", method="xml")

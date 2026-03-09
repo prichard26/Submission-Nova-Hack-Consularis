@@ -40,7 +40,7 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 
 function Canvas({
   sessionId,
-  processId = 'Process_Global',
+  processId = 'global',
   refreshTrigger = 0,
   onStepSelect,
   onDrillDown,

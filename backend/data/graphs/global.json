@@ -1,151 +1,68 @@
 {
+  "id": "global",
   "name": "Pharmacy medication circuit",
-  "metadata": {
-    "owner": "Pharmacy Department",
-    "category": "clinical",
-    "criticality": "high"
-  },
-  "steps": [
+  "nodes": [
     {
-      "id": "Start_Global",
-      "name": "Start",
+      "id": "global_start",
       "type": "start",
-      "position": {
-        "x": 280,
-        "y": 78
-      }
+      "position": { "x": 280, "y": 78 }
     },
     {
-      "id": "P1",
+      "id": "S1",
       "name": "Prescription",
       "type": "subprocess",
-      "called_element": "Process_P1",
-      "position": {
-        "x": 504,
-        "y": 44
-      }
+      "position": { "x": 504, "y": 44 }
     },
     {
-      "id": "P2",
+      "id": "S2",
       "name": "Selection, Acquisition, and Reception",
       "type": "subprocess",
-      "called_element": "Process_P2",
-      "position": {
-        "x": 904,
-        "y": 44
-      }
+      "position": { "x": 904, "y": 44 }
     },
     {
-      "id": "P3",
+      "id": "S3",
       "name": "Storage and Storage Management",
       "type": "subprocess",
-      "called_element": "Process_P3",
-      "position": {
-        "x": 1417,
-        "y": 44
-      }
+      "position": { "x": 1417, "y": 44 }
     },
     {
-      "id": "P4",
+      "id": "S4",
       "name": "Distribution",
       "type": "subprocess",
-      "called_element": "Process_P4",
-      "position": {
-        "x": 1867,
-        "y": 44
-      }
+      "position": { "x": 1867, "y": 44 }
     },
     {
-      "id": "P5",
+      "id": "S5",
       "name": "Dispensing and Preparation",
       "type": "subprocess",
-      "called_element": "Process_P5",
-      "position": {
-        "x": 2267,
-        "y": 44
-      }
+      "position": { "x": 2267, "y": 44 }
     },
     {
-      "id": "P6",
+      "id": "S6",
       "name": "Administration",
       "type": "subprocess",
-      "called_element": "Process_P6",
-      "position": {
-        "x": 2681,
-        "y": 44
-      }
+      "position": { "x": 2681, "y": 44 }
     },
     {
-      "id": "P7",
+      "id": "S7",
       "name": "Monitoring and Waste Management",
       "type": "subprocess",
-      "called_element": "Process_P7",
-      "position": {
-        "x": 3081,
-        "y": 44
-      }
+      "position": { "x": 3081, "y": 44 }
     },
     {
-      "id": "End_Global",
-      "name": "End",
+      "id": "global_end",
       "type": "end",
-      "position": {
-        "x": 3540,
-        "y": 78
-      }
+      "position": { "x": 3540, "y": 78 }
     }
   ],
-  "flows": [
-    {
-      "from": "Start_Global",
-      "to": "P1",
-      "label": "Start"
-    },
-    {
-      "from": "P1",
-      "to": "P2",
-      "label": "P1 → P2"
-    },
-    {
-      "from": "P2",
-      "to": "P3",
-      "label": "P2 → P3"
-    },
-    {
-      "from": "P3",
-      "to": "P4",
-      "label": "P3 → P4"
-    },
-    {
-      "from": "P4",
-      "to": "P5",
-      "label": "P4 → P5"
-    },
-    {
-      "from": "P5",
-      "to": "P6",
-      "label": "P5 → P6"
-    },
-    {
-      "from": "P6",
-      "to": "P7",
-      "label": "P6 → P7"
-    },
-    {
-      "from": "P7",
-      "to": "End_Global",
-      "label": "Complete"
-    }
-  ],
-  "step_order": [
-    "Start_Global",
-    "P1",
-    "P2",
-    "P3",
-    "P4",
-    "P5",
-    "P6",
-    "P7",
-    "End_Global"
+  "edges": [
+    { "from": "global_start", "to": "S1", "label": "Start" },
+    { "from": "S1", "to": "S2", "label": "S1 → S2" },
+    { "from": "S2", "to": "S3", "label": "S2 → S3" },
+    { "from": "S3", "to": "S4", "label": "S3 → S4" },
+    { "from": "S4", "to": "S5", "label": "S4 → S5" },
+    { "from": "S5", "to": "S6", "label": "S5 → S6" },
+    { "from": "S6", "to": "S7", "label": "S6 → S7" },
+    { "from": "S7", "to": "global_end", "label": "Complete" }
   ]
 }

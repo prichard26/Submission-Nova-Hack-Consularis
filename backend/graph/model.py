@@ -1,7 +1,7 @@
 """JSON-native process graph model.
 
 ProcessGraph wraps a raw dict that IS the JSON document.
-No parsing or serializing -- mutations are direct dict operations.
+Structure: id, name, nodes, edges. Node metadata lives under attributes.
 """
 from __future__ import annotations
 
@@ -48,8 +48,16 @@ def default_step_metadata() -> dict:
     }
 
 
+def _node_attrs(node: dict) -> dict:
+    """All metadata for a node: attributes dict plus top-level name."""
+    attrs = dict(node.get("attributes") or {})
+    if node.get("name") is not None:
+        attrs["name"] = node["name"]
+    return attrs
+
+
 class ProcessGraph:
-    """JSON-native process graph.  ``self.data`` IS the JSON document."""
+    """JSON-native process graph. self.data IS the JSON document. Uses nodes and edges."""
 
     def __init__(self, data: dict):
         self.data = data
@@ -58,7 +66,7 @@ class ProcessGraph:
 
     @property
     def process_id(self) -> str:
-        """Optional: set by API when serving graph; not stored in JSON."""
+        """Set by API when serving; not stored in JSON."""
         return self.data.get("process_id", "")
 
     @property
@@ -74,63 +82,76 @@ class ProcessGraph:
         return self.data.get("metadata", {})
 
     @property
+    def nodes(self) -> list[dict]:
+        return self.data.setdefault("nodes", [])
+
+    @property
+    def edges(self) -> list[dict]:
+        return self.data.setdefault("edges", [])
+
+    @property
     def steps(self) -> list[dict]:
-        return self.data.setdefault("steps", [])
+        """Alias for nodes (same list)."""
+        return self.nodes
 
     @property
     def flows(self) -> list[dict]:
-        return self.data.setdefault("flows", [])
+        """Alias for edges (from/to/label)."""
+        return self.edges
 
     @property
     def step_order(self) -> list[str]:
-        order = self.data.get("step_order")
-        if order is not None:
-            return order
-        # Legacy: derive from lanes when present
-        lanes = self.data.get("lanes") or []
-        if lanes:
-            result = []
-            for lane in lanes:
-                refs = lane.get("node_refs") or []
-                result.extend(refs)
-            return result
-        return []
+        """Order of node ids (nodes array order)."""
+        return [n["id"] for n in self.nodes if n.get("id")]
 
     @step_order.setter
-    def step_order(self, value: list[str]) -> None:
-        self.data["step_order"] = list(value) if value is not None else []
+    def step_order(self, value: list[str] | None) -> None:
+        if not value:
+            return
+        by_id = {n["id"]: n for n in self.nodes if n.get("id")}
+        ordered = [by_id[sid] for sid in value if sid in by_id]
+        # keep any nodes not in value at the end
+        remaining = [n for n in self.nodes if n.get("id") not in by_id or n["id"] not in value]
+        self.data["nodes"] = ordered + remaining
 
     @property
     def lanes(self) -> list[dict]:
-        """Legacy: only present when graph has lanes in data. New format uses step_order only."""
-        return self.data.get("lanes") or []
+        """Single synthetic lane for UI compat: one lane with all node refs."""
+        return self.data.get("lanes") or [{
+            "id": "default",
+            "name": self.name or "",
+            "description": "",
+            "node_refs": self.step_order,
+        }]
 
     def get_lane(self, lane_id: str) -> dict | None:
-        """Legacy: return lane by id. New format has no lanes."""
         return next((ln for ln in self.lanes if ln.get("id") == lane_id), None)
 
     # -- lookups -----------------------------------------------------------
 
     def get_step(self, step_id: str) -> dict | None:
-        return next((s for s in self.steps if s.get("id") == step_id), None)
+        """Return node by id (alias for get_node)."""
+        return next((n for n in self.nodes if n.get("id") == step_id), None)
+
+    def get_node(self, node_id: str) -> dict | None:
+        return self.get_step(node_id)
 
     def get_flow(self, from_id: str, to_id: str) -> dict | None:
         return next(
-            (f for f in self.flows if f.get("from") == from_id and f.get("to") == to_id),
+            (e for e in self.edges if e.get("from") == from_id and e.get("to") == to_id),
             None,
         )
 
     def all_step_ids(self) -> set[str]:
-        return {s["id"] for s in self.steps if "id" in s}
+        return {n["id"] for n in self.nodes if n.get("id")}
 
     def steps_in_order(self) -> list[dict]:
-        """Return steps in step_order order; skip ids not found in steps."""
-        step_by_id = {s.get("id"): s for s in self.steps if s.get("id")}
-        return [step_by_id[sid] for sid in self.step_order if sid in step_by_id]
+        """Nodes in array order."""
+        return list(self.nodes)
 
     def step_type(self, step_id: str) -> str | None:
-        step = self.get_step(step_id)
-        return step.get("type") if step else None
+        node = self.get_step(step_id)
+        return node.get("type") if node else None
 
     # -- serialization -----------------------------------------------------
 

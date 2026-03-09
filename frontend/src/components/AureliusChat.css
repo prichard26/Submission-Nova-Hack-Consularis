@@ -234,9 +234,20 @@
   padding: 0.6rem;
   border-top: 1px solid var(--border);
   display: flex;
+  flex-direction: column;
   gap: 0.4rem;
   flex-shrink: 0;
 }
+.chat-panel__input-row {
+  display: flex;
+  gap: 0.4rem;
+}
+.chat-panel__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.chat-panel__hint strong { color: var(--text-primary); }
 
 .chat-panel__input {
   flex: 1;

@@ -1,0 +1,138 @@
+{
+  "id": "S2",
+  "name": "Selection, Acquisition, and Reception",
+  "nodes": [
+    {
+      "id": "S2_start",
+      "type": "start",
+      "position": { "x": 280, "y": 78 }
+    },
+    {
+      "id": "P2.1",
+      "name": "Select Medication",
+      "type": "step",
+      "position": { "x": 504, "y": 44 },
+      "attributes": {
+        "actor": "Pharmacist",
+        "duration_min": "15 min",
+        "description": "Choose the appropriate medication from available stock or formulary, considering therapeutic equivalence, cost, and availability.",
+        "inputs": ["Approved prescription", "Inventory data", "Formulary"],
+        "outputs": ["Selected medication item"],
+        "risks": ["Stock-out", "Wrong therapeutic equivalent"],
+        "automation_potential": "medium",
+        "automation_notes": "ERP-linked formulary lookup, auto-substitution suggestions",
+        "current_state": "semi_automated",
+        "frequency": "120/day",
+        "annual_volume": "43800",
+        "error_rate_percent": "1.5",
+        "cost_per_execution": "5.00 EUR",
+        "current_systems": ["ERP", "Formulary system"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Formulary DB", "Inventory system"],
+        "regulatory_constraints": ["Therapeutic substitution policies"],
+        "sla_target": "< 15 min",
+        "pain_points": ["Frequent stock-outs", "Manual formulary lookups"]
+      }
+    },
+    {
+      "id": "P2.2",
+      "name": "Acquire Medication",
+      "type": "step",
+      "position": { "x": 1140, "y": 44 },
+      "attributes": {
+        "actor": "Procurement / Pharmacist",
+        "duration_min": "1 hour – 3 days",
+        "description": "Place purchase orders with suppliers for medications not in stock. Includes vendor selection, PO creation, and order tracking.",
+        "inputs": ["Reorder point trigger", "Supplier catalog", "Budget approval"],
+        "outputs": ["Purchase order"],
+        "risks": ["Supply shortage", "Price volatility", "Supplier reliability"],
+        "automation_potential": "high",
+        "automation_notes": "Automated reorder points, EDI with suppliers, demand forecasting",
+        "current_state": "semi_automated",
+        "frequency": "15/day",
+        "annual_volume": "5475",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "25.00 EUR",
+        "current_systems": ["ERP", "Supplier portal"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Supplier EDI", "GPO contracts"],
+        "regulatory_constraints": ["Procurement regulations", "Controlled substance ordering"],
+        "sla_target": "< 24 hours",
+        "pain_points": ["Manual PO creation", "Price discrepancy resolution"]
+      }
+    },
+    {
+      "id": "P2.3",
+      "name": "Receive Shipment",
+      "type": "step",
+      "position": { "x": 1540, "y": 44 },
+      "attributes": {
+        "actor": "Pharmacy Technician",
+        "duration_min": "30 min",
+        "description": "Receive delivery from supplier, verify package integrity, check delivery documentation against purchase order.",
+        "inputs": ["Delivery", "Purchase order", "Packing slip"],
+        "outputs": ["Received goods"],
+        "risks": ["Damaged goods", "Wrong delivery", "Temperature excursion"],
+        "automation_potential": "medium",
+        "automation_notes": "Barcode/RFID scanning at receiving dock",
+        "current_state": "manual",
+        "frequency": "8/day",
+        "annual_volume": "2920",
+        "error_rate_percent": "3.5",
+        "cost_per_execution": "15.00 EUR",
+        "current_systems": ["Paper logs", "ERP"],
+        "data_format": "paper",
+        "external_dependencies": ["Supplier logistics"],
+        "regulatory_constraints": ["Cold chain regulations", "Controlled substance receiving"],
+        "sla_target": "< 30 min per shipment",
+        "pain_points": ["Manual counting", "Temperature verification delays"]
+      }
+    },
+    {
+      "id": "P2.4",
+      "name": "Verify Shipment",
+      "type": "step",
+      "position": { "x": 1940, "y": 44 },
+      "attributes": {
+        "actor": "Pharmacist / QA",
+        "duration_min": "20 min",
+        "description": "Quality assurance check: verify quantities, lot numbers, expiry dates, and product condition against order details.",
+        "inputs": ["Received goods", "Purchase order"],
+        "outputs": ["Verified inventory ready for storage"],
+        "risks": ["Expired products accepted", "Counterfeit drugs", "Quantity mismatch"],
+        "automation_potential": "high",
+        "automation_notes": "Automated lot/expiry scanning, serialization verification",
+        "current_state": "semi_automated",
+        "frequency": "8/day",
+        "annual_volume": "2920",
+        "error_rate_percent": "1.8",
+        "cost_per_execution": "12.00 EUR",
+        "current_systems": ["Barcode scanner", "ERP"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Serialization DB"],
+        "regulatory_constraints": ["Drug serialization laws", "Expiry management"],
+        "sla_target": "< 20 min per shipment",
+        "pain_points": ["Lot number entry errors", "Slow barcode reads"]
+      }
+    },
+    {
+      "id": "G2.1",
+      "name": "In stock?",
+      "type": "decision",
+      "position": { "x": 904, "y": 72 }
+    },
+    {
+      "id": "S2_end",
+      "type": "end",
+      "position": { "x": 2340, "y": 78 }
+    }
+  ],
+  "edges": [
+    { "from": "S2_start", "to": "P2.1", "label": "Start" },
+    { "from": "P2.1", "to": "G2.1", "label": "P2.1 → G2.1" },
+    { "from": "G2.1", "to": "P2.2", "label": "Out of stock" },
+    { "from": "P2.2", "to": "P2.3", "label": "Shipment arrives" },
+    { "from": "P2.3", "to": "P2.4", "label": "Shipment received" },
+    { "from": "P2.4", "to": "S2_end", "label": "Complete" }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "id": "S4",
+  "name": "Distribution",
+  "nodes": [
+    {
+      "id": "S4_start",
+      "type": "start",
+      "position": { "x": 280, "y": 78 }
+    },
+    {
+      "id": "P4.1",
+      "name": "Prepare Distribution",
+      "type": "step",
+      "position": { "x": 504, "y": 44 },
+      "attributes": {
+        "actor": "Pharmacy Technician",
+        "duration_min": "20–45 min per round",
+        "description": "Pick medications for ward/unit orders or patient-specific prescriptions. Build medication carts or fill ADC cassettes.",
+        "inputs": ["Ward orders", "Patient prescriptions", "Stock picks"],
+        "outputs": ["Prepared medication cart / ADC cassettes"],
+        "risks": ["Pick error", "Wrong patient allocation", "Incomplete cart"],
+        "automation_potential": "high",
+        "automation_notes": "Pharmacy robots, pick-to-light, automated cart fill",
+        "current_state": "manual",
+        "frequency": "30/day",
+        "annual_volume": "10950",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "12.00 EUR",
+        "current_systems": ["Paper pick lists", "ADC"],
+        "data_format": "paper",
+        "regulatory_constraints": ["Patient safety standards"],
+        "sla_target": "< 45 min per round",
+        "pain_points": ["Pick errors", "Incomplete carts", "Manual double-checking"]
+      }
+    },
+    {
+      "id": "P4.2",
+      "name": "Transport to Care Unit",
+      "type": "step",
+      "position": { "x": 904, "y": 44 },
+      "attributes": {
+        "actor": "Porter / Pneumatic tube / AGV",
+        "duration_min": "10–30 min",
+        "description": "Transport prepared medications from pharmacy to ward/unit. Methods: manual delivery, pneumatic tube systems, or automated guided vehicles.",
+        "inputs": ["Prepared cart / packages"],
+        "outputs": ["Medications at care unit"],
+        "risks": ["Delay", "Damage in transit", "Temperature excursion for cold chain"],
+        "automation_potential": "medium",
+        "automation_notes": "AGVs, pneumatic tubes, delivery tracking systems",
+        "current_state": "semi_automated",
+        "frequency": "20/day",
+        "annual_volume": "7300",
+        "error_rate_percent": "1.0",
+        "cost_per_execution": "8.00 EUR",
+        "current_systems": ["Pneumatic tube", "Porter service"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Transport logistics"],
+        "regulatory_constraints": ["Cold chain transport", "Controlled substance chain of custody"],
+        "sla_target": "< 30 min",
+        "pain_points": ["Delivery delays", "Cold chain breaks"]
+      }
+    },
+    {
+      "id": "P4.3",
+      "name": "Stock Care Unit",
+      "type": "step",
+      "position": { "x": 1304, "y": 44 },
+      "attributes": {
+        "actor": "Nurse / Pharmacy Technician",
+        "duration_min": "15–20 min",
+        "description": "Receive medications at ward, verify against order, and load into ward storage or ADC.",
+        "inputs": ["Medications at care unit", "Ward order"],
+        "outputs": ["Ward stock ready for administration"],
+        "risks": ["Wrong ward", "Receiving error", "ADC load error"],
+        "automation_potential": "medium",
+        "automation_notes": "ADC with barcode verification, nurse confirmation scan",
+        "current_state": "semi_automated",
+        "frequency": "20/day",
+        "annual_volume": "7300",
+        "error_rate_percent": "2.5",
+        "cost_per_execution": "7.00 EUR",
+        "current_systems": ["ADC", "Barcode scanner"],
+        "data_format": "digital_structured",
+        "regulatory_constraints": ["Ward stock management policies"],
+        "sla_target": "< 20 min",
+        "pain_points": ["ADC load errors", "Wrong ward deliveries"]
+      }
+    },
+    {
+      "id": "S4_end",
+      "type": "end",
+      "position": { "x": 1704, "y": 78 }
+    }
+  ],
+  "edges": [
+    { "from": "S4_start", "to": "P4.1", "label": "Start" },
+    { "from": "P4.1", "to": "P4.2", "label": "Cart prepared" },
+    { "from": "P4.2", "to": "P4.3", "label": "Delivered to unit" },
+    { "from": "P4.3", "to": "S4_end", "label": "Complete" }
+  ]
+}

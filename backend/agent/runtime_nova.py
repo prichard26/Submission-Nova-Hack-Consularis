@@ -1,7 +1,6 @@
 """Agent runtime using Amazon Nova via AWS Bedrock Converse API.
 
-Multi-agent flow: Planner (top) decides and talks to user; Executor (bottom) runs graph tools.
-Same contract: (final_message, graph_json, tools_used, tools_called, api_calls, input_tokens, output_tokens).
+Flow: Planner proposes with propose_plan → user sees plan + Apply plan button → user clicks Apply → Executor runs once (run_chat_confirm). Planner never executes; execution is one call on confirm.
 """
 import json
 import logging
@@ -20,7 +19,7 @@ from config import (
     BEDROCK_TIMEOUT,
     NOVA_MODEL_ID,
 )
-from graph.store import get_full_graph_summary, get_graph_json
+from graph.store import get_full_graph, get_graph_json
 from agent.prompt import EXECUTOR_SYSTEM_PROMPT, MULTIAGENT_CONTEXT, PLANNER_SYSTEM_PROMPT
 from agent.tools import PLANNER_TOOL_SCHEMAS, TOOL_SCHEMAS, run_tool
 
@@ -184,6 +183,32 @@ def _run_executor(
 _pending_plans: dict[str, dict] = {}  # session_id -> { instructions, steps, process_id }
 
 
+def _is_affirmative(text: str) -> bool:
+    """True if the user message is a short confirmation (apply / confirm / yes etc.)."""
+    if not text or not isinstance(text, str):
+        return False
+    t = text.strip().lower()
+    if not t:
+        return False
+    affirmatives = frozenset({
+        "apply", "confirm", "yes", "y", "ok", "okay", "do it", "go ahead", "sure", "proceed",
+        "apply plan", "confirm plan", "looks good", "sounds good",
+    })
+    if t in affirmatives:
+        return True
+    if t.startswith("apply") or t.startswith("confirm"):
+        return True
+    return False
+
+
+def _last_user_message_content(messages: list[dict]) -> str:
+    """Last user message content, or empty string."""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            return (m.get("content") or "").strip()
+    return ""
+
+
 # Multi-agent: Planner → (optional Executor) → Planner final reply
 # ---------------------------------------------------------------------------
 
@@ -193,14 +218,21 @@ def run_chat(
     max_rounds: int | None = None,
     process_id: str | None = None,
 ) -> tuple[str, str, bool, list[str], int, int, int, dict | None, bool]:
-    """Planner decides and talks to user; when it calls request_execution, Executor runs; when it calls propose_plan, we store plan and return requires_confirmation. Returns (final_message, graph_json, tools_used, tools_called_list, api_calls, input_tokens, output_tokens, pending_plan, requires_confirmation)."""
+    """Planner proposes and talks to user. If it calls propose_plan we store the plan and return requires_confirmation (user sees Apply plan button). Executor runs when user clicks Apply or types apply/confirm/yes. Returns (final_message, graph_json, tools_used, tools_called_list, api_calls, input_tokens, output_tokens, pending_plan, requires_confirmation)."""
     tools_used = False
     tools_called: list[str] = []
     _empty_usage = (0, 0, 0)
     pending_plan: dict | None = None
     requires_confirmation = False
 
-    # Clear any previous pending plan when starting a new turn (e.g. user sent a new message)
+    # If there is a pending plan and the user's last message is affirmative, run executor (same as clicking Apply).
+    last_content = _last_user_message_content(messages)
+    if _pending_plans.get(session_id) and _is_affirmative(last_content):
+        result = run_chat_confirm(session_id, process_id)
+        if result is not None:
+            return result
+
+    # No affirmative confirmation: clear any previous pending plan and run planner.
     _pending_plans.pop(session_id, None)
 
     if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
@@ -216,8 +248,9 @@ def run_chat(
         )
 
     client = _get_client()
-    full_graph = get_full_graph_summary(session_id)
-    system_block = [{"text": MULTIAGENT_CONTEXT + "\n\n" + PLANNER_SYSTEM_PROMPT + "\n\n" + full_graph}]
+    full_graph_data = get_full_graph(session_id)
+    full_graph_block = "**Full graph (all processes, nodes, edges):**\n```json\n" + json.dumps(full_graph_data, indent=2, ensure_ascii=False) + "\n```"
+    system_block = [{"text": MULTIAGENT_CONTEXT + "\n\n" + PLANNER_SYSTEM_PROMPT + "\n\n" + full_graph_block}]
     bedrock_messages = _chat_history_to_bedrock(messages)
     kwargs = {
         "modelId": NOVA_MODEL_ID,
@@ -277,10 +310,9 @@ def run_chat(
 
     tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
     propose_plan_block = next((b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "propose_plan"), None)
-    request_execution_block = next((b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "request_execution"), None)
 
-    # Planner proposed a plan for user confirmation: store it and return without running executor
-    if propose_plan_block is not None and request_execution_block is None:
+    # Planner proposed a plan: store it and return. Executor runs only when user clicks Apply plan (run_chat_confirm).
+    if propose_plan_block is not None:
         tu = propose_plan_block["toolUse"]
         args = tu.get("input", {})
         if isinstance(args, str):
@@ -298,10 +330,8 @@ def run_chat(
             "process_id": process_id,
         }
         reply = _sanitize_reply(planner_reply) if planner_reply else ""
-        if not reply or len(reply.strip()) < 30:
-            reply = "**Plan:**\n\n" + instructions.replace("\n", "\n\n") + "\n\nClick **Apply plan** when you're ready, or say what you'd like to change."
-        elif "apply plan" not in reply.lower() and "apply" not in reply.lower():
-            reply = reply.rstrip() + "\n\nClick **Apply plan** when you're ready."
+        if not reply or len(reply.strip()) < 20:
+            reply = (instructions or "Apply the changes below.").replace("\n", "\n\n")
         final_message = reply
         return (
             final_message,
@@ -315,72 +345,16 @@ def run_chat(
             True,
         )
 
-    if request_execution_block is None:
-        final_message = _sanitize_reply(planner_reply) if planner_reply else "I didn't catch that. What would you like to do?"
-        return final_message, get_graph_json(session_id, process_id=process_id), False, [], api_calls, input_tokens, output_tokens, None, False
-
-    tu = request_execution_block["toolUse"]
-    args = tu.get("input", {})
-    if isinstance(args, str):
-        try:
-            args = json.loads(args)
-        except json.JSONDecodeError:
-            args = {}
-    instructions = args.get("instructions", "") or "Apply the changes discussed."
-    steps = args.get("steps")
-    if not isinstance(steps, list):
-        steps = None
-
-    logger.info("[AGENT][NOVA] session_id=%s running executor (instructions len=%s, steps=%s)", session_id, len(instructions), len(steps) if steps else 0)
-    executor_summary, tools_called, exec_api, exec_in, exec_out = _run_executor(
-        client, session_id, instructions, steps, full_graph, process_id
-    )
-    api_calls += exec_api
-    input_tokens += exec_in
-    output_tokens += exec_out
-    tools_used = True
-
-    # Second planner call: summarize execution for the user
-    followup_messages = list(bedrock_messages)
-    followup_messages.append(output_message)
-    followup_messages.append({
-        "role": "user",
-        "content": [{"text": "Execution completed.\n\n**Results:** " + executor_summary + "\n\nReply to the user in a few sentences summarizing what was done. Do not call any tool."}],
-    })
-    kwargs_followup = {
-        "modelId": NOVA_MODEL_ID,
-        "system": system_block,
-        "messages": followup_messages,
-        "inferenceConfig": {"maxTokens": 1024, "temperature": 0.3},
-    }
-    try:
-        response2 = client.converse(**kwargs_followup)
-    except Exception as e:
-        logger.exception("[AGENT][NOVA] planner follow-up session_id=%s error: %s", session_id, e)
-        final_message = _sanitize_reply(planner_reply) + "\n\n" + executor_summary
-        return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, api_calls, input_tokens, output_tokens, None, False
-
-    api_calls += 1
-    input_tokens += response2.get("usage", {}).get("inputTokens", 0) or 0
-    output_tokens += response2.get("usage", {}).get("outputTokens", 0) or 0
-    content2 = response2.get("output", {}).get("message", {}).get("content", [])
-    final_message = ""
-    for block in content2:
-        if "text" in block:
-            final_message = block["text"].strip()
-            break
-    if not final_message:
-        final_message = _sanitize_reply(planner_reply) + "\n\n" + executor_summary
-    else:
-        final_message = _sanitize_reply(final_message)
-    return final_message, get_graph_json(session_id, process_id=process_id), tools_used, tools_called, api_calls, input_tokens, output_tokens, None, False
+    # No plan proposed: just return planner reply
+    final_message = _sanitize_reply(planner_reply) if planner_reply else "What would you like to do with the graph?"
+    return final_message, get_graph_json(session_id, process_id=process_id), False, [], api_calls, input_tokens, output_tokens, None, False
 
 
 def run_chat_confirm(
     session_id: str,
     process_id: str | None = None,
 ) -> tuple[str, str, bool, list[str], int, int, int, None, bool] | None:
-    """Run the executor with the stored pending plan (from propose_plan). Returns same 9-tuple as run_chat, or None if no pending plan."""
+    """User clicked Apply plan: run the executor once with the stored plan. Returns same 9-tuple as run_chat, or None if no pending plan."""
     plan = _pending_plans.pop(session_id, None)
     if not plan:
         return None
@@ -388,7 +362,8 @@ def run_chat_confirm(
         _pending_plans[session_id] = plan  # restore so they can retry after setting creds
         return None
     client = _get_client()
-    full_graph = get_full_graph_summary(session_id)
+    full_graph_data = get_full_graph(session_id)
+    full_graph = "**Full graph:**\n```json\n" + json.dumps(full_graph_data, indent=2, ensure_ascii=False) + "\n```"
     instructions = plan.get("instructions", "") or "Apply the changes discussed."
     steps = plan.get("steps")
     pid = plan.get("process_id") or process_id

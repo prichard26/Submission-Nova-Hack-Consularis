@@ -144,7 +144,7 @@ async def api_chat(req: ChatRequest):
             session_id, req.process_id, meta["tools_used"],
         )
         graph_dict = None
-        if graph_json_str or meta.get("tools_used"):
+        if graph_json_str or meta.get("tools_used") or meta.get("structural_change"):
             try:
                 graph_dict = get_graph_dict_for_client(session_id, req.process_id)
             except Exception:
@@ -188,7 +188,7 @@ async def api_chat_confirm(req: ChatConfirmRequest):
         "pending_plan": None,
     }
     graph_dict = None
-    if graph_json_str or meta.get("tools_used"):
+    if graph_json_str or meta.get("tools_used") or meta.get("structural_change"):
         try:
             graph_dict = get_graph_dict_for_client(session_id, req.process_id)
         except Exception:

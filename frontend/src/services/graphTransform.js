@@ -589,8 +589,9 @@ export function computeSmartHandles(nodes, edges, _direction = null, forceRecalc
 
 function computeLaneNodes(graph) {
   const nodes = []
-  if (!graph.lanes || !graph.steps) return nodes
-  const stepById = new Map((graph.steps || []).map((step) => [step.id, step]))
+  const stepsOrNodes = graph.nodes || graph.steps
+  if (!graph.lanes || !stepsOrNodes) return nodes
+  const stepById = new Map(stepsOrNodes.map((s) => [s.id, s]))
 
   for (const lane of graph.lanes) {
     const laneSteps = (lane.node_refs || [])
@@ -635,12 +636,13 @@ function computeLaneNodes(graph) {
 
 /**
  * Recompute lane nodes from placed step positions (e.g. after auto-layout).
- * graph.lanes and graph.steps define lane membership; positions come from placedNodes.
+ * graph.lanes and graph.nodes (or graph.steps) define lane membership; positions come from placedNodes.
  */
 export function computeLaneNodesFromPlaced(graph, placedNodes) {
   const nodes = []
-  if (!graph?.lanes || !graph?.steps) return nodes
-  const stepById = new Map((graph.steps || []).map((step) => [step.id, step]))
+  const stepsOrNodes = graph?.nodes || graph?.steps
+  if (!graph?.lanes || !stepsOrNodes) return nodes
+  const stepById = new Map(stepsOrNodes.map((s) => [s.id, s]))
   const positionById = new Map(placedNodes.map((n) => [n.id, n.position]))
 
   for (const lane of graph.lanes) {
@@ -692,27 +694,40 @@ export function toReactFlowData(graph, workspaceProcesses = {}) {
   const edges = []
   if (!graph) return { nodes: [], edges }
 
-  for (const step of graph.steps || []) {
-    const processInfo = workspaceProcesses[step.called_element] || {}
+  const stepsOrNodes = graph.nodes || graph.steps || []
+  const flowsOrEdges = graph.edges || graph.flows || []
+
+  for (const step of stepsOrNodes) {
+    const pageId = step.type === 'subprocess' ? step.id : step.called_element
+    const processInfo = workspaceProcesses[pageId] || {}
     const storedPosition = step.position || { x: 0, y: 0 }
     const dims = getNodeDimensions(step)
+    const attrs = step.attributes || {}
     nodes.push({
       id: step.id,
       type: step.type || 'step',
       position: centerToTopLeft(storedPosition, step),
       style: { width: dims.width, height: dims.height },
-      data: { ...step, workspaceInfo: processInfo },
+      data: {
+        ...step,
+        ...attrs,
+        name: step.name ?? attrs.name,
+        workspaceInfo: processInfo,
+        called_element: pageId,
+      },
       draggable: true,
       connectable: true,
     })
   }
   const stepNodes = nodes
 
-  for (const flow of graph.flows || []) {
+  for (const flow of flowsOrEdges) {
+    const fromId = flow.from ?? flow.source
+    const toId = flow.to ?? flow.target
     edges.push({
-      id: `${flow.from}->${flow.to}`,
-      source: flow.from,
-      target: flow.to,
+      id: `${fromId}->${toId}`,
+      source: fromId,
+      target: toId,
       sourceHandle: flow.source_handle || flow.sourceHandle || undefined,
       targetHandle: flow.target_handle || flow.targetHandle || undefined,
       label: flow.label || '',

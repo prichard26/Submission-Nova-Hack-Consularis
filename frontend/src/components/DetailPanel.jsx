@@ -69,12 +69,16 @@ export default function DetailPanel({ step, sessionId, processId, onClose, onUpd
 
   useEffect(() => {
     if (!step) return
+    const attrs = step.attributes || step
     const initial = {}
-    initial.name = step.name || ''
-    for (const f of TEXT_FIELDS) initial[f.key] = step[f.key] || ''
-    for (const f of TEXTAREA_FIELDS) initial[f.key] = step[f.key] || ''
-    initial.automation_potential = step.automation_potential || ''
-    for (const f of LIST_FIELDS) initial[f.key] = Array.isArray(step[f.key]) ? step[f.key].join(', ') : (step[f.key] || '')
+    initial.name = step.name ?? attrs.name ?? ''
+    for (const f of TEXT_FIELDS) initial[f.key] = attrs[f.key] ?? step[f.key] ?? ''
+    for (const f of TEXTAREA_FIELDS) initial[f.key] = attrs[f.key] ?? step[f.key] ?? ''
+    initial.automation_potential = attrs.automation_potential ?? step.automation_potential ?? ''
+    for (const f of LIST_FIELDS) {
+      const val = attrs[f.key] ?? step[f.key]
+      initial[f.key] = Array.isArray(val) ? val.join(', ') : (val ?? '')
+    }
     setForm(initial)
   }, [step])
 
@@ -95,9 +99,10 @@ export default function DetailPanel({ step, sessionId, processId, onClose, onUpd
           }
         }
         const promises = [updateStepFields(sessionId, processId, step.id, payload)]
-        if (payload.name && step.called_element) {
+        const pageId = step.called_element ?? (step.type === 'subprocess' ? step.id : null)
+        if (payload.name && pageId) {
           promises.push(
-            renameProcess(sessionId, step.called_element, payload.name).catch(() => {})
+            renameProcess(sessionId, pageId, payload.name).catch(() => {})
           )
         }
         Promise.all(promises)

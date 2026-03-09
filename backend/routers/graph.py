@@ -317,11 +317,12 @@ def _inject_lanes_for_client(data: dict, process_id: str) -> dict:
     data = dict(data)
     data["process_id"] = process_id
     if not data.get("lanes"):
+        node_refs = [n["id"] for n in data.get("nodes", []) if n.get("id")]
         data["lanes"] = [{
             "id": "default",
             "name": data.get("name", ""),
             "description": "",
-            "node_refs": data.get("step_order", []),
+            "node_refs": node_refs,
         }]
     return data
 

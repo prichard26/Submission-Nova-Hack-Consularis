@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from graph.model import ProcessGraph
 
+from graph.model import _node_attrs
+
 GAP_X = 360
 DEFAULT_X = 280
 DEFAULT_Y = 80
@@ -40,7 +42,7 @@ def step_size(step: dict) -> tuple[int, int]:
         return (EVENT_SIZE, EVENT_SIZE)
     if stype == "decision":
         return (GATEWAY_SIZE, GATEWAY_SIZE)
-    name = step.get("name", "")
+    name = _node_attrs(step).get("name", step.get("name", ""))
     w = max(len(name) * 9, STEP_WIDTH)
     w = min(w, 360)
     return (w, STEP_HEIGHT)

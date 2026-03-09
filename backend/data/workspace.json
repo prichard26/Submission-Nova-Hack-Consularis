@@ -3,21 +3,13 @@
   "workspace_id": "ws_pharmacy",
   "name": "Hospital Pharmacy Operations",
   "process_tree": {
-    "root": "Process_Global",
+    "root": "global",
     "processes": {
-      "Process_Global": {
+      "global": {
         "name": "Pharmacy medication circuit",
         "depth": 0,
-        "path": "/Process_Global",
-        "children": [
-          "Process_P1",
-          "Process_P2",
-          "Process_P3",
-          "Process_P4",
-          "Process_P5",
-          "Process_P6",
-          "Process_P7"
-        ],
+        "path": "/global",
+        "children": ["S1", "S2", "S3", "S4", "S5", "S6", "S7"],
         "graph_file": "global.json",
         "owner": "Pharmacy Department",
         "category": "clinical",
@@ -27,137 +19,90 @@
           "subprocess_count": 7
         }
       },
-      "Process_P1": {
+      "S1": {
         "name": "Prescription",
         "depth": 1,
-        "path": "/Process_Global/Process_P1",
+        "path": "/global/S1",
         "children": [],
-        "graph_file": "P1.json",
+        "graph_file": "S1.json",
         "owner": "Pharmacy Department",
         "category": "clinical",
         "criticality": "high",
-        "summary": {
-          "step_count": 3,
-          "subprocess_count": 0,
-          "avg_error_rate": 2.03,
-          "automation_coverage": "67%"
-        }
+        "summary": { "step_count": 3, "subprocess_count": 0 }
       },
-      "Process_P2": {
+      "S2": {
         "name": "Selection, Acquisition, and Reception",
         "depth": 1,
-        "path": "/Process_Global/Process_P2",
+        "path": "/global/S2",
         "children": [],
-        "graph_file": "P2.json",
+        "graph_file": "S2.json",
         "owner": "Pharmacy Department",
         "category": "supply_chain",
         "criticality": "high",
-        "summary": {
-          "step_count": 4,
-          "subprocess_count": 0,
-          "avg_error_rate": 2.2,
-          "automation_coverage": "50%"
-        }
+        "summary": { "step_count": 4, "subprocess_count": 0 }
       },
-      "Process_P3": {
+      "S3": {
         "name": "Storage and Storage Management",
         "depth": 1,
-        "path": "/Process_Global/Process_P3",
+        "path": "/global/S3",
         "children": [],
-        "graph_file": "P3.json",
+        "graph_file": "S3.json",
         "owner": "Pharmacy Department",
         "category": "logistics",
         "criticality": "medium",
-        "summary": {
-          "step_count": 3,
-          "subprocess_count": 0,
-          "avg_error_rate": 2.5,
-          "automation_coverage": "100%"
-        }
+        "summary": { "step_count": 3, "subprocess_count": 0 }
       },
-      "Process_P4": {
+      "S4": {
         "name": "Distribution",
         "depth": 1,
-        "path": "/Process_Global/Process_P4",
+        "path": "/global/S4",
         "children": [],
-        "graph_file": "P4.json",
+        "graph_file": "S4.json",
         "owner": "Pharmacy Department",
         "category": "logistics",
         "criticality": "high",
-        "summary": {
-          "step_count": 3,
-          "subprocess_count": 0,
-          "avg_error_rate": 2.17,
-          "automation_coverage": "33%"
-        }
+        "summary": { "step_count": 3, "subprocess_count": 0 }
       },
-      "Process_P5": {
+      "S5": {
         "name": "Dispensing and Preparation",
         "depth": 1,
-        "path": "/Process_Global/Process_P5",
+        "path": "/global/S5",
         "children": [],
-        "graph_file": "P5.json",
+        "graph_file": "S5.json",
         "owner": "Pharmacy Department",
         "category": "clinical",
         "criticality": "high",
-        "summary": {
-          "step_count": 3,
-          "subprocess_count": 0,
-          "avg_error_rate": 2.8,
-          "automation_coverage": "33%"
-        }
+        "summary": { "step_count": 3, "subprocess_count": 0 }
       },
-      "Process_P6": {
+      "S6": {
         "name": "Administration",
         "depth": 1,
-        "path": "/Process_Global/Process_P6",
+        "path": "/global/S6",
         "children": [],
-        "graph_file": "P6.json",
+        "graph_file": "S6.json",
         "owner": "Nursing Department",
         "category": "clinical",
         "criticality": "critical",
-        "summary": {
-          "step_count": 3,
-          "subprocess_count": 0,
-          "avg_error_rate": 2.27,
-          "automation_coverage": "67%"
-        }
+        "summary": { "step_count": 3, "subprocess_count": 0 }
       },
-      "Process_P7": {
+      "S7": {
         "name": "Monitoring and Waste Management",
         "depth": 1,
-        "path": "/Process_Global/Process_P7",
+        "path": "/global/S7",
         "children": [],
-        "graph_file": "P7.json",
+        "graph_file": "S7.json",
         "owner": "Pharmacy Department",
         "category": "compliance",
         "criticality": "high",
-        "summary": {
-          "step_count": 3,
-          "subprocess_count": 0,
-          "avg_error_rate": 3.67,
-          "automation_coverage": "33%"
-        }
+        "summary": { "step_count": 3, "subprocess_count": 0 }
       }
     }
   },
   "cross_links": [],
   "tags": {
-    "clinical": [
-      "Process_Global",
-      "Process_P1",
-      "Process_P5",
-      "Process_P6"
-    ],
-    "supply_chain": [
-      "Process_P2"
-    ],
-    "logistics": [
-      "Process_P3",
-      "Process_P4"
-    ],
-    "compliance": [
-      "Process_P7"
-    ]
+    "clinical": ["global", "S1", "S5", "S6"],
+    "supply_chain": ["S2"],
+    "logistics": ["S3", "S4"],
+    "compliance": ["S7"]
   }
 }

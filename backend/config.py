@@ -23,7 +23,7 @@ if not BASELINE_GRAPHS_DIR.is_absolute():
     BASELINE_GRAPHS_DIR = _BACKEND_DIR / BASELINE_GRAPHS_DIR
 BASELINE_WORKSPACE_PATH: Path = BASELINE_GRAPHS_DIR.parent / "workspace.json"
 
-DEFAULT_PROCESS_ID: str = os.getenv("DEFAULT_PROCESS_ID", "Process_Global")
+DEFAULT_PROCESS_ID: str = os.getenv("DEFAULT_PROCESS_ID", "global")
 
 # Agent
 MAX_TOOL_ROUNDS: int = int(os.getenv("MAX_TOOL_ROUNDS", "10"))

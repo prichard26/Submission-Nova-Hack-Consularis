@@ -11,7 +11,7 @@ const MAX_INPUT_ROWS = 8
 
 export default function AureliusChat({
   sessionId,
-  processId = 'Process_Global',
+  processId = 'global',
   onGraphUpdate,
   onClose,
   isOverlay = false,
@@ -209,19 +209,24 @@ export default function AureliusChat({
       </div>
 
       <form className="chat-panel__form" onSubmit={handleSend}>
-        <textarea
-          ref={inputRef}
-          className="chat-panel__input chat-panel__input--textarea"
-          placeholder="Describe a change or ask a question… (Shift+Enter: new line)"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onInputKeyDown}
-          disabled={loading}
-          rows={MIN_INPUT_ROWS}
-        />
-        <button className="chat-panel__send" type="submit" disabled={!input.trim() || loading} aria-label="Send message">
-          ↑
-        </button>
+        {pendingMessageId && (
+          <p className="chat-panel__hint">You can also type <strong>Apply</strong> or <strong>Confirm</strong> to apply the plan.</p>
+        )}
+        <div className="chat-panel__input-row">
+          <textarea
+            ref={inputRef}
+            className="chat-panel__input chat-panel__input--textarea"
+            placeholder={pendingMessageId ? "Type 'Apply' or 'Confirm', or ask for changes…" : "Describe a change or ask a question… (Shift+Enter: new line)"}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onInputKeyDown}
+            disabled={loading}
+            rows={MIN_INPUT_ROWS}
+          />
+          <button className="chat-panel__send" type="submit" disabled={!input.trim() || loading} aria-label="Send message">
+            ↑
+          </button>
+        </div>
       </form>
     </div>
   )

@@ -8,7 +8,7 @@ import { useWorkspace } from '../hooks/useWorkspace'
 import { sendChat, confirmChatPlan } from '../services/api'
 import './Dashboard.css'
 
-const DEFAULT_PROCESS_ID = 'Process_Global'
+const DEFAULT_PROCESS_ID = 'global'
 
 export default function Dashboard({ companyName }) {
   const navigate = useNavigate()
@@ -96,7 +96,8 @@ export default function Dashboard({ companyName }) {
         if (data.meta?.tools_used) {
           handleExternalGraphUpdate()
         }
-        if (data.graph_json && data.meta?.tools_used) {
+        // Run auto-arrange whenever the agent made any graph structure change
+        if (data.graph_json && (data.meta?.structural_change || data.meta?.tools_used)) {
           setStructuralChangeGraph(data.graph_json)
           setStructuralChangeFromChat(true)
         }
@@ -133,7 +134,8 @@ export default function Dashboard({ companyName }) {
       if (data.meta?.tools_used) {
         handleExternalGraphUpdate()
       }
-      if (data.graph_json && data.meta?.tools_used) {
+      // Run auto-arrange whenever the agent made any graph structure change
+      if (data.graph_json && (data.meta?.structural_change || data.meta?.tools_used)) {
         setStructuralChangeGraph(data.graph_json)
         setStructuralChangeFromChat(true)
       }

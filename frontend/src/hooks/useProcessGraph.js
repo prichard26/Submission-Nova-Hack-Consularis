@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getGraphJson, getBaselineJson } from '../services/api'
 
-export function useProcessGraph(sessionId, processId = 'Process_Global', refreshTrigger = 0) {
+export function useProcessGraph(sessionId, processId = 'global', refreshTrigger = 0) {
   const [state, setState] = useState({ graph: null, loading: false, error: null })
 
   useEffect(() => {

@@ -195,35 +195,57 @@ def clone_baseline_to_session(session_id: str) -> None:
         conn.commit()
 
 
+def force_clone_baseline_to_session(session_id: str) -> None:
+    """Overwrite session with baseline: all process graphs, workspace, and clear history/redo."""
+    sid = str(session_id)
+    with _conn_lock:
+        conn = get_conn()
+        conn.execute("DELETE FROM session_process_history WHERE session_id = ?", (sid,))
+        conn.execute("DELETE FROM session_process_redo WHERE session_id = ?", (sid,))
+        conn.execute("DELETE FROM session_processes WHERE session_id = ?", (sid,))
+        conn.execute("DELETE FROM session_workspace WHERE session_id = ?", (sid,))
+        conn.execute(
+            "INSERT INTO session_processes (session_id, process_id, graph_json) "
+            "SELECT ?, process_id, graph_json FROM baseline_processes",
+            (sid,),
+        )
+        ws = get_baseline_workspace()
+        if ws:
+            conn.execute(
+                "INSERT INTO session_workspace (session_id, workspace_json) VALUES (?, ?)",
+                (sid, ws),
+            )
+        conn.commit()
+
+
 def _empty_graph_json(session_id: str) -> str:
-    """Minimal graph: step_order, Start and End only (no lanes in stored doc)."""
+    """Minimal graph: id, name, nodes, edges (new format)."""
     name = f"{session_id}_map"
     return json.dumps({
+        "id": "global",
         "name": name,
-        "metadata": {},
-        "step_order": ["Start_Global", "End_Global"],
-        "steps": [
-            {"id": "Start_Global", "name": "Start", "type": "start", "position": {"x": 200, "y": 80}},
-            {"id": "End_Global", "name": "End", "type": "end", "position": {"x": 500, "y": 80}},
+        "nodes": [
+            {"id": "global_start", "type": "start", "position": {"x": 200, "y": 80}},
+            {"id": "global_end", "type": "end", "position": {"x": 500, "y": 80}},
         ],
-        "flows": [{"from": "Start_Global", "to": "End_Global", "label": ""}],
+        "edges": [{"from": "global_start", "to": "global_end", "label": "Start"}],
     }, ensure_ascii=False, indent=2)
 
 
 def _empty_workspace_json(session_id: str) -> str:
-    """Minimal workspace: root Process_Global, no children."""
+    """Minimal workspace: root global, no children."""
     name = f"{session_id}_map"
     return json.dumps({
         "format_version": "1.0",
         "workspace_id": "ws_session",
         "name": session_id,
         "process_tree": {
-            "root": "Process_Global",
+            "root": "global",
             "processes": {
-                "Process_Global": {
+                "global": {
                     "name": name,
                     "depth": 0,
-                    "path": "/Process_Global",
+                    "path": "/global",
                     "children": [],
                     "summary": {"step_count": 0, "subprocess_count": 0},
                 }
@@ -249,7 +271,7 @@ def init_empty_session(session_id: str) -> None:
         graph_json = _empty_graph_json(sid)
         workspace_json = _empty_workspace_json(sid)
         conn.execute(
-            "INSERT INTO session_processes (session_id, process_id, graph_json) VALUES (?, 'Process_Global', ?)",
+            "INSERT INTO session_processes (session_id, process_id, graph_json) VALUES (?, 'global', ?)",
             (sid, graph_json),
         )
         conn.execute(
