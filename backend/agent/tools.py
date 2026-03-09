@@ -17,7 +17,7 @@ from graph.store import (
 ToolHandler = Callable[[str, dict, str | None], str]
 logger = logging.getLogger("consularis.agent")
 
-# Tools: id-only. Process is derived from id (e.g. P7.1 → Process_P7).
+
 TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
@@ -27,7 +27,7 @@ TOOL_SCHEMAS: list[dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "string", "description": "Node id (e.g. P1.1, P7.2). Process is inferred from it."},
+                    "id": {"type": "string", "description": "Node id (e.g. P1.1, P7.2, p7.1.1). Process is inferred from it."},
                     "updates": {
                         "type": "object",
                         "description": "Fields to set. Use strings for every value (e.g. '15 min', '5', '10'). Lists (inputs, outputs, risks, etc.) as arrays of strings.",
@@ -93,11 +93,11 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "add_node",
-            "description": "Add a node. location_id = process or any node id in that process. Type: step|decision|subprocess. System assigns id; subprocess gets Start/End.",
+            "description": "Add a node. location_id must be a node id (e.g. Start_Global, P1, P7.1). Type: step|decision|subprocess. Subprocess gets Start/End automatically.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "location_id": {"type": "string", "description": "Process id (Process_P7) or node id in that process (P7.1)."},
+                    "location_id": {"type": "string", "description": "Node id only (e.g. Start_Global, P1, P7.1)"},
                     "type": {"type": "string", "description": "step, decision, or subprocess.", "enum": ["step", "decision", "subprocess"]},
                     "name": {"type": "string", "description": "Optional display name."},
                 },
@@ -109,11 +109,11 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "delete_node",
-            "description": "Remove a node by its node id (e.g. P1, P2, P7.1). Use node ids from the graph—not process names like Process_P1. Deleting P1 on the global map removes that subprocess and its page. Process inferred from id. Cannot delete start/end.",
+            "description": "Remove a node by its node id (e.g. P1, P2, P7.1). Cannot delete start/end.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "string", "description": "Node id (e.g. P1, P2, P7.1). Use node id, not Process_P1."},
+                    "id": {"type": "string", "description": "Node id (e.g. P1, P2, P7.1)"},
                 },
                 "required": ["id"],
             },
@@ -287,10 +287,7 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
             return json.dumps({"ok": False, "error": "location_id and type are required"})
         if step_type not in ("step", "decision", "subprocess"):
             step_type = "step"
-        if location_id.startswith("Process_"):
-            pid = location_id
-        else:
-            pid = get_process_id_for_step(session_id, location_id)
+        pid = get_process_id_for_step(session_id, location_id)
         if not pid:
             return json.dumps({"ok": False, "error": f"Process not found for location: {location_id}"})
         name_val = (arguments.get("name") or "").strip()
