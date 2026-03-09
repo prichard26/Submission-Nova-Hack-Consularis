@@ -112,11 +112,10 @@ export default function DashboardTutorial({
 
   useEffect(() => {
     updateHighlight()
-    const onResize = () => updateHighlight()
-    window.addEventListener('resize', onResize)
+    window.addEventListener('resize', updateHighlight)
     const raf = requestAnimationFrame(updateHighlight)
     return () => {
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', updateHighlight)
       cancelAnimationFrame(raf)
     }
   }, [updateHighlight])

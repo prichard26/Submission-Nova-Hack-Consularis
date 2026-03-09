@@ -175,11 +175,6 @@ export function confirmChatPlan(sessionId, options = {}) {
   })
 }
 
-/** Cumulative usage: total_api_calls, total_input_tokens, total_output_tokens, total_tokens */
-export function getUsageStats(options = {}) {
-  return request('/api/stats', { ...options, method: 'GET' })
-}
-
 // ---------------------------------------------------------------------------
 // Session init (template vs blank)
 // ---------------------------------------------------------------------------

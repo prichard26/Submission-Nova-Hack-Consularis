@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
 import db
-from config import SESSION_ID_MAX_LEN
+from routers.validation import validate_session_id
 
 logger = logging.getLogger("consularis")
 
@@ -19,12 +19,7 @@ class SessionInitRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def session_id_valid(cls, v: str) -> str:
-        v = (v or "").strip()
-        if not v:
-            raise ValueError("session_id is required")
-        if len(v) > SESSION_ID_MAX_LEN:
-            raise ValueError(f"session_id must be at most {SESSION_ID_MAX_LEN} characters")
-        return v
+        return validate_session_id(v)
 
 
 class SessionInitResponse(BaseModel):

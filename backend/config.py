@@ -14,6 +14,7 @@ AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
 AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
 NOVA_MODEL_ID: str = os.getenv("NOVA_MODEL_ID", "us.amazon.nova-pro-v1:0")
+NOVA_CHEAP_MODEL_ID: str = os.getenv("NOVA_CHEAP_MODEL_ID", NOVA_MODEL_ID)
 
 # Paths
 _default_graphs_dir = _BACKEND_DIR / "data" / "graphs"
@@ -29,6 +30,8 @@ DEFAULT_PROCESS_ID: str = os.getenv("DEFAULT_PROCESS_ID", "global")
 MAX_TOOL_ROUNDS: int = int(os.getenv("MAX_TOOL_ROUNDS", "10"))
 BEDROCK_TIMEOUT: int = int(os.getenv("BEDROCK_TIMEOUT", "120"))
 BEDROCK_MAX_RETRIES: int = int(os.getenv("BEDROCK_MAX_RETRIES", "2"))
+MAX_RECENT_MESSAGES: int = int(os.getenv("MAX_RECENT_MESSAGES", "20"))
+SUMMARY_MODEL_MAX_TOKENS: int = int(os.getenv("SUMMARY_MODEL_MAX_TOKENS", "512"))
 
 # CORS (comma-separated or default)
 _cors = os.getenv("ALLOWED_CORS_ORIGINS", "http://localhost:5173,http://localhost:5174")
@@ -36,3 +39,6 @@ ALLOWED_CORS_ORIGINS: list[str] = [o.strip() for o in _cors.split(",") if o.stri
 
 # Session validation
 SESSION_ID_MAX_LEN: int = 256
+
+# Logging
+LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()

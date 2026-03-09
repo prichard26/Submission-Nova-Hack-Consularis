@@ -1,5 +1,4 @@
-"""Chat flow: run_chat returns (message, graph_json, tools_used, ...); API returns meta."""
-import json
+"""Chat flow: run_chat returns a ChatResult and API returns meta."""
 
 from agent import run_chat
 
@@ -7,14 +6,12 @@ from agent import run_chat
 def test_run_chat_returns_tools_used_flag():
 
     sid = "test-returns-three"
-    result = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}], max_rounds=1)
-    msg, graph_json_str, tools_used, tools_called, api_calls, input_tokens, output_tokens, pending_plan, requires_confirmation = result
-    assert isinstance(msg, str)
-    assert isinstance(graph_json_str, str)
-    data = json.loads(graph_json_str)
-    assert "steps" in data
-    assert isinstance(tools_used, bool)
-    assert tools_used is False
+    result = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}])
+    assert isinstance(result.message, str)
+    assert isinstance(result.include_graph, bool)
+    assert result.include_graph is True
+    assert isinstance(result.tools_used, bool)
+    assert result.tools_used is False
 
 
 def test_api_chat_returns_meta(client):

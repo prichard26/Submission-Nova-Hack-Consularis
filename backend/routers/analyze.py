@@ -8,8 +8,8 @@ from pydantic import BaseModel, field_validator
 
 import db
 from agent.analyzer import run_analysis
-from config import SESSION_ID_MAX_LEN
 from graph.store import get_analysis_metrics
+from routers.validation import validate_session_id
 
 logger = logging.getLogger("consularis")
 
@@ -22,11 +22,7 @@ class AnalyzeRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def session_id_non_empty(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("session_id is required")
-        if len(v) > SESSION_ID_MAX_LEN:
-            raise ValueError(f"session_id must be at most {SESSION_ID_MAX_LEN} characters")
-        return v.strip()
+        return validate_session_id(v)
 
 
 class AnalyzeResponse(BaseModel):
@@ -42,11 +38,7 @@ class AppointmentRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def session_id_non_empty(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("session_id is required")
-        if len(v) > SESSION_ID_MAX_LEN:
-            raise ValueError(f"session_id must be at most {SESSION_ID_MAX_LEN} characters")
-        return v.strip()
+        return validate_session_id(v)
 
     @field_validator("email")
     @classmethod

@@ -8,6 +8,7 @@ export default function ProcessNameHeader({
   sessionId,
   onDrillDown,
   onRequestRefresh,
+  beginRenameTrigger = 0,
 }) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(processDisplayName)
@@ -18,10 +19,16 @@ export default function ProcessNameHeader({
     setEditValue(processDisplayName)
   }, [processDisplayName])
 
+  // When parent triggers rename (e.g. toolbar "Rename map" button), start editing
+  useEffect(() => {
+    if (beginRenameTrigger > 0) setEditing(true)
+  }, [beginRenameTrigger])
+
   useEffect(() => {
     if (editing && inputRef.current) {
       inputRef.current.focus()
       inputRef.current.select()
+      inputRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
     }
   }, [editing])
 

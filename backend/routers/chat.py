@@ -12,8 +12,8 @@ import db
 import stats
 from agent import run_chat
 from agent.runtime_nova import run_chat_confirm
-from config import SESSION_ID_MAX_LEN
 from graph.store import get_graph_dict_for_client
+from routers.validation import validate_session_id
 
 logger = logging.getLogger("consularis")
 
@@ -24,16 +24,21 @@ STRUCTURAL_TOOLS = frozenset({
 })
 
 
-def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None):
-    """Append user message, run agent, append assistant message."""
-    db.append_chat_message(session_id, "user", user_message)
-    result = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id)
-    message, graph_json_str, tools_used, tools_called, api_calls, input_tokens, output_tokens, pending_plan, requires_confirmation = result
-    db.append_chat_message(session_id, "assistant", message)
+def _build_meta(
+    session_id: str,
+    process_id: str | None,
+    tools_used: bool,
+    tools_called: list[str],
+    api_calls: int,
+    input_tokens: int,
+    output_tokens: int,
+    requires_confirmation: bool = False,
+    pending_plan: dict | None = None,
+) -> dict:
     structural_change = any(t in STRUCTURAL_TOOLS for t in tools_called)
     stats.add_usage(api_calls=api_calls, input_tokens=input_tokens, output_tokens=output_tokens)
     cumulative = stats.get_stats()
-    meta = {
+    return {
         "tools_used": tools_used,
         "structural_change": structural_change,
         "session_id": session_id,
@@ -49,7 +54,43 @@ def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None
         "requires_confirmation": requires_confirmation,
         "pending_plan": pending_plan,
     }
-    return message, graph_json_str, meta
+
+
+def _build_chat_response(message: str, session_id: str, process_id: str | None, meta: dict, include_graph: bool) -> dict:
+    graph_dict = _try_get_graph_dict(session_id, process_id, include_graph, meta)
+    workspace_dict = None
+    if graph_dict is not None:
+        try:
+            ws_json = db.get_session_workspace(session_id)
+            workspace_dict = json.loads(ws_json) if ws_json else None
+        except Exception:
+            logger.warning("workspace parse failed for session_id=%s", session_id, exc_info=True)
+    return {
+        "message": message,
+        "graph_json": graph_dict,
+        "workspace": workspace_dict,
+        "process_id": process_id,
+        "meta": meta,
+    }
+
+
+def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None):
+    """Append user message, run agent, append assistant message."""
+    db.append_chat_message(session_id, "user", user_message)
+    result = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id)
+    db.append_chat_message(session_id, "assistant", result.message)
+    meta = _build_meta(
+        session_id,
+        process_id,
+        result.tools_used,
+        result.tools_called,
+        result.api_calls,
+        result.input_tokens,
+        result.output_tokens,
+        result.requires_confirmation,
+        result.pending_plan,
+    )
+    return result.message, result.include_graph, meta
 
 
 MAX_SESSION_LOCKS = 500
@@ -69,6 +110,16 @@ def _lock_for_session(session_id: str) -> threading.Lock:
         return lock
 
 
+def _try_get_graph_dict(session_id: str, process_id: str | None, include_graph: bool, meta: dict) -> dict | None:
+    if not (include_graph or meta.get("tools_used") or meta.get("structural_change")):
+        return None
+    try:
+        return get_graph_dict_for_client(session_id, process_id)
+    except Exception:
+        logger.warning("get_graph_dict_for_client failed for session_id=%s", session_id, exc_info=True)
+        return None
+
+
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
@@ -80,11 +131,7 @@ class ChatRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def session_id_non_empty(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("session_id is required")
-        if len(v) > SESSION_ID_MAX_LEN:
-            raise ValueError(f"session_id must be at most {SESSION_ID_MAX_LEN} characters")
-        return v.strip()
+        return validate_session_id(v)
 
 
 class ChatResponseMeta(BaseModel):
@@ -107,6 +154,7 @@ class ChatResponseMeta(BaseModel):
 class ChatResponse(BaseModel):
     message: str
     graph_json: dict | None = None
+    workspace: dict | None = None
     process_id: str | None = None
     meta: ChatResponseMeta
 
@@ -118,11 +166,7 @@ class ChatConfirmRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def session_id_non_empty(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("session_id is required")
-        if len(v) > SESSION_ID_MAX_LEN:
-            raise ValueError(f"session_id must be at most {SESSION_ID_MAX_LEN} characters")
-        return v.strip()
+        return validate_session_id(v)
 
 
 @router.get("/stats")
@@ -136,25 +180,14 @@ async def api_chat(req: ChatRequest):
     session_id = req.session_id
     lock = _lock_for_session(session_id)
     with lock:
-        message, graph_json_str, meta = await asyncio.to_thread(
+        message, include_graph, meta = await asyncio.to_thread(
             _handle_chat_turn, session_id, req.message, req.process_id
         )
         logger.info(
             "chat session_id=%s process_id=%s tools_used=%s",
             session_id, req.process_id, meta["tools_used"],
         )
-        graph_dict = None
-        if graph_json_str or meta.get("tools_used") or meta.get("structural_change"):
-            try:
-                graph_dict = get_graph_dict_for_client(session_id, req.process_id)
-            except Exception:
-                pass
-        return {
-            "message": message,
-            "graph_json": graph_dict,
-            "process_id": req.process_id,
-            "meta": meta,
-        }
+        return _build_chat_response(message, session_id, req.process_id, meta, include_graph)
 
 
 @router.post("/chat/confirm", response_model=ChatResponse)
@@ -166,36 +199,14 @@ async def api_chat_confirm(req: ChatConfirmRequest):
         result = await asyncio.to_thread(run_chat_confirm, session_id, req.process_id)
     if result is None:
         raise HTTPException(status_code=400, detail="No pending plan to apply. Send a message and ask for a plan first.")
-    message, graph_json_str, tools_used, tools_called, api_calls, input_tokens, output_tokens, _, _ = result
-    db.append_chat_message(session_id, "assistant", message)
-    structural_change = any(t in STRUCTURAL_TOOLS for t in tools_called)
-    stats.add_usage(api_calls=api_calls, input_tokens=input_tokens, output_tokens=output_tokens)
-    cumulative = stats.get_stats()
-    meta = {
-        "tools_used": tools_used,
-        "structural_change": structural_change,
-        "session_id": session_id,
-        "process_id": req.process_id,
-        "tool_calls_this_turn": tools_called,
-        "api_calls_this_turn": api_calls,
-        "input_tokens_this_turn": input_tokens,
-        "output_tokens_this_turn": output_tokens,
-        "total_api_calls": cumulative["total_api_calls"],
-        "total_input_tokens": cumulative["total_input_tokens"],
-        "total_output_tokens": cumulative["total_output_tokens"],
-        "total_tokens": cumulative["total_tokens"],
-        "requires_confirmation": False,
-        "pending_plan": None,
-    }
-    graph_dict = None
-    if graph_json_str or meta.get("tools_used") or meta.get("structural_change"):
-        try:
-            graph_dict = get_graph_dict_for_client(session_id, req.process_id)
-        except Exception:
-            pass
-    return {
-        "message": message,
-        "graph_json": graph_dict,
-        "process_id": req.process_id,
-        "meta": meta,
-    }
+    db.append_chat_message(session_id, "assistant", result.message)
+    meta = _build_meta(
+        session_id,
+        req.process_id,
+        result.tools_used,
+        result.tools_called,
+        result.api_calls,
+        result.input_tokens,
+        result.output_tokens,
+    )
+    return _build_chat_response(result.message, session_id, req.process_id, meta, result.include_graph)

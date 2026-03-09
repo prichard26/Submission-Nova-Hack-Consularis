@@ -82,6 +82,18 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS conversation_summaries (
+            session_id       TEXT PRIMARY KEY,
+            summary_text     TEXT NOT NULL,
+            summarized_up_to INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS pending_plans (
+            session_id   TEXT PRIMARY KEY,
+            plan_json    TEXT NOT NULL,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_session_processes_sid
             ON session_processes(session_id);
         CREATE INDEX IF NOT EXISTS idx_chat_messages_sid
@@ -219,7 +231,7 @@ def force_clone_baseline_to_session(session_id: str) -> None:
 
 
 def _empty_graph_json(session_id: str) -> str:
-    """Minimal graph: id, name, nodes, edges (new format)."""
+    """Minimal graph: id, name, nodes, edges (new format). Start and end only, no edge — user or agent adds subprocesses and edges."""
     name = f"{session_id}_map"
     return json.dumps({
         "id": "global",
@@ -228,7 +240,7 @@ def _empty_graph_json(session_id: str) -> str:
             {"id": "global_start", "type": "start", "position": {"x": 200, "y": 80}},
             {"id": "global_end", "type": "end", "position": {"x": 500, "y": 80}},
         ],
-        "edges": [{"from": "global_start", "to": "global_end", "label": "Start"}],
+        "edges": [],
     }, ensure_ascii=False, indent=2)
 
 
@@ -432,12 +444,88 @@ def delete_session_process(session_id: str, process_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 def get_chat_history(session_id: str) -> list[dict]:
+    """Return all chat messages for the session in order. Each dict has id, role, content."""
     conn = get_conn()
     rows = conn.execute(
-        "SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY id",
+        "SELECT id, role, content FROM chat_messages WHERE session_id = ? ORDER BY id",
         (session_id,),
     ).fetchall()
-    return [{"role": r["role"], "content": r["content"]} for r in rows]
+    return [{"id": r["id"], "role": r["role"], "content": r["content"]} for r in rows]
+
+
+def get_conversation_summary(session_id: str) -> tuple[str, int] | None:
+    """Return (summary_text, summarized_up_to_id) for the session, or None if none stored."""
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT summary_text, summarized_up_to FROM conversation_summaries WHERE session_id = ?",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return (row["summary_text"], row["summarized_up_to"])
+
+
+def upsert_conversation_summary(session_id: str, summary_text: str, summarized_up_to: int) -> None:
+    """Store or replace the rolling conversation summary for the session."""
+    with _conn_lock:
+        conn = get_conn()
+        conn.execute(
+            "INSERT OR REPLACE INTO conversation_summaries (session_id, summary_text, summarized_up_to) VALUES (?, ?, ?)",
+            (session_id, summary_text, summarized_up_to),
+        )
+        conn.commit()
+
+
+def upsert_pending_plan(session_id: str, plan: dict) -> None:
+    """Store or replace the pending plan for a session."""
+    with _conn_lock:
+        conn = get_conn()
+        conn.execute(
+            "INSERT OR REPLACE INTO pending_plans (session_id, plan_json) VALUES (?, ?)",
+            (session_id, json.dumps(plan, ensure_ascii=False)),
+        )
+        conn.commit()
+
+
+def get_pending_plan(session_id: str) -> dict | None:
+    """Return pending plan for a session, or None."""
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT plan_json FROM pending_plans WHERE session_id = ?",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    try:
+        return json.loads(row["plan_json"])
+    except Exception:
+        return None
+
+
+def delete_pending_plan(session_id: str) -> None:
+    """Delete pending plan for a session."""
+    with _conn_lock:
+        conn = get_conn()
+        conn.execute("DELETE FROM pending_plans WHERE session_id = ?", (session_id,))
+        conn.commit()
+
+
+def pop_pending_plan(session_id: str) -> dict | None:
+    """Atomically fetch and delete pending plan for a session."""
+    with _conn_lock:
+        conn = get_conn()
+        row = conn.execute(
+            "SELECT plan_json FROM pending_plans WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        conn.execute("DELETE FROM pending_plans WHERE session_id = ?", (session_id,))
+        conn.commit()
+    try:
+        return json.loads(row["plan_json"])
+    except Exception:
+        return None
 
 
 def append_chat_message(session_id: str, role: str, content: str) -> None:

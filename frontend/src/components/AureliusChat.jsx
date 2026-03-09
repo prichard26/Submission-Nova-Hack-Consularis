@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { sendChat, confirmChatPlan } from '../services/api'
+import { useChat } from '../hooks/useChat'
 import BotFace from './BotFace'
 import './AureliusChat.css'
 
@@ -26,23 +26,17 @@ export default function AureliusChat({
   onCancelPlan: controlledOnCancelPlan,
   confirmLoading: controlledConfirmLoading,
 }) {
-  const [uncontrolledMessages, setUncontrolledMessages] = useState([
-    { id: 1, role: 'assistant', text: WELCOME_MSG }
-  ])
-  const [uncontrolledInput, setUncontrolledInput] = useState('')
-  const [uncontrolledLoading, setUncontrolledLoading] = useState(false)
-  const [uncontrolledPendingMessageId, setUncontrolledPendingMessageId] = useState(null)
-  const [confirmLoading, setConfirmLoading] = useState(false)
+  const uncontrolled = useChat(sessionId, { processId, onGraphUpdate: onGraphUpdate })
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
   const isControlled = controlledMessages != null && controlledOnSend != null
-  const messages = isControlled ? controlledMessages : uncontrolledMessages
-  const input = isControlled ? (controlledInput ?? '') : uncontrolledInput
-  const setInput = isControlled ? (onInputChange ?? (() => {})) : setUncontrolledInput
-  const loading = isControlled ? (controlledLoading ?? false) : uncontrolledLoading
-  const pendingMessageId = isControlled ? (controlledPendingMessageId ?? null) : uncontrolledPendingMessageId
-  const confirmLoadingState = isControlled ? (controlledConfirmLoading ?? false) : confirmLoading
+  const messages = isControlled ? controlledMessages : uncontrolled.messages
+  const input = isControlled ? (controlledInput ?? '') : uncontrolled.input
+  const setInput = isControlled ? (onInputChange ?? (() => {})) : uncontrolled.setInput
+  const loading = isControlled ? (controlledLoading ?? false) : uncontrolled.loading
+  const pendingMessageId = isControlled ? (controlledPendingMessageId ?? null) : uncontrolled.pendingMessageId
+  const confirmLoadingState = isControlled ? (controlledConfirmLoading ?? false) : uncontrolled.confirmLoading
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -61,56 +55,15 @@ export default function AureliusChat({
     resizeInput()
   }, [input, resizeInput])
 
-  const handleSendUncontrolled = useCallback(async (e) => {
+  const handleSendUncontrolled = useCallback((e) => {
     e.preventDefault()
-    if (!uncontrolledInput.trim() || uncontrolledLoading) return
-    const userText = uncontrolledInput.trim()
-    setUncontrolledInput('')
+    if (!uncontrolled.input.trim() || uncontrolled.loading) return
+    uncontrolled.handleSend(uncontrolled.input.trim())
     resizeInput()
-    setUncontrolledMessages((prev) => [...prev, { id: Date.now(), role: 'user', text: userText }])
-    setUncontrolledLoading(true)
-    setPendingMessageId(null)
-    try {
-      const data = await sendChat(sessionId, userText, { processId })
-      const reply = data.message || 'I could not process that. Please try again.'
-      const assistantId = Date.now() + 1
-      setUncontrolledMessages((prev) => [...prev, { id: assistantId, role: 'assistant', text: reply }])
-      if (data.meta?.requires_confirmation && data.meta?.pending_plan) {
-        setUncontrolledPendingMessageId(assistantId)
-      }
-      if (data.graph_json && onGraphUpdate) onGraphUpdate()
-    } catch (err) {
-      const text = err.status ? `Request failed (${err.status}). Please try again.` : 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.'
-      setUncontrolledMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', text }])
-    } finally {
-      setUncontrolledLoading(false)
-    }
-  }, [uncontrolledInput, uncontrolledLoading, processId, resizeInput, sessionId, onGraphUpdate])
+  }, [uncontrolled, resizeInput])
 
-  const handleApplyPlanUncontrolled = useCallback(async () => {
-    if (confirmLoading || !uncontrolledPendingMessageId) return
-    setConfirmLoading(true)
-    try {
-      const data = await confirmChatPlan(sessionId, { processId })
-      const reply = data.message || 'Plan applied.'
-      setUncontrolledMessages((prev) => [...prev, { id: Date.now(), role: 'assistant', text: reply }])
-      setUncontrolledPendingMessageId(null)
-      if (data.graph_json && onGraphUpdate) onGraphUpdate()
-    } catch (err) {
-      const text = err?.message || err?.status ? `Request failed (${err.status}). Please try again.` : 'Could not apply plan. Please try again.'
-      setUncontrolledMessages((prev) => [...prev, { id: Date.now(), role: 'assistant', text }])
-      setUncontrolledPendingMessageId(null)
-    } finally {
-      setConfirmLoading(false)
-    }
-  }, [sessionId, processId, uncontrolledPendingMessageId, confirmLoading, onGraphUpdate])
-
-  const handleCancelPlanUncontrolled = useCallback(() => {
-    setUncontrolledPendingMessageId(null)
-  }, [])
-
-  const handleApplyPlan = isControlled ? (controlledOnApplyPlan ?? (() => {})) : handleApplyPlanUncontrolled
-  const handleCancelPlan = isControlled ? (controlledOnCancelPlan ?? (() => {})) : handleCancelPlanUncontrolled
+  const handleApplyPlan = isControlled ? (controlledOnApplyPlan ?? (() => {})) : uncontrolled.handleApplyPlan
+  const handleCancelPlan = isControlled ? (controlledOnCancelPlan ?? (() => {})) : uncontrolled.handleCancelPlan
 
   const handleSendControlled = useCallback((e) => {
     e.preventDefault()

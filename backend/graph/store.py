@@ -6,9 +6,12 @@ objects avoids re-parsing JSON on every request within a session.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from difflib import SequenceMatcher
 from typing import Any
+
+logger = logging.getLogger("consularis.store")
 
 import db
 from config import (
@@ -106,6 +109,39 @@ def _refresh_workspace_summary(session_id: str, process_id: str | None = None) -
     db.upsert_session_workspace(session_id, ws.to_json())
 
 
+def _sync_subprocess_name_to_workspace(session_id: str, subprocess_id: str, new_name: str) -> None:
+    """Keep subprocess display name consistent across workspace and subprocess graph."""
+    normalized_name = (new_name or "").strip()
+    if not normalized_name:
+        return
+    try:
+        ws = _get_workspace(session_id)
+        procs = ws.data.get("process_tree", {}).get("processes", {})
+        if subprocess_id in procs:
+            procs[subprocess_id]["name"] = normalized_name
+            db.upsert_session_workspace(session_id, ws.to_json())
+            _ws_cache.pop(session_id, None)
+    except Exception:
+        logger.warning(
+            "_sync_subprocess_name_to_workspace: workspace sync failed for session_id=%s subprocess_id=%s",
+            session_id,
+            subprocess_id,
+            exc_info=True,
+        )
+
+    try:
+        subprocess_graph = _get_graph(session_id, subprocess_id)
+        subprocess_graph.name = normalized_name
+        _persist(session_id, subprocess_id)
+    except Exception:
+        logger.warning(
+            "_sync_subprocess_name_to_workspace: subprocess graph sync failed for session_id=%s subprocess_id=%s",
+            session_id,
+            subprocess_id,
+            exc_info=True,
+        )
+
+
 def _brand_session(session_id: str) -> None:
     """Rename the root process to '{session_id}_map' after first clone."""
     map_name = f"{session_id}_map"
@@ -149,12 +185,7 @@ def _get_workspace(session_id: str) -> WorkspaceManifest:
     if ws_json is None:
         raise RuntimeError("No workspace manifest found")
     ws = WorkspaceManifest.from_json(ws_json)
-    expected_name = f"{session_id}_map"
-    root_id = ws.data.get("process_tree", {}).get("root", "global")
-    procs = ws.data.get("process_tree", {}).get("processes", {})
-    if root_id in procs and procs[root_id].get("name") != expected_name:
-        _brand_session(session_id)
-        ws.data["process_tree"]["processes"][root_id]["name"] = expected_name
+    # Do not overwrite root process name on load: session workspace is source of truth (user/agent may have renamed it). Branding only runs on first clone above.
     _ws_cache[session_id] = ws
     return ws
 
@@ -168,12 +199,10 @@ def get_graph_json(session_id: str, process_id: str | None = None) -> str:
     return graph.to_json()
 
 
-def get_graph_dict_for_client(session_id: str, process_id: str | None = None) -> dict[str, Any]:
-    """Return graph as dict with process_id and synthetic lanes for UI (if not already present)."""
-    pid = _normalize_process_id(process_id)
-    graph = _get_graph(session_id, process_id)
-    data = dict(graph.data)
-    data["process_id"] = pid
+def inject_lanes_for_client(data: dict, process_id: str) -> dict:
+    """Inject process_id and synthetic default lanes into a graph dict for the UI."""
+    data = dict(data)
+    data["process_id"] = process_id
     if not data.get("lanes"):
         data["lanes"] = [{
             "id": "default",
@@ -182,6 +211,13 @@ def get_graph_dict_for_client(session_id: str, process_id: str | None = None) ->
             "node_refs": [n["id"] for n in data.get("nodes", []) if n.get("id")],
         }]
     return data
+
+
+def get_graph_dict_for_client(session_id: str, process_id: str | None = None) -> dict[str, Any]:
+    """Return graph as dict with process_id and synthetic lanes for UI (if not already present)."""
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, process_id)
+    return inject_lanes_for_client(dict(graph.data), pid)
 
 
 def get_baseline_json(process_id: str | None = None) -> str:
@@ -267,7 +303,13 @@ def get_process_id_for_proposed_id(session_id: str, proposed_id: str, step_type:
         process_suffix = num_part.replace("_", ".")
         pid = "S" + process_suffix
         return pid if pid in pids else None
-    return None
+    # Custom/freeform ids (e.g. pokemon_store_start): fall back to root process
+    try:
+        ws = _get_workspace(session_id)
+        root_id = ws.data.get("process_tree", {}).get("root", "global")
+        return root_id if root_id in pids else None
+    except Exception:
+        return "global" if "global" in pids else None
 
 
 def get_full_graph(session_id: str) -> dict[str, Any]:
@@ -312,8 +354,8 @@ def _safe_str(val: Any) -> str:
     return str(val).strip()
 
 
-def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
-    """Compact step summary + edges for LLM context. Uses step_order."""
+def get_graph_summary(session_id: str, process_id: str | None = None, *, include_automation_notes: bool = False) -> str:
+    """Compact step summary + edges for LLM context. When include_automation_notes is True, appends automation_notes per step (for the analyzer LLM)."""
     pid = _normalize_process_id(process_id)
     graph = _get_graph(session_id, process_id)
     parts = []
@@ -344,6 +386,10 @@ def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
             extras.append(f"{auto} automation")
         if extras:
             entry += ", " + ", ".join(extras)
+        if include_automation_notes:
+            notes = _safe_str(attrs.get("automation_notes"))
+            if notes:
+                entry += " | Notes: " + notes
         listed.append(entry)
     if listed:
         parts.append(f"{graph.name or pid}: {', '.join(listed)}")
@@ -359,7 +405,7 @@ def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
                 sub_list = [f"{((ws.get_process_info(cid)) or {}).get('name', cid)}={cid}" for cid in children]
                 parts.append("Subprocesses: " + ", ".join(sub_list))
     except Exception:
-        pass
+        logger.warning("get_graph_summary: workspace lookup failed for session_id=%s", session_id, exc_info=True)
     return " | ".join(parts)
 
 
@@ -376,9 +422,8 @@ def _all_process_ids_in_tree_order(ws: WorkspaceManifest, root_id: str) -> list[
     return order
 
 
-def get_full_graph_summary(session_id: str) -> str:
-    """Return summaries for all processes in the workspace tree (any depth) for full context."""
-    # Force fresh read from DB so agent sees latest edits (and new subprocesses)
+def get_full_graph_summary(session_id: str, *, include_automation_notes: bool = False) -> str:
+    """Return summaries for all processes in the workspace tree (any depth) for full context. When include_automation_notes is True, each step includes its automation_notes (for the analyzer LLM)."""
     _ws_cache.pop(session_id, None)
     for key in list(_cache):
         if key[0] == session_id:
@@ -392,90 +437,17 @@ def get_full_graph_summary(session_id: str) -> str:
         info = procs.get(pid) or {}
         name = info.get("name", pid)
         path = ws.get_path(pid)
-        summary = get_graph_summary(session_id, process_id=pid)
-        display_id = pid
-        header = f"--- {display_id} ({name}) ---"
-        if path:
-            header += f"\nPath: {path}"
-        parts.append(f"{header}\n{summary}")
-    return "\n\n".join(parts)
-
-
-def get_graph_summary_for_analysis(session_id: str, process_id: str | None = None) -> str:
-    """Like get_graph_summary but includes automation_notes per step for the analyzer LLM. Uses step_order."""
-    pid = _normalize_process_id(process_id)
-    graph = _get_graph(session_id, process_id)
-    parts = []
-    listed = []
-    for step in graph.steps_in_order():
-        stype = step.get("type", "")
-        if stype in ("start", "end"):
-            continue
-        attrs = _node_attrs(step)
-        sid = step.get("id", "")
-        label = _safe_str(attrs.get("name"))
-        actor = _safe_str(attrs.get("actor"))
-        duration = _safe_str(attrs.get("duration_min"))
-        cost = _safe_str(attrs.get("cost_per_execution"))
-        err = _safe_str(attrs.get("error_rate_percent"))
-        auto = _safe_str(attrs.get("automation_potential")).upper()
-        notes = _safe_str(attrs.get("automation_notes"))
-        entry = f"{sid} ({label})" if label else sid
-        extras = []
-        if actor:
-            extras.append(actor)
-        if duration:
-            extras.append(duration)
-        if cost:
-            extras.append(f"${cost}")
-        if err:
-            extras.append(f"{err}% err")
-        if auto:
-            extras.append(f"{auto} automation")
-        if extras:
-            entry += ", " + ", ".join(extras)
-        if notes:
-            entry += " | Notes: " + notes
-        listed.append(entry)
-    if listed:
-        parts.append(f"{graph.name or pid}: {', '.join(listed)}")
-    edges = [f"{e.get('from', '')}->{e.get('to', '')}" for e in graph.edges]
-    if edges:
-        parts.append("Edges: " + ", ".join(edges))
-    try:
-        ws = _get_workspace(session_id)
-        root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
-        if pid == root_id:
-            children = ws.get_children(pid)
-            if children:
-                sub_list = [f"{((ws.get_process_info(cid)) or {}).get('name', cid)}={cid}" for cid in children]
-                parts.append("Subprocesses: " + ", ".join(sub_list))
-    except Exception:
-        pass
-    return " | ".join(parts)
-
-
-def get_full_graph_summary_for_analysis(session_id: str) -> str:
-    """Full graph summary with automation_notes included for the analyzer LLM."""
-    _ws_cache.pop(session_id, None)
-    for key in list(_cache):
-        if key[0] == session_id:
-            del _cache[key]
-    ws = _get_workspace(session_id)
-    root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
-    procs = ws.data.get("process_tree", {}).get("processes", {})
-    order = _all_process_ids_in_tree_order(ws, root_id)
-    parts = []
-    for pid in order:
-        info = procs.get(pid) or {}
-        name = info.get("name", pid)
-        path = ws.get_path(pid)
-        summary = get_graph_summary_for_analysis(session_id, process_id=pid)
+        summary = get_graph_summary(session_id, process_id=pid, include_automation_notes=include_automation_notes)
         header = f"--- {pid} ({name}) ---"
         if path:
             header += f"\nPath: {path}"
         parts.append(f"{header}\n{summary}")
     return "\n\n".join(parts)
+
+
+def get_full_graph_summary_for_analysis(session_id: str) -> str:
+    """Convenience wrapper: full graph summary with automation_notes included."""
+    return get_full_graph_summary(session_id, include_automation_notes=True)
 
 
 def get_analysis_metrics(session_id: str) -> dict[str, Any]:
@@ -647,7 +619,7 @@ def _next_custom_process_id(session_id: str, ws: WorkspaceManifest) -> str:
 
 
 def _starter_process_graph(process_id: str, name: str, parent_info: dict | None) -> dict[str, Any]:
-    """New format: id, name, nodes, edges. Start/end ids = {process_id}_start, {process_id}_end."""
+    """New format: id, name, nodes, edges. Start/end ids = {process_id}_start, {process_id}_end. No edge between start and end — user or agent adds steps and edges."""
     start_id = f"{process_id}_start"
     end_id = f"{process_id}_end"
     return {
@@ -657,27 +629,41 @@ def _starter_process_graph(process_id: str, name: str, parent_info: dict | None)
             {"id": start_id, "type": "start", "position": {"x": 280, "y": 78}},
             {"id": end_id, "type": "end", "position": {"x": 740, "y": 78}},
         ],
-        "edges": [
-            {"from": start_id, "to": end_id, "label": "Start"},
-        ],
+        "edges": [],
     }
 
 
 def update_node(session_id: str, node_id: str, updates: dict, process_id: str | None = None) -> dict | None:
-    graph = _get_graph(session_id, process_id)
-    updates = {k: v for k, v in updates.items() if k in _UPDATE_NODE_ALLOWED}
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, pid)
+    incoming_updates = dict(updates or {})
+    dropped_keys = sorted(k for k in incoming_updates.keys() if k not in _UPDATE_NODE_ALLOWED)
+    if dropped_keys:
+        logger.warning(
+            "update_node dropped unsupported keys session_id=%s process_id=%s node_id=%s keys=%s",
+            session_id,
+            pid,
+            node_id,
+            dropped_keys,
+        )
+    updates = {k: v for k, v in incoming_updates.items() if k in _UPDATE_NODE_ALLOWED}
     if "risks" in updates and isinstance(updates["risks"], list):
         updates["risks"] = _dedupe_risks(updates["risks"])
     node = graph.get_step(node_id)
     if not node:
         return None
+    renamed_to: str | None = None
     if "name" in updates:
-        node["name"] = updates.pop("name", node.get("name", ""))
+        renamed_to = updates.pop("name", node.get("name", ""))
+        node["name"] = renamed_to
     attrs = node.setdefault("attributes", {})
     for key, val in updates.items():
         attrs[key] = val
-    _persist(session_id, process_id)
-    return get_node(session_id, node_id, process_id=process_id)
+    _persist(session_id, pid)
+    _refresh_workspace_summary(session_id, pid)
+    if node.get("type") == "subprocess" and renamed_to is not None:
+        _sync_subprocess_name_to_workspace(session_id, node_id, renamed_to)
+    return get_node(session_id, node_id, process_id=pid)
 
 
 def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | None = None) -> dict | None:
@@ -1170,6 +1156,7 @@ def rename_process(session_id: str, new_name: str, process_id: str | None = None
     _persist(session_id, pid)
     # Sync process name into workspace manifest so directory/header/minimap show the new name
     try:
+        _ws_cache.pop(session_id, None)  # Load fresh from DB so we don't mutate stale cache
         ws = _get_workspace(session_id)
         procs = ws.data.get("process_tree", {}).get("processes", {})
         if pid in procs:
@@ -1177,7 +1164,7 @@ def rename_process(session_id: str, new_name: str, process_id: str | None = None
             db.upsert_session_workspace(session_id, ws.to_json())
         _ws_cache.pop(session_id, None)
     except Exception:
-        pass
+        logger.warning("rename_process: workspace sync failed for session_id=%s pid=%s", session_id, pid, exc_info=True)
     return True
 
 

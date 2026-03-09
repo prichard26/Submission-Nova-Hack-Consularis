@@ -14,7 +14,7 @@ import '@xyflow/react/dist/style.css'
 import { toPng } from 'html-to-image'
 import { useProcessGraph } from '../hooks/useProcessGraph'
 import { toReactFlowData, autoArrangeNodes, topLeftToCenter } from '../services/graphTransform'
-import { nodeTypes } from './nodes/nodeTypes'
+import { nodeTypes } from './nodes/nodeTypes.jsx'
 import {
   undoGraph,
   redoGraph,
@@ -69,6 +69,7 @@ function Canvas({
   const [undoBotPending, setUndoBotPending] = useState(false)
   const [redoPending, setRedoPending] = useState(false)
   const [resetPending, setResetPending] = useState(false)
+  const [renameTrigger, setRenameTrigger] = useState(0)
   const [panelWidth, setPanelWidth] = useState(340)
   const [resizing, setResizing] = useState(false)
   const [flowFocused, setFlowFocused] = useState(false)
@@ -176,26 +177,55 @@ function Canvas({
     return () => clearTimeout(t)
   }, [subprocessStatus])
 
+  const processDisplayName = useMemo(() => {
+    const entry = workspaceProcesses[processId]
+    return entry?.name || processId.replace(/^Process_/, '').replace(/_/g, ' ')
+  }, [processId, workspaceProcesses])
+
   const { initialNodes, initialEdges } = useMemo(() => {
     if (!graph) return { initialNodes: [], initialEdges: [] }
-    const { nodes, edges } = toReactFlowData(graph, workspaceProcesses)
+    const { nodes, edges } = toReactFlowData(graph, workspaceProcesses, { processDisplayName })
     return { initialNodes: nodes, initialEdges: edges }
-  }, [graph, workspaceProcesses])
+  }, [graph, workspaceProcesses, processDisplayName])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
-  // Sync graph from refetch to canvas. Skip when chat just sent a graph so the chat effect can apply it first.
+  // Sync graph from refetch to canvas. Always apply auto-arrange as the default layout. Skip when chat just sent a graph so the chat effect can apply it first.
   useEffect(() => {
     if (structuralChangeFromChat && structuralChangeGraph) return
-    setNodes(initialNodes)
-    setEdges(initialEdges)
-  }, [initialNodes, initialEdges, setNodes, setEdges, structuralChangeFromChat, structuralChangeGraph])
+    if (initialNodes.length === 0) {
+      setNodes(initialNodes)
+      setEdges(initialEdges)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const { nodes: nextNodes, edges: nextEdges, positions } = await autoArrangeNodes(initialNodes, initialEdges, {
+        graph: graph ?? undefined,
+        processDisplayName,
+      })
+      if (cancelled) return
+      setNodes(nextNodes)
+      setEdges(nextEdges)
+      setTimeout(() => fitView({ padding: 0.15 }), 100)
+      if (Object.keys(positions).length > 0 && sessionId && processId) {
+        try {
+          await updatePositions(sessionId, processId, positions)
+        } catch (err) {
+          console.warn('Auto-arrange on load: position update failed', err)
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [initialNodes, initialEdges, graph, sessionId, processId, processDisplayName, setNodes, setEdges, fitView, structuralChangeFromChat, structuralChangeGraph])
 
   // When chat used tools and returned a graph: apply it immediately so nodes update, then optionally run layout.
   useEffect(() => {
     if (!structuralChangeFromChat || !structuralChangeGraph || !onConsumedStructuralChange) return
-    const { nodes: arrangeNodes, edges: arrangeEdges } = toReactFlowData(structuralChangeGraph, workspaceProcesses)
+    const { nodes: arrangeNodes, edges: arrangeEdges } = toReactFlowData(structuralChangeGraph, workspaceProcesses, {
+      processDisplayName,
+    })
     if (arrangeNodes.length === 0) {
       onConsumedStructuralChange()
       return
@@ -208,7 +238,7 @@ function Canvas({
       const { nodes: nextNodes, edges: nextEdges, positions } = await autoArrangeNodes(
         arrangeNodes,
         arrangeEdges,
-        { graph: structuralChangeGraph }
+        { graph: structuralChangeGraph, processDisplayName }
       )
       if (cancelled) {
         onConsumedStructuralChange()
@@ -217,7 +247,7 @@ function Canvas({
       if (Object.keys(positions).length > 0) {
         setNodes(nextNodes)
         setEdges(nextEdges)
-        setTimeout(() => fitView(), 100)
+        setTimeout(() => fitView({ padding: 0.15 }), 100)
         try {
           await updatePositions(sessionId, processId, positions)
           onRequestRefresh?.()
@@ -228,12 +258,7 @@ function Canvas({
       onConsumedStructuralChange()
     })()
     return () => { cancelled = true }
-  }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, sessionId, processId, setNodes, setEdges, fitView, onRequestRefresh, onConsumedStructuralChange])
-
-  const processDisplayName = useMemo(() => {
-    const entry = workspaceProcesses[processId]
-    return entry?.name || processId.replace(/^Process_/, '').replace(/_/g, ' ')
-  }, [processId, workspaceProcesses])
+  }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, sessionId, processId, processDisplayName, setNodes, setEdges, fitView, onRequestRefresh, onConsumedStructuralChange])
 
   const breadcrumb = useMemo(() => {
     const parts = []
@@ -380,7 +405,7 @@ function Canvas({
 
   const handleNodeClick = useCallback(
     (event, node) => {
-      if (pendingAddType && node.type === 'group') {
+      if (pendingAddType && node.type === 'lane') {
         void handlePlaceNode(event)
         return
       }
@@ -408,7 +433,7 @@ function Canvas({
     if (Object.keys(positions).length === 0) return
     setNodes(nextNodes)
     setEdges(nextEdges)
-    setTimeout(() => fitView(), 100)
+    setTimeout(() => fitView({ padding: 0.15 }), 100)
     try {
       await updatePositions(sessionId, processId, positions)
       onRequestRefresh?.()
@@ -578,9 +603,6 @@ function Canvas({
   const undoTip = 'Undo \u00b7 ' + (IS_MAC ? '\u2318Z' : 'Ctrl+Z')
   const redoTip = 'Redo \u00b7 ' + (IS_MAC ? '\u2318\u21e7Z' : 'Ctrl+\u21e7+Z')
   const tbCls = 'floating-toolbar floating-toolbar--' + tbLayout + (tbCollapsed ? ' floating-toolbar--collapsed' : '')
-  const handleZoomIn = useCallback(() => zoomIn(), [zoomIn])
-  const handleZoomOut = useCallback(() => zoomOut(), [zoomOut])
-  const handleFitView = useCallback(() => fitView(), [fitView])
   const handleToggleToolbarLayout = useCallback(() => {
     setTbLayout((layout) => (layout === 'vertical' ? 'horizontal' : 'vertical'))
   }, [])
@@ -598,9 +620,9 @@ function Canvas({
         collapsed={tbCollapsed}
         layout={tbLayout}
         onGrab={onTbGrab}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onFitView={handleFitView}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onFitView={() => fitView({ padding: 0.15 })}
         pendingAddType={pendingAddType}
         onAddNode={handleAddNode}
         disabled={disabled}
@@ -613,6 +635,7 @@ function Canvas({
         redoTip={redoTip}
         onReset={handleReset}
         resetDisabled={disabled || resetPending || !onRequestRefresh}
+        onRenameMap={sessionId && onRequestRefresh ? () => setRenameTrigger((t) => t + 1) : undefined}
         onExportPng={handleExportPng}
         onExportBpmn={handleExportBpmn}
         onToggleLayout={handleToggleToolbarLayout}
@@ -636,6 +659,7 @@ function Canvas({
               sessionId={sessionId}
               onDrillDown={onDrillDown}
               onRequestRefresh={onRequestRefresh}
+              beginRenameTrigger={renameTrigger}
             />
           </div>
 
@@ -681,18 +705,19 @@ function Canvas({
         onChangeLabel={handleEdgeEditorLabelChange}
       />
 
-      <div
-        ref={setFlowRef}
-        className={'process-canvas__flow' + (pendingAddType ? ' process-canvas__flow--placing' : '')}
-        style={{ visibility: loading || error ? 'hidden' : 'visible' }}
-        tabIndex={0}
-        onMouseDown={() => flowWrapper.current?.focus()}
-        onMouseMove={handleCanvasMouseMove}
-        onMouseLeave={() => pendingAddType && setGhostPos(null)}
-        onFocus={() => setFlowFocused(true)}
-        onBlur={() => setFlowFocused(false)}
-      >
-        {pendingAddType && ghostPos && (
+      <div className="process-canvas__graph">
+        <div
+          ref={setFlowRef}
+          className={'process-canvas__flow' + (pendingAddType ? ' process-canvas__flow--placing' : '')}
+          style={{ visibility: loading || error ? 'hidden' : 'visible' }}
+          tabIndex={0}
+          onMouseDown={() => flowWrapper.current?.focus()}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={() => pendingAddType && setGhostPos(null)}
+          onFocus={() => setFlowFocused(true)}
+          onBlur={() => setFlowFocused(false)}
+        >
+          {pendingAddType && ghostPos && (
           <div
             className={`ghost-preview ghost-preview--${pendingAddType}`}
             style={{
@@ -736,6 +761,7 @@ function Canvas({
           onPaneClick={handlePlaceNode}
           nodeTypes={nodeTypes}
           fitView
+          fitViewOptions={{ padding: 0.15 }}
           minZoom={0.1}
           maxZoom={4}
           edgesReconnectable
@@ -759,6 +785,7 @@ function Canvas({
           />
           <Background variant="dots" color="var(--border, #ccc4b8)" gap={20} size={1.5} />
         </ReactFlow>
+        </div>
       </div>
     </div>
   )

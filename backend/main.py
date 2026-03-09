@@ -4,13 +4,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import ALLOWED_CORS_ORIGINS
+from config import ALLOWED_CORS_ORIGINS, LOG_LEVEL
 from db import get_conn
 from graph.store import init_baseline
 from routers import health_router, chat_router, graph_router, analyze_router, session_router
 
 logger = logging.getLogger("consularis")
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO), format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 @asynccontextmanager

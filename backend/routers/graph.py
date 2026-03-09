@@ -6,10 +6,12 @@ from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from config import SESSION_ID_MAX_LEN, DEFAULT_PROCESS_ID
+from config import DEFAULT_PROCESS_ID
+from routers.validation import validate_session_id_or_400
 from graph.store import (
     get_graph_json,
     get_graph_dict_for_client,
+    inject_lanes_for_client,
     get_workspace_json,
     get_baseline_json,
     resolve_step,
@@ -32,11 +34,7 @@ from graph.model import ProcessGraph
 logger = logging.getLogger("consularis")
 
 
-def _validate_session_id(session_id: str) -> None:
-    if not session_id or not str(session_id).strip():
-        raise HTTPException(status_code=400, detail="session_id is required")
-    if len(session_id) > SESSION_ID_MAX_LEN:
-        raise HTTPException(status_code=400, detail=f"session_id must be at most {SESSION_ID_MAX_LEN} characters")
+_validate_session_id = validate_session_id_or_400
 
 
 router = APIRouter(prefix="/api/graph", tags=["graph"])
@@ -313,18 +311,7 @@ def api_resolve_step(
 
 
 def _inject_lanes_for_client(data: dict, process_id: str) -> dict:
-    """Inject process_id and synthetic lanes into graph dict for UI."""
-    data = dict(data)
-    data["process_id"] = process_id
-    if not data.get("lanes"):
-        node_refs = [n["id"] for n in data.get("nodes", []) if n.get("id")]
-        data["lanes"] = [{
-            "id": "default",
-            "name": data.get("name", ""),
-            "description": "",
-            "node_refs": node_refs,
-        }]
-    return data
+    return inject_lanes_for_client(data, process_id)
 
 
 @router.post("/undo")

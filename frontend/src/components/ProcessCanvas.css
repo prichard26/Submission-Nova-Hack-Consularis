@@ -6,13 +6,19 @@
   background: var(--bg-primary, #0d0a07);
 }
 
-/* ── Flow canvas (left) ── */
+/* ── Graph area (left): title + flow ── */
+.process-canvas__graph {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  order: 0;
+}
+
 .process-canvas__flow {
   position: relative;
   flex: 1;
-  height: 100%;
-  min-width: 0;
-  order: 0;
+  min-height: 0;
 }
 
 .process-canvas__flow--placing {

@@ -1,37 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { getGraphJson, getBaselineJson } from '../services/api'
+import { useFetchResource } from './useFetchResource'
 
 export function useProcessGraph(sessionId, processId = 'global', refreshTrigger = 0) {
-  const [state, setState] = useState({ graph: null, loading: false, error: null })
+  const fetcher = useMemo(() => {
+    if (!sessionId) return null
+    return (signal) =>
+      getGraphJson(sessionId, { processId, signal })
+        .catch((err) => {
+          if (err?.name === 'AbortError') throw err
+          return getBaselineJson({ processId, signal })
+        })
+  }, [sessionId, processId])
 
-  useEffect(() => {
-    if (!sessionId) return
-
-    const controller = new AbortController()
-    setState((prev) => ({ ...prev, loading: true, error: null }))
-
-    getGraphJson(sessionId, { processId, signal: controller.signal })
-      .catch((err) => {
-        if (err?.name === 'AbortError') throw err
-        return getBaselineJson({ processId, signal: controller.signal })
-      })
-      .then((data) => {
-        if (controller.signal.aborted) return
-        if (!data) {
-          setState({ graph: null, loading: false, error: 'Empty graph' })
-          return
-        }
-        setState({ graph: data, loading: false, error: null })
-      })
-      .catch((err) => {
-        if (err?.name === 'AbortError') return
-        setState({ graph: null, loading: false, error: err?.message || 'Failed to fetch graph' })
-      })
-
-    return () => {
-      controller.abort()
-    }
-  }, [sessionId, processId, refreshTrigger])
+  const state = useFetchResource(fetcher, [fetcher, refreshTrigger], {
+    dataKey: 'graph',
+    errorMessage: 'Failed to fetch graph',
+  })
 
   if (!sessionId) {
     return { graph: null, loading: false, error: 'No session' }

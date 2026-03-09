@@ -638,12 +638,14 @@ function computeLaneNodes(graph) {
  * Recompute lane nodes from placed step positions (e.g. after auto-layout).
  * graph.lanes and graph.nodes (or graph.steps) define lane membership; positions come from placedNodes.
  */
-export function computeLaneNodesFromPlaced(graph, placedNodes) {
+export function computeLaneNodesFromPlaced(graph, placedNodes, options = {}) {
+  const { processDisplayName } = options
   const nodes = []
   const stepsOrNodes = graph?.nodes || graph?.steps
   if (!graph?.lanes || !stepsOrNodes) return nodes
   const stepById = new Map(stepsOrNodes.map((s) => [s.id, s]))
   const positionById = new Map(placedNodes.map((n) => [n.id, n.position]))
+  let isFirst = true
 
   for (const lane of graph.lanes) {
     const laneStepIds = (lane.node_refs || []).filter((id) => stepById.has(id))
@@ -660,23 +662,24 @@ export function computeLaneNodesFromPlaced(graph, placedNodes) {
       maxY = Math.max(maxY, pos.y + height)
     }
 
-    const width = maxX - minX + LANE_PADDING * 2 + 100
+    const width = maxX - minX + LANE_PADDING * 2
     const height = Math.max(maxY - minY + LANE_PADDING * 2, LANE_MIN_HEIGHT)
+    const useProcessName = isFirst && processDisplayName
+    isFirst = false
 
     nodes.push({
       id: `lane_${lane.id}`,
-      type: 'group',
-      position: { x: minX - LANE_PADDING - 80, y: minY - LANE_PADDING },
+      type: 'lane',
+      position: { x: minX - LANE_PADDING, y: minY - LANE_PADDING },
       style: {
         width,
         height,
-        background: 'var(--lane-bg, rgba(245, 212, 184, 0.04))',
-        border: '1px solid var(--lane-border, rgba(201, 125, 58, 0.15))',
-        borderRadius: '8px',
         zIndex: -1,
-        pointerEvents: 'none',
       },
-      data: { label: lane.name },
+      data: {
+        label: lane.name,
+        ...(useProcessName && { processName: processDisplayName }),
+      },
       selectable: false,
       draggable: false,
       connectable: false,
@@ -689,7 +692,8 @@ export function computeLaneNodesFromPlaced(graph, placedNodes) {
    toReactFlowData — graph JSON → {nodes, edges}
    ========================================================================= */
 
-export function toReactFlowData(graph, workspaceProcesses = {}) {
+export function toReactFlowData(graph, workspaceProcesses = {}, options = {}) {
+  const { processDisplayName } = options
   const nodes = []
   const edges = []
   if (!graph) return { nodes: [], edges }
@@ -740,7 +744,7 @@ export function toReactFlowData(graph, workspaceProcesses = {}) {
     })
   }
 
-  const laneNodesFromPositions = computeLaneNodesFromPlaced(graph, stepNodes)
+  const laneNodesFromPositions = computeLaneNodesFromPlaced(graph, stepNodes, { processDisplayName })
 
   return {
     nodes: [...laneNodesFromPositions, ...stepNodes],
@@ -761,6 +765,7 @@ export function autoArrangeNodes(nodes, edges, options = {}) {
   const laneNodes = nodes.filter((n) => n.id.startsWith('lane_'))
   if (stepNodes.length === 0) return { nodes, edges, positions: {} }
 
+  const { processDisplayName } = options
   const { placed } = runSugiyamaLayout(stepNodes, edges, { direction })
   const positions = {}
   const placedTopLeft = placed.map((node) => {
@@ -775,7 +780,9 @@ export function autoArrangeNodes(nodes, edges, options = {}) {
   })
   // Force handle recalc so gates match new positions (do not keep pre-arrange sourceHandle/targetHandle).
   const smartEdges = computeSmartHandles(placedTopLeft, edges, 'DOWN', true)
-  const outLaneNodes = graph ? computeLaneNodesFromPlaced(graph, placedTopLeft) : laneNodes
+  const outLaneNodes = graph
+    ? computeLaneNodesFromPlaced(graph, placedTopLeft, { processDisplayName })
+    : laneNodes
 
   return {
     nodes: [...outLaneNodes, ...placedTopLeft],

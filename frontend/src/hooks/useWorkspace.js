@@ -1,27 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { getWorkspace } from '../services/api'
+import { useFetchResource } from './useFetchResource'
 
 export function useWorkspace(sessionId, refreshTrigger = 0) {
-  const [state, setState] = useState({ workspace: null, loading: false, error: null })
+  const fetcher = useMemo(() => {
+    if (!sessionId) return null
+    return (signal) => getWorkspace(sessionId, { signal })
+  }, [sessionId])
 
-  useEffect(() => {
-    if (!sessionId) return
-
-    const controller = new AbortController()
-    setState((prev) => ({ ...prev, loading: true, error: null }))
-
-    getWorkspace(sessionId, { signal: controller.signal })
-      .then((data) => {
-        if (controller.signal.aborted) return
-        setState({ workspace: data, loading: false, error: null })
-      })
-      .catch((err) => {
-        if (err?.name === 'AbortError') return
-        setState({ workspace: null, loading: false, error: err?.message || 'Failed to fetch workspace' })
-      })
-
-    return () => controller.abort()
-  }, [sessionId, refreshTrigger])
+  const state = useFetchResource(fetcher, [fetcher, refreshTrigger], {
+    dataKey: 'workspace',
+    errorMessage: 'Failed to fetch workspace',
+  })
 
   if (!sessionId) {
     return { workspace: null, loading: false, error: 'No session' }

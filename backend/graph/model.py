@@ -95,11 +95,6 @@ class ProcessGraph:
         return self.nodes
 
     @property
-    def flows(self) -> list[dict]:
-        """Alias for edges (from/to/label)."""
-        return self.edges
-
-    @property
     def step_order(self) -> list[str]:
         """Order of node ids (nodes array order)."""
         return [n["id"] for n in self.nodes if n.get("id")]
@@ -130,11 +125,7 @@ class ProcessGraph:
     # -- lookups -----------------------------------------------------------
 
     def get_step(self, step_id: str) -> dict | None:
-        """Return node by id (alias for get_node)."""
         return next((n for n in self.nodes if n.get("id") == step_id), None)
-
-    def get_node(self, node_id: str) -> dict | None:
-        return self.get_step(node_id)
 
     def get_flow(self, from_id: str, to_id: str) -> dict | None:
         return next(

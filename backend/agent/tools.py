@@ -10,12 +10,14 @@ from graph.store import (
     delete_edge as store_delete_edge,
     delete_node as store_delete_node,
     get_full_graph as store_get_full_graph,
+    get_process_id_for_proposed_id,
     get_process_id_for_step,
+    rename_process as store_rename_process,
     update_edge as store_update_edge,
     update_node as store_update_node,
 )
 
-ToolHandler = Callable[[str, dict, str | None], str]
+ToolHandler = Callable[[str, dict, str | None, str | None], str]
 logger = logging.getLogger("consularis.agent")
 
 
@@ -131,16 +133,29 @@ TOOL_SCHEMAS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "rename_process",
+            "description": "Rename a process page by process id. Use id 'global' for the top-level map; use S1, S1.1, etc. for subprocesses. Updates graph name and workspace manifest (header/directory).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "Process id: 'global' for the global map, or S1, S1.1, S1.2, etc. for subprocess pages."},
+                    "name": {"type": "string", "description": "New process display name."},
+                },
+                "required": ["id", "name"],
+            },
+        },
+    },
 ]
-TOOLS = TOOL_SCHEMAS
-
 # Planner tool: propose_plan only. Execution runs when user clicks Apply plan (run_chat_confirm).
 PLANNER_TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
         "function": {
             "name": "propose_plan",
-            "description": "Propose a plan. Pass steps (list of {tool_name, arguments}). The user sees your plan and an Apply plan button; when they click it, the system runs the steps. You do not run or execute—only propose.",
+            "description": "REQUIRED for any graph change. Call this with concrete steps; the user sees the plan and an Apply button. Without this call, no changes can happen — text alone does not modify the graph. Never say changes were made without calling this tool first.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -163,7 +178,15 @@ PLANNER_TOOL_SCHEMAS: list[dict] = [
     },
 ]
 
-TOOL_HANDLERS: dict[str, ToolHandler] = {}
+def _tool_ok(data: dict | None = None) -> str:
+    result = {"ok": True}
+    if data:
+        result.update(data)
+    return json.dumps(result)
+
+
+def _tool_error(msg: str) -> str:
+    return json.dumps({"ok": False, "error": msg})
 
 
 def _updates_to_strings(updates: dict, list_keys: frozenset) -> dict:
@@ -181,23 +204,27 @@ def _updates_to_strings(updates: dict, list_keys: frozenset) -> dict:
 
 def _debug_tool_call(
     session_id: str,
+    turn_id: str | None,
     name: str,
     arguments: dict,
     process_id_from_runtime: str | None,
     resolved_pid: str | None,
 ) -> None:
-    """Print a readable log line for every agent tool call."""
-    # Build a compact args summary (skip process_id here, we show it separately)
+    """Log a readable line for every agent tool call."""
     args_copy = {k: v for k, v in arguments.items() if v is not None and v != ""}
     args_str = ", ".join(f"{k}={v!r}" for k, v in sorted(args_copy.items()))
-    print(
-        f"[AGENT TOOL] {name} | session={session_id!r} | "
-        f"process_id(runtime)={process_id_from_runtime!r} → resolved={resolved_pid!r} | {args_str}"
+    logger.info(
+        "[%s] TOOL_CALL name=%s session_id=%s process_id(runtime)=%s resolved_process_id=%s args=%s",
+        turn_id or "-",
+        name,
+        session_id,
+        process_id_from_runtime,
+        resolved_pid,
+        args_str,
     )
 
 
-def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None = None) -> str:
-    # Process is inferred from id when not in arguments (id-only tools)
+def _resolve_pid(session_id: str, arguments: dict):
     pid_from_args = arguments.get("process_id")
 
     def resolve_pid(step_or_location_id: str) -> str | None:
@@ -205,92 +232,189 @@ def run_tool(session_id: str, name: str, arguments: dict, process_id: str | None
             return pid_from_args
         return get_process_id_for_step(session_id, step_or_location_id)
 
-    _debug_tool_call(session_id, name, arguments, process_id, pid_from_args)
+    return pid_from_args, resolve_pid
 
-    if name == "get_full_graph":
-        data = store_get_full_graph(session_id)
-        return json.dumps(data, indent=2, ensure_ascii=False)
-    if name == "update_node":
-        node_id = arguments.get("id") or arguments.get("step_id")
-        updates = dict(arguments.get("updates") or {})
-        if not node_id or not updates:
-            return json.dumps({"ok": False, "error": "id and updates (object) are required"})
-        pid = resolve_pid(node_id)
-        if not pid:
-            return json.dumps({"ok": False, "error": f"Process not found for node: {node_id}"})
-        if "cost" in updates and "cost_per_execution" not in updates:
-            updates["cost_per_execution"] = updates.pop("cost")
-        if "duration" in updates and "duration_min" not in updates:
-            updates["duration_min"] = updates.pop("duration")
-        if "time" in updates and "duration_min" not in updates:
-            updates["duration_min"] = updates.pop("time")
-        updates = _updates_to_strings(updates, LIST_METADATA_KEYS)
-        result = store_update_node(session_id, node_id, updates, process_id=pid)
-        if result is None:
-            return json.dumps({"ok": False, "error": f"Step not found: {node_id}"})
-        return json.dumps({"ok": True, "node": result})
-    if name == "add_edge":
-        source = arguments.get("source")
-        target = arguments.get("target")
-        if not source or not target:
-            return json.dumps({"ok": False, "error": "source and target are required"})
-        pid = resolve_pid(source) or resolve_pid(target)
-        if not pid:
-            return json.dumps({"ok": False, "error": f"Process not found for edge: {source} -> {target}"})
-        result = store_add_edge(session_id, source, target, label=arguments.get("label") or "", process_id=pid)
-        if result is None:
-            return json.dumps({"ok": False, "error": f"Edge not added (step not found or invalid): {source} -> {target}"})
-        return json.dumps({"ok": True, "edge": result})
-    if name == "delete_edge":
-        source = arguments.get("source")
-        target = arguments.get("target")
-        if not source or not target:
-            return json.dumps({"ok": False, "error": "source and target are required"})
-        pid = resolve_pid(source) or resolve_pid(target)
-        if not pid:
-            return json.dumps({"ok": False, "error": f"Process not found for edge: {source} -> {target}"})
-        ok = store_delete_edge(session_id, source, target, process_id=pid)
-        return json.dumps({"ok": ok, "removed": ok})
-    if name == "update_edge":
-        source = arguments.get("source")
-        target = arguments.get("target")
-        updates = arguments.get("updates")
-        if not source or not target or not isinstance(updates, dict):
-            return json.dumps({"ok": False, "error": "source, target and updates (object) are required"})
-        pid = resolve_pid(source) or resolve_pid(target)
-        if not pid:
-            return json.dumps({"ok": False, "error": f"Process not found for edge: {source} -> {target}"})
-        edge_updates = {}
-        if "label" in updates:
-            edge_updates["label"] = str(updates.get("label") or "").strip()
-        result = store_update_edge(session_id, source, target, edge_updates, process_id=pid)
-        if result is None:
-            return json.dumps({"ok": False, "error": f"Edge not found: {source} -> {target}"})
-        return json.dumps({"ok": True, "edge": result})
-    if name == "add_node":
-        new_id = (arguments.get("id") or "").strip()
-        step_type = arguments.get("type", "step")
-        if not new_id:
-            return json.dumps({"ok": False, "error": "id and type are required"})
-        if step_type not in ("step", "decision", "subprocess"):
-            step_type = "step"
-        name_val = (arguments.get("name") or "").strip()
-        if not name_val:
-            name_val = "New step" if step_type == "step" else "New decision" if step_type == "decision" else "New subprocess"
-        result = store_add_node(session_id, "default", {"id": new_id, "name": name_val, "type": step_type})
-        if result is None:
-            return json.dumps({"ok": False, "error": f"Could not add node: id may already exist or be invalid (id={new_id!r})"})
-        return json.dumps({"ok": True, "node": result})
-    if name == "delete_node":
-        node_id = arguments.get("id") or arguments.get("node_id")
-        if not node_id:
-            return json.dumps({"ok": False, "error": "id is required"})
-        pid = resolve_pid(node_id)
-        if not pid:
-            return json.dumps({"ok": False, "error": f"Process not found for node: {node_id}"})
-        ok = store_delete_node(session_id, node_id, process_id=pid)
-        if not ok:
-            return json.dumps({"ok": False, "error": f"Node not found or cannot delete (start/end): {node_id}"})
-        return json.dumps({"ok": True, "removed": True})
-    logger.info("[AGENT][GRAPH] %s (no handler) session_id=%s", name, session_id)
-    return json.dumps({"error": "Unknown tool"})
+
+def _edge_endpoints(arguments: dict) -> tuple[str, str]:
+    source = (
+        arguments.get("source")
+        or arguments.get("from")
+        or arguments.get("source_id")
+        or arguments.get("from_id")
+        or ""
+    )
+    target = (
+        arguments.get("target")
+        or arguments.get("to")
+        or arguments.get("target_id")
+        or arguments.get("to_id")
+        or ""
+    )
+    return str(source).strip(), str(target).strip()
+
+def _handle_get_full_graph(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    _ = arguments
+    _debug_tool_call(session_id, turn_id, "get_full_graph", {}, process_id, process_id)
+    data = store_get_full_graph(session_id)
+    return json.dumps(data, indent=2, ensure_ascii=False)
+
+
+def _normalize_update_node_updates(updates: dict) -> dict:
+    """Flatten nested attributes so updates.attributes.name -> updates.name (avoids no-op when LLM sends attributes wrapper)."""
+    if not updates or not isinstance(updates, dict):
+        return dict(updates or {})
+    if set(updates.keys()) == {"attributes"} and isinstance(updates.get("attributes"), dict):
+        return dict(updates["attributes"])
+    return dict(updates)
+
+
+def _handle_update_node(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    pid_from_args, resolve_pid = _resolve_pid(session_id, arguments)
+    node_id = arguments.get("id") or arguments.get("step_id")
+    raw_updates = arguments.get("updates") or {}
+    updates = _normalize_update_node_updates(raw_updates if isinstance(raw_updates, dict) else {})
+    pid = resolve_pid(node_id) if node_id else pid_from_args
+    _debug_tool_call(session_id, turn_id, "update_node", arguments, process_id, pid)
+    if not node_id or not updates:
+        return _tool_error("id and updates (object) are required")
+    if not pid:
+        return _tool_error(f"Process not found for node: {node_id}")
+    if "cost" in updates and "cost_per_execution" not in updates:
+        updates["cost_per_execution"] = updates.pop("cost")
+    if "duration" in updates and "duration_min" not in updates:
+        updates["duration_min"] = updates.pop("duration")
+    if "time" in updates and "duration_min" not in updates:
+        updates["duration_min"] = updates.pop("time")
+    updates = _updates_to_strings(updates, LIST_METADATA_KEYS)
+    result = store_update_node(session_id, node_id, updates, process_id=pid)
+    if result is None:
+        return _tool_error(f"Step not found: {node_id}")
+    return _tool_ok({"node": result})
+
+
+def _handle_add_edge(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    pid_from_args, resolve_pid = _resolve_pid(session_id, arguments)
+    source, target = _edge_endpoints(arguments)
+    pid = resolve_pid(source) if source else None
+    if not pid and target:
+        pid = resolve_pid(target)
+    pid = pid or pid_from_args
+    _debug_tool_call(session_id, turn_id, "add_edge", arguments, process_id, pid)
+    if not source or not target:
+        return _tool_error("source and target are required")
+    if not pid:
+        return _tool_error(f"Process not found for edge: {source} -> {target}")
+    result = store_add_edge(session_id, source, target, label=arguments.get("label") or "", process_id=pid)
+    if result is None:
+        return _tool_error(f"Edge not added (step not found or invalid): {source} -> {target}")
+    return _tool_ok({"edge": result})
+
+
+def _handle_delete_edge(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    pid_from_args, resolve_pid = _resolve_pid(session_id, arguments)
+    source, target = _edge_endpoints(arguments)
+    pid = resolve_pid(source) if source else None
+    if not pid and target:
+        pid = resolve_pid(target)
+    pid = pid or pid_from_args
+    _debug_tool_call(session_id, turn_id, "delete_edge", arguments, process_id, pid)
+    if not source or not target:
+        return _tool_error("source and target are required")
+    if not pid:
+        return _tool_error(f"Process not found for edge: {source} -> {target}")
+    ok = store_delete_edge(session_id, source, target, process_id=pid)
+    return json.dumps({"ok": ok, "removed": ok})
+
+
+def _handle_update_edge(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    pid_from_args, resolve_pid = _resolve_pid(session_id, arguments)
+    source, target = _edge_endpoints(arguments)
+    updates = arguments.get("updates")
+    pid = resolve_pid(source) if source else None
+    if not pid and target:
+        pid = resolve_pid(target)
+    pid = pid or pid_from_args
+    _debug_tool_call(session_id, turn_id, "update_edge", arguments, process_id, pid)
+    if not source or not target or not isinstance(updates, dict):
+        return _tool_error("source, target and updates (object) are required")
+    if not pid:
+        return _tool_error(f"Process not found for edge: {source} -> {target}")
+    edge_updates = {}
+    if "label" in updates:
+        edge_updates["label"] = str(updates.get("label") or "").strip()
+    result = store_update_edge(session_id, source, target, edge_updates, process_id=pid)
+    if result is None:
+        return _tool_error(f"Edge not found: {source} -> {target}")
+    return _tool_ok({"edge": result})
+
+
+def _handle_add_node(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    new_id = (arguments.get("id") or "").strip()
+    step_type = arguments.get("type", "step")
+    if step_type not in ("step", "decision", "subprocess"):
+        step_type = "step"
+    inferred_pid = get_process_id_for_proposed_id(session_id, new_id, step_type) if new_id else None
+    pid = process_id or arguments.get("process_id") or inferred_pid or "global"
+    _debug_tool_call(session_id, turn_id, "add_node", arguments, process_id, pid)
+    if not new_id:
+        return _tool_error("id and type are required")
+    name_val = (arguments.get("name") or "").strip()
+    if not name_val:
+        name_val = "New step" if step_type == "step" else "New decision" if step_type == "decision" else "New subprocess"
+    result = store_add_node(session_id, pid, {"id": new_id, "name": name_val, "type": step_type})
+    if result is None:
+        return _tool_error(f"Could not add node: id may already exist or be invalid (id={new_id!r})")
+    return _tool_ok({"node": result})
+
+
+def _handle_delete_node(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    pid_from_args, resolve_pid = _resolve_pid(session_id, arguments)
+    node_id = arguments.get("id") or arguments.get("node_id")
+    pid = resolve_pid(node_id) if node_id else pid_from_args
+    _debug_tool_call(session_id, turn_id, "delete_node", arguments, process_id, pid)
+    if not node_id:
+        return _tool_error("id is required")
+    if not pid:
+        return _tool_error(f"Process not found for node: {node_id}")
+    ok = store_delete_node(session_id, node_id, process_id=pid)
+    if not ok:
+        return _tool_error(f"Node not found or cannot delete (start/end): {node_id}")
+    return _tool_ok({"removed": True})
+
+
+def _handle_rename_process(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    pid = (arguments.get("id") or arguments.get("process_id") or process_id or "").strip()
+    new_name = (arguments.get("name") or "").strip()
+    _debug_tool_call(session_id, turn_id, "rename_process", arguments, process_id, pid or None)
+    if not pid or not new_name:
+        return _tool_error("id and name are required")
+    ok = store_rename_process(session_id, new_name, process_id=pid)
+    if not ok:
+        return _tool_error(f"Could not rename process: {pid}")
+    return _tool_ok({"process_id": pid, "name": new_name})
+
+
+TOOL_HANDLERS: dict[str, ToolHandler] = {
+    "get_full_graph": _handle_get_full_graph,
+    "update_node": _handle_update_node,
+    "add_edge": _handle_add_edge,
+    "delete_edge": _handle_delete_edge,
+    "update_edge": _handle_update_edge,
+    "add_node": _handle_add_node,
+    "delete_node": _handle_delete_node,
+    "rename_process": _handle_rename_process,
+}
+
+
+def run_tool(
+    session_id: str,
+    name: str,
+    arguments: dict,
+    process_id: str | None = None,
+    turn_id: str | None = None,
+) -> str:
+    handler = TOOL_HANDLERS.get(name)
+    if not handler:
+        logger.info("[%s] TOOL_UNKNOWN name=%s session_id=%s", turn_id or "-", name, session_id)
+        return json.dumps({"ok": False, "error": f"Unknown tool: {name}"})
+    return handler(session_id, arguments, process_id, turn_id)

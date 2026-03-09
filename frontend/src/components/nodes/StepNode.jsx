@@ -1,10 +1,7 @@
 import { memo } from 'react'
-import { Handle } from '@xyflow/react'
-import { HANDLE_MAP } from './nodeTypes'
+import { NodeHandles } from './nodeTypes.jsx'
 import './nodes-common.css'
 import './StepNode.css'
-const TARGET_ORDER = ['left', 'right', 'top', 'bottom']
-const SOURCE_ORDER = ['right', 'left', 'top', 'bottom']
 
 function StepNode({ data, selected }) {
   const errRate = parseFloat(data.error_rate_percent)
@@ -15,14 +12,7 @@ function StepNode({ data, selected }) {
     <div
       className={`step-node node-shared-interactive node-shared-handles ${hasHighError ? 'step-node--high-error' : ''} ${selected ? 'node-shared-selected' : ''}`}
     >
-      {TARGET_ORDER.map((id) => {
-        const { position } = HANDLE_MAP[id]
-        return <Handle key={`${id}-target`} type="target" position={position} id={`${id}-target`} />
-      })}
-      {SOURCE_ORDER.map((id) => {
-        const { position } = HANDLE_MAP[id]
-        return <Handle key={`${id}-source`} type="source" position={position} id={`${id}-source`} />
-      })}
+      <NodeHandles />
       <div className="step-node__header">
         <span className="step-node__name">{data.name}</span>
         {data.actor && <span className="step-node__actor">{data.actor}</span>}
