@@ -11,8 +11,7 @@ const SECTORS = [
 ]
 
 const BOT_INTRO =
-  "I'm Aurelius. Think of me as your process advisor: I help you map how your company works—steps, who does what, and how it all connects. " +
-  "You'll get a living process graph you can refine by chatting with me. Let's start simple."
+  "I'm Aurelius, your process advisor. I'll help you map how your company works and build a graph you can refine by chatting with me."
 
 const BOT_ASK_COMPANY = "What's your company name?"
 const BOT_ASK_SECTOR = (companyName) => `What type of company is ${companyName}? Pick one.`
@@ -102,10 +101,9 @@ export default function Landing({ onSubmit }) {
 
       <header className="landing__header">
         <span className="landing__logo">
-          <img className="landing__logo-img" src="/logo.png" alt="" width="40" height="40" />
-          Consularis<span className="landing__logo-dot">.</span>
+          <img className="landing__logo-img" src="/logo.png" alt="Consularis" width="24" height="24" />
+          Consularis.ai
         </span>
-        <span className="landing__tagline">Process Intelligence</span>
       </header>
 
       <main className="landing__main">

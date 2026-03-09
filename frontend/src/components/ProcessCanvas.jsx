@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   ReactFlow,
   Background,
@@ -56,8 +55,14 @@ function Canvas({
   structuralChangeFromChat = false,
   structuralChangeGraph = null,
   onConsumedStructuralChange,
+  canvasAreaRef,
+  panelRef: panelRefProp,
+  toolbarRef: toolbarRefProp,
+  minimapRef: minimapRefProp,
+  panelHeaderRef,
+  panelElementInfoRef,
+  panelChatRef,
 }) {
-  const navigate = useNavigate()
   const { screenToFlowPosition, flowToScreenPosition, zoomIn, zoomOut, fitView } = useReactFlow()
   const { zoom } = useViewport()
   const { graph, loading, error } = useProcessGraph(sessionId, processId, refreshTrigger)
@@ -80,6 +85,27 @@ function Canvas({
   const tbRef = useRef(null)
   const flowWrapper = useRef(null)
   const panelRef = useRef(null)
+  const setToolbarRef = useCallback(
+    (el) => {
+      tbRef.current = el
+      if (toolbarRefProp) toolbarRefProp.current = el
+    },
+    [toolbarRefProp],
+  )
+  const setFlowRef = useCallback(
+    (el) => {
+      flowWrapper.current = el
+      if (canvasAreaRef) canvasAreaRef.current = el
+    },
+    [canvasAreaRef],
+  )
+  const setPanelRef = useCallback(
+    (el) => {
+      panelRef.current = el
+      if (panelRefProp) panelRefProp.current = el
+    },
+    [panelRefProp],
+  )
   const posTimerRef = useRef(null)
   const pendingPositions = useRef({})
   const tbDragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0, moved: false })
@@ -201,14 +227,6 @@ function Canvas({
     const entry = workspaceProcesses[processId]
     return entry?.name || processId.replace(/^Process_/, '').replace(/_/g, ' ')
   }, [processId, workspaceProcesses])
-
-  const stats = useMemo(() => ({
-    steps: nodes.filter((n) => n.type === 'step').length,
-    decisions: nodes.filter((n) => n.type === 'decision').length,
-    subprocesses: nodes.filter((n) => n.type === 'subprocess').length,
-    connections: edges.length,
-    lanes: graph?.lanes?.length || 0,
-  }), [nodes, edges, graph])
 
   const breadcrumb = useMemo(() => {
     const parts = []
@@ -559,9 +577,6 @@ function Canvas({
   const handleToggleToolbarLayout = useCallback(() => {
     setTbLayout((layout) => (layout === 'vertical' ? 'horizontal' : 'vertical'))
   }, [])
-  const handleOpenLandscape = useCallback(() => {
-    onViewModeChange?.('landscape')
-  }, [onViewModeChange])
   const handleEdgeEditorLabelChange = useCallback((label) => {
     setEdgeEditor((prev) => (prev ? { ...prev, label } : prev))
   }, [])
@@ -569,7 +584,7 @@ function Canvas({
   return (
     <div className="process-canvas" ref={canvasRef}>
       <FloatingToolbar
-        toolbarRef={tbRef}
+        toolbarRef={setToolbarRef}
         className={tbCls}
         position={tbPos}
         hidden={loading || error}
@@ -597,7 +612,7 @@ function Canvas({
       />
 
       {/* ── Right panel ── */}
-      <aside ref={panelRef} className="process-canvas__panel" style={{ width: panelWidth, minWidth: panelWidth }}>
+      <aside ref={setPanelRef} className="process-canvas__panel" style={{ width: panelWidth, minWidth: panelWidth }}>
         <div className="process-canvas__panel-inner">
           {pendingAddType && (
             <div className="process-canvas__place-hint">Click to place · <strong>Esc</strong> to cancel</div>
@@ -606,43 +621,44 @@ function Canvas({
             <div className="process-canvas__subprocess-status">{subprocessStatus}</div>
           )}
 
-          {/* Action row — high-power buttons */}
-          <div className="panel-actions-row">
-            <button className="panel-actions-row__btn" onClick={handleOpenLandscape}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="1.5" y="3" width="5" height="4.5" rx="1" /><rect x="9.5" y="3" width="5" height="4.5" rx="1" /><rect x="5.5" y="9" width="5" height="4.5" rx="1" /></svg>
-              Landscape
-            </button>
-            <button
-              type="button"
-              className="panel-actions-row__btn panel-actions-row__btn--accent"
-              onClick={() => navigate('/dashboard/analyze')}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 1v6M5 4l3-3 3 3" /><path d="M2 8.5a6 6 0 0 0 12 0" /><circle cx="8" cy="12" r="1" fill="currentColor" /></svg>
-              Analyze
-            </button>
+          <div ref={panelHeaderRef} className="process-canvas__panel-section process-canvas__panel-section--header">
+            <ProcessNameHeader
+              breadcrumb={breadcrumb}
+              processDisplayName={processDisplayName}
+              processId={processId}
+              sessionId={sessionId}
+              onDrillDown={onDrillDown}
+              onRequestRefresh={onRequestRefresh}
+            />
           </div>
 
-          <ProcessNameHeader
-            breadcrumb={breadcrumb}
-            processDisplayName={processDisplayName}
-            processId={processId}
-            sessionId={sessionId}
-            onDrillDown={onDrillDown}
-            onRequestRefresh={onRequestRefresh}
-            stats={stats}
-          />
+          <div
+            ref={panelElementInfoRef}
+            className={
+              'process-canvas__panel-section ' +
+              (selectedStep ? 'process-canvas__panel-section--detail' : 'process-canvas__panel-section--element-info')
+            }
+          >
+            {selectedStep ? (
+              <DetailPanel
+                step={selectedStep}
+                sessionId={sessionId}
+                processId={processId}
+                onClose={onCloseDetail}
+                onUpdate={onStepUpdate}
+              />
+            ) : (
+              <div className="process-canvas__element-info-placeholder">
+                <p className="process-canvas__element-info-placeholder-text">Click on an element in the graph to see its details here.</p>
+              </div>
+            )}
+          </div>
 
-          {selectedStep && (
-            <DetailPanel
-              step={selectedStep}
-              sessionId={sessionId}
-              processId={processId}
-              onClose={onCloseDetail}
-              onUpdate={onStepUpdate}
-            />
+          {panelFooter && (
+            <div ref={panelChatRef} className="process-canvas__panel-chat">
+              {panelFooter}
+            </div>
           )}
-
-          {panelFooter && <div className="process-canvas__panel-chat">{panelFooter}</div>}
         </div>
       </aside>
 
@@ -659,7 +675,7 @@ function Canvas({
       />
 
       <div
-        ref={flowWrapper}
+        ref={setFlowRef}
         className={'process-canvas__flow' + (pendingAddType ? ' process-canvas__flow--placing' : '')}
         style={{ visibility: loading || error ? 'hidden' : 'visible' }}
         tabIndex={0}
@@ -732,6 +748,7 @@ function Canvas({
             workspace={{ process_tree: { processes: workspaceProcesses } }}
             currentProcessId={processId}
             onProcessSelect={onDrillDown}
+            minimapRef={minimapRefProp}
           />
           <Background variant="dots" color="var(--border, #ccc4b8)" gap={20} size={1.5} />
         </ReactFlow>

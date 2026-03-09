@@ -8,7 +8,6 @@ export default function ProcessNameHeader({
   sessionId,
   onDrillDown,
   onRequestRefresh,
-  stats,
 }) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(processDisplayName)
@@ -100,13 +99,6 @@ export default function ProcessNameHeader({
           )}
         </span>
       </nav>
-      <div className="panel-info__stats">
-        <div className="panel-info__stat"><span className="panel-info__stat-value">{stats.steps}</span><span className="panel-info__stat-label">Steps</span></div>
-        <div className="panel-info__stat"><span className="panel-info__stat-value">{stats.decisions}</span><span className="panel-info__stat-label">Decisions</span></div>
-        <div className="panel-info__stat"><span className="panel-info__stat-value">{stats.subprocesses}</span><span className="panel-info__stat-label">Subs</span></div>
-        <div className="panel-info__stat"><span className="panel-info__stat-value">{stats.connections}</span><span className="panel-info__stat-label">Edges</span></div>
-        <div className="panel-info__stat"><span className="panel-info__stat-value">{stats.lanes}</span><span className="panel-info__stat-label">Lanes</span></div>
-      </div>
     </section>
   )
 }

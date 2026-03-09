@@ -20,20 +20,23 @@
   pointer-events: none;
 }
 
+/* ── Header: same size as dashboard top bar ── */
 .landing__header {
-  padding: 1.25rem 2rem;
+  height: 40px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  padding: 0 1rem;
   border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
 }
 
 .landing__logo {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   font-family: var(--font-sans);
-  font-size: 1.25rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -41,17 +44,6 @@
 .landing__logo-img {
   display: block;
   object-fit: contain;
-}
-
-.landing__logo-dot {
-  color: var(--accent);
-}
-
-.landing__tagline {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 /* ── Chat container ── */
@@ -94,10 +86,17 @@
   padding: 0.75rem 0 1rem;
 }
 
+/* Homogenise Aurelius speech-bubble text size (hero scale 1.05, prompt scale 0.72) */
+.landing__robot-hero .speech-bubble p {
+  font-size: 0.95rem; /* ~1rem visual after scale(1.05) */
+}
+.landing__robot-prompt .speech-bubble p {
+  font-size: 1.39rem; /* ~1rem visual after scale(0.72) */
+}
+
 /* ── Input area ── */
 .landing__chat-input-area {
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
   min-height: 52px;
 }
 

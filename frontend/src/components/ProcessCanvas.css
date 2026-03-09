@@ -459,69 +459,6 @@
 }
 
 /* ==========================================================================
-   PANEL — Action row (Landscape, Analyze)
-   ========================================================================== */
-
-.panel-actions-row {
-  flex-shrink: 0;
-  display: flex;
-  gap: 6px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border, #2e2820);
-}
-
-.panel-actions-row__btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #2e2820);
-  background: var(--bg-card, #1e1914);
-  color: var(--text-secondary, #bfae9a);
-  font-family: var(--font-sans, 'Outfit', sans-serif);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.panel-actions-row__btn:hover:not(:disabled) {
-  border-color: var(--accent, #e85d04);
-  color: var(--accent, #e85d04);
-  background: var(--accent-soft, rgba(232, 93, 4, 0.08));
-}
-
-.panel-actions-row__btn:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-.panel-actions-row__btn--accent {
-  border-color: var(--border-accent, #4a2c10);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent, #e85d04) 6%, transparent),
-    color-mix(in srgb, var(--accent, #e85d04) 2%, transparent)
-  );
-  color: var(--accent, #e85d04);
-}
-
-.panel-actions-row__btn--accent:hover:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent, #e85d04) 14%, transparent),
-    color-mix(in srgb, var(--accent, #e85d04) 6%, transparent)
-  );
-}
-
-.panel-actions-row__btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ==========================================================================
    PANEL — Directory + Page Info (merged)
    ========================================================================== */
 
@@ -624,37 +561,40 @@
   outline-offset: 1px;
 }
 
-.panel-info__stats {
-  display: flex;
-  gap: 2px;
-  margin-top: 12px;
+/* ── Panel sections (header, element info, chat) ── */
+.process-canvas__panel-section {
+  flex-shrink: 0;
 }
 
-.panel-info__stat {
+.process-canvas__panel-section--header {
+  border-bottom: 1px solid var(--border, #2e2820);
+}
+
+/* Shown when no element selected: shrinks to fit placeholder content only */
+.process-canvas__panel-section--element-info {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--border, #2e2820);
+}
+
+/* Shown when element selected: grows to fill remaining space */
+.process-canvas__panel-section--detail {
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border, #2e2820);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 8px 4px;
-  border-radius: 6px;
-  background: var(--bg-card, #1e1914);
 }
 
-.panel-info__stat-value {
-  font-family: var(--font-sans, 'Outfit', sans-serif);
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-primary, #fbf9f1);
-  line-height: 1.2;
-}
-
-.panel-info__stat-label {
-  font-size: 9px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.process-canvas__element-info-placeholder {
+  padding: 12px 14px;
   color: var(--text-muted, #a99683);
-  margin-top: 2px;
+}
+
+.process-canvas__element-info-placeholder-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 /* ==========================================================================

@@ -10,7 +10,7 @@ const HEIGHT = 120
  * Minimap showing the process landscape (tree) with the current process highlighted.
  * Replaces the default React Flow minimap so users see where they are in the workspace.
  */
-export default function LandscapeMinimap({ workspace, currentProcessId, onProcessSelect }) {
+export default function LandscapeMinimap({ workspace, currentProcessId, onProcessSelect, minimapRef }) {
   const { viewBox, transform, nodes, edges } = useMemo(() => {
     const { nodes: layoutNodes, edges: layoutEdges } = layoutTree(workspace || {})
     if (layoutNodes.length === 0) {
@@ -66,6 +66,7 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
   if (!workspace?.process_tree?.processes || Object.keys(workspace.process_tree.processes).length === 0) {
     return (
       <div
+        ref={minimapRef}
         className="landscape-minimap landscape-minimap--empty"
         style={{ width: WIDTH, height: HEIGHT }}
         title="Landscape (no processes)"
@@ -77,6 +78,7 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
 
   return (
     <div
+      ref={minimapRef}
       className="landscape-minimap"
       style={{ width: WIDTH, height: HEIGHT }}
       title="Landscape — current process highlighted"

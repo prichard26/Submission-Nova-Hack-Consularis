@@ -6,12 +6,13 @@
   overflow: hidden;
 }
 
-/* ── Slim top bar (logo only) ── */
+/* ── Top bar: logo left, actions right ── */
 .dashboard__topbar {
   height: 40px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
@@ -26,6 +27,67 @@
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.dashboard__topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard__topbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.dashboard__topbar-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dashboard__topbar-btn--accent {
+  border-color: var(--border-accent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 6%, transparent),
+    color-mix(in srgb, var(--accent) 2%, transparent)
+  );
+  color: var(--accent);
+}
+
+.dashboard__topbar-btn--accent:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 14%, transparent),
+    color-mix(in srgb, var(--accent) 6%, transparent)
+  );
+}
+
+.dashboard__topbar-btn--icon {
+  padding: 6px;
+  min-width: 28px;
+  min-height: 28px;
+  justify-content: center;
+}
+
+.dashboard__topbar-icon-i {
+  font-size: 14px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: var(--font-sans);
+  line-height: 1;
 }
 
 .dashboard__logo-icon {
