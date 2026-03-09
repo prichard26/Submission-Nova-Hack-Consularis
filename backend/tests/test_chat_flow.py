@@ -1,15 +1,14 @@
-"""Chat flow: run_chat returns (message, graph_json, tools_used); API returns meta."""
+"""Chat flow: run_chat returns (message, graph_json, tools_used, ...); API returns meta."""
 import json
-import os
 
-os.environ["GROQ_KEY"] = "missing"
+from agent import run_chat
 
 
 def test_run_chat_returns_tools_used_flag():
-    from agent.runtime import run_chat
 
     sid = "test-returns-three"
-    msg, graph_json_str, tools_used = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}], max_rounds=1)
+    result = run_chat(sid, [{"role": "user", "content": "What is P1.1?"}], max_rounds=1)
+    msg, graph_json_str, tools_used, tools_called, api_calls, input_tokens, output_tokens, pending_plan, requires_confirmation = result
     assert isinstance(msg, str)
     assert isinstance(graph_json_str, str)
     data = json.loads(graph_json_str)

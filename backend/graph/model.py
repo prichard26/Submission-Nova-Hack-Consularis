@@ -58,11 +58,8 @@ class ProcessGraph:
 
     @property
     def process_id(self) -> str:
+        """Optional: set by API when serving graph; not stored in JSON."""
         return self.data.get("process_id", "")
-
-    @process_id.setter
-    def process_id(self, value: str) -> None:
-        self.data["process_id"] = value
 
     @property
     def name(self) -> str:
@@ -85,19 +82,37 @@ class ProcessGraph:
         return self.data.setdefault("flows", [])
 
     @property
+    def step_order(self) -> list[str]:
+        order = self.data.get("step_order")
+        if order is not None:
+            return order
+        # Legacy: derive from lanes when present
+        lanes = self.data.get("lanes") or []
+        if lanes:
+            result = []
+            for lane in lanes:
+                refs = lane.get("node_refs") or []
+                result.extend(refs)
+            return result
+        return []
+
+    @step_order.setter
+    def step_order(self, value: list[str]) -> None:
+        self.data["step_order"] = list(value) if value is not None else []
+
+    @property
     def lanes(self) -> list[dict]:
-        return self.data.setdefault("lanes", [])
+        """Legacy: only present when graph has lanes in data. New format uses step_order only."""
+        return self.data.get("lanes") or []
+
+    def get_lane(self, lane_id: str) -> dict | None:
+        """Legacy: return lane by id. New format has no lanes."""
+        return next((ln for ln in self.lanes if ln.get("id") == lane_id), None)
 
     # -- lookups -----------------------------------------------------------
 
     def get_step(self, step_id: str) -> dict | None:
         return next((s for s in self.steps if s.get("id") == step_id), None)
-
-    def get_step_by_short_id(self, short_id: str) -> dict | None:
-        return next((s for s in self.steps if s.get("short_id") == short_id), None)
-
-    def get_lane(self, lane_id: str) -> dict | None:
-        return next((ln for ln in self.lanes if ln.get("id") == lane_id), None)
 
     def get_flow(self, from_id: str, to_id: str) -> dict | None:
         return next(
@@ -108,12 +123,10 @@ class ProcessGraph:
     def all_step_ids(self) -> set[str]:
         return {s["id"] for s in self.steps if "id" in s}
 
-    def steps_in_lane(self, lane_id: str) -> list[dict]:
-        lane = self.get_lane(lane_id)
-        if not lane:
-            return []
-        refs = set(lane.get("node_refs", []))
-        return [s for s in self.steps if s.get("id") in refs]
+    def steps_in_order(self) -> list[dict]:
+        """Return steps in step_order order; skip ids not found in steps."""
+        step_by_id = {s.get("id"): s for s in self.steps if s.get("id")}
+        return [step_by_id[sid] for sid in self.step_order if sid in step_by_id]
 
     def step_type(self, step_id: str) -> str | None:
         step = self.get_step(step_id)

@@ -196,19 +196,15 @@ def clone_baseline_to_session(session_id: str) -> None:
 
 
 def _empty_graph_json(session_id: str) -> str:
-    """Minimal graph: one lane, Start and End only."""
+    """Minimal graph: step_order, Start and End only (no lanes in stored doc)."""
     name = f"{session_id}_map"
     return json.dumps({
-        "format_version": "1.0",
-        "process_id": "Process_Global",
         "name": name,
         "metadata": {},
-        "lanes": [
-            {"id": "GLOBAL", "name": "Main", "description": "", "node_refs": ["Start_Global", "End_Global"]}
-        ],
+        "step_order": ["Start_Global", "End_Global"],
         "steps": [
-            {"id": "Start_Global", "name": "Start", "type": "start", "lane_id": "GLOBAL", "position": {"x": 200, "y": 80}},
-            {"id": "End_Global", "name": "End", "type": "end", "lane_id": "GLOBAL", "position": {"x": 500, "y": 80}},
+            {"id": "Start_Global", "name": "Start", "type": "start", "position": {"x": 200, "y": 80}},
+            {"id": "End_Global", "name": "End", "type": "end", "position": {"x": 500, "y": 80}},
         ],
         "flows": [{"from": "Start_Global", "to": "End_Global", "label": ""}],
     }, ensure_ascii=False, indent=2)

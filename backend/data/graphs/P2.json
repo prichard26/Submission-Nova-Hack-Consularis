@@ -1,34 +1,15 @@
 {
-  "format_version": "1.0",
-  "process_id": "Process_P2",
   "name": "Selection, Acquisition, and Reception",
   "metadata": {
     "owner": "Pharmacy Department",
     "category": "supply_chain",
     "criticality": "high"
   },
-  "lanes": [
-    {
-      "id": "P2",
-      "name": "Selection, Acquisition, and Reception",
-      "description": "",
-      "node_refs": [
-        "Start_P2",
-        "P2.1",
-        "G2",
-        "P2.2",
-        "P2.3",
-        "P2.4",
-        "End_P2"
-      ]
-    }
-  ],
   "steps": [
     {
       "id": "Start_P2",
       "name": "Start",
       "type": "start",
-      "lane_id": "P2",
       "position": {
         "x": 280,
         "y": 78
@@ -38,8 +19,6 @@
       "id": "P2.1",
       "name": "Select Medication",
       "type": "step",
-      "short_id": "P2.1",
-      "lane_id": "P2",
       "position": {
         "x": 504,
         "y": 44
@@ -88,8 +67,6 @@
       "id": "P2.2",
       "name": "Acquire Medication",
       "type": "step",
-      "short_id": "P2.2",
-      "lane_id": "P2",
       "position": {
         "x": 1140,
         "y": 44
@@ -140,8 +117,6 @@
       "id": "P2.3",
       "name": "Receive Shipment",
       "type": "step",
-      "short_id": "P2.3",
-      "lane_id": "P2",
       "position": {
         "x": 1540,
         "y": 44
@@ -191,8 +166,6 @@
       "id": "P2.4",
       "name": "Verify Shipment",
       "type": "step",
-      "short_id": "P2.4",
-      "lane_id": "P2",
       "position": {
         "x": 1940,
         "y": 44
@@ -241,7 +214,6 @@
       "id": "G2",
       "name": "In stock?",
       "type": "decision",
-      "lane_id": "P2",
       "position": {
         "x": 904,
         "y": 72
@@ -251,7 +223,6 @@
       "id": "End_P2",
       "name": "End",
       "type": "end",
-      "lane_id": "P2",
       "position": {
         "x": 2340,
         "y": 78
@@ -290,5 +261,14 @@
       "to": "P2.4",
       "label": "Shipment received"
     }
+  ],
+  "step_order": [
+    "Start_P2",
+    "P2.1",
+    "G2",
+    "P2.2",
+    "P2.3",
+    "P2.4",
+    "End_P2"
   ]
 }

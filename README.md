@@ -6,11 +6,11 @@ Process intelligence: domain selection, interview flow, and operational mapping 
 
 **Requirements:** Node.js (LTS), Python 3.10+
 
-**Groq API key (for Aurelius chat):** Get a key at [console.groq.com](https://console.groq.com). Then put it in **`backend/.env`**:
+**AWS credentials (for Aurelius chat):** Aurelius uses Amazon Nova via Bedrock. Put your AWS credentials in **`backend/.env`** (see `backend/env.example`):
 
 ```bash
 cp backend/env.example backend/.env
-# Edit backend/.env and set (no spaces): GROQ_KEY=gsk_your_actual_key
+# Edit backend/.env: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION (and optionally NOVA_MODEL_ID)
 ```
 
 Then:
@@ -72,7 +72,7 @@ cd backend && source .venv/bin/activate && pytest -v
 ## How the agent works
 
 1. **Session:** Each company name is a `session_id`. The backend keeps a set of BPMN 2.0 process graphs per session (hierarchical: global map + subprocesses), backed by in-memory SQLite.
-2. **Chat:** When you send a message, the backend calls Groq (Llama 3.3 70B) with a system prompt (Aurelius personality + "if unclear, ask to repeat") and **tools**: `get_graph`, `get_node`, `update_node`, `add_node`, `delete_node`, `get_edges`, `update_edge`, `add_edge`, `validate_graph`, plus hierarchy tools (`resolve_step`, `list_processes`, `navigate_process`).
+2. **Chat:** When you send a message, the backend calls Amazon Nova (Bedrock) with a system prompt (Aurelius helper + answer all questions) and **tools**: `get_graph`, `get_node`, `update_node`, `add_node`, `delete_node`, `get_edges`, `update_edge`, `add_edge`, `validate_graph`, plus hierarchy tools (`resolve_step`, `list_processes`, `navigate_process`).
 3. **Tool loop:** If the model returns tool calls (e.g. "update P1.2 duration to 10 min"), the backend runs the tool on the session graph, appends the result to the conversation, and calls the model again. This repeats until the model replies with plain text and no tool calls.
 4. **Validation:** Every tool call is validated (node/edge exists, IDs from the graph only). Invalid calls return an error to the model so it can self-correct.
 5. **Live graph:** The API returns `{ message, bpmn_xml, meta }`. The frontend updates the BPMN diagram from `bpmn_xml` so edits appear immediately.

@@ -162,6 +162,22 @@ def get_graph_json(session_id: str, process_id: str | None = None) -> str:
     return graph.to_json()
 
 
+def get_graph_dict_for_client(session_id: str, process_id: str | None = None) -> dict[str, Any]:
+    """Return graph as dict with process_id and synthetic lanes for UI (if not already present)."""
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, process_id)
+    data = dict(graph.data)
+    data["process_id"] = pid
+    if not data.get("lanes"):
+        data["lanes"] = [{
+            "id": "default",
+            "name": data.get("name", ""),
+            "description": "",
+            "node_refs": data.get("step_order", []),
+        }]
+    return data
+
+
 def get_baseline_json(process_id: str | None = None) -> str:
     pid = _normalize_process_id(process_id)
     json_str = db.get_baseline_json(pid)
@@ -192,42 +208,39 @@ def get_step_ids(session_id: str, process_id: str | None = None) -> set[str]:
 
 
 def get_graph_summary(session_id: str, process_id: str | None = None) -> str:
-    """Compact lane/step summary + edges for LLM context."""
+    """Compact step summary + edges for LLM context. Uses step_order."""
     pid = _normalize_process_id(process_id)
     graph = _get_graph(session_id, process_id)
     parts = []
-    for lane in graph.lanes:
-        refs = set(lane.get("node_refs", []))
-        listed = []
-        for step in graph.steps:
-            if step.get("id") not in refs:
-                continue
-            stype = step.get("type", "")
-            if stype in ("start", "end"):
-                continue
-            sid = step.get("short_id") or step.get("id", "")
-            label = step.get("name", "").strip()
-            actor = (step.get("actor") or "").strip()
-            duration = (step.get("duration_min") or "").strip()
-            cost = (step.get("cost_per_execution") or "").strip()
-            err = (step.get("error_rate_percent") or "").strip()
-            auto = (step.get("automation_potential") or "").strip().upper()
-            entry = f"{sid} ({label})" if label else sid
-            extras = []
-            if actor:
-                extras.append(actor)
-            if duration:
-                extras.append(duration)
-            if cost:
-                extras.append(f"${cost}")
-            if err:
-                extras.append(f"{err}% err")
-            if auto:
-                extras.append(f"{auto} automation")
-            if extras:
-                entry += ", " + ", ".join(extras)
-            listed.append(entry)
-        parts.append(f"{lane.get('id', '')} {lane.get('name', '')}: {', '.join(listed)}")
+    listed = []
+    for step in graph.steps_in_order():
+        stype = step.get("type", "")
+        if stype in ("start", "end"):
+            continue
+        sid = step.get("id", "")
+        label = step.get("name", "").strip()
+        actor = (step.get("actor") or "").strip()
+        duration = (step.get("duration_min") or "").strip()
+        cost = (step.get("cost_per_execution") or "").strip()
+        err = (step.get("error_rate_percent") or "").strip()
+        auto = (step.get("automation_potential") or "").strip().upper()
+        entry = f"{sid} ({label})" if label else sid
+        extras = []
+        if actor:
+            extras.append(actor)
+        if duration:
+            extras.append(duration)
+        if cost:
+            extras.append(f"${cost}")
+        if err:
+            extras.append(f"{err}% err")
+        if auto:
+            extras.append(f"{auto} automation")
+        if extras:
+            entry += ", " + ", ".join(extras)
+        listed.append(entry)
+    if listed:
+        parts.append(f"{graph.name or pid}: {', '.join(listed)}")
     edges = [f"{f.get('from', '')}->{f.get('to', '')}" for f in graph.flows]
     if edges:
         parts.append("Edges: " + ", ".join(edges))
@@ -282,45 +295,42 @@ def get_full_graph_summary(session_id: str) -> str:
 
 
 def get_graph_summary_for_analysis(session_id: str, process_id: str | None = None) -> str:
-    """Like get_graph_summary but includes automation_notes per step for the analyzer LLM."""
+    """Like get_graph_summary but includes automation_notes per step for the analyzer LLM. Uses step_order."""
     pid = _normalize_process_id(process_id)
     graph = _get_graph(session_id, process_id)
     parts = []
-    for lane in graph.lanes:
-        refs = set(lane.get("node_refs", []))
-        listed = []
-        for step in graph.steps:
-            if step.get("id") not in refs:
-                continue
-            stype = step.get("type", "")
-            if stype in ("start", "end"):
-                continue
-            sid = step.get("short_id") or step.get("id", "")
-            label = step.get("name", "").strip()
-            actor = (step.get("actor") or "").strip()
-            duration = (step.get("duration_min") or "").strip()
-            cost = (step.get("cost_per_execution") or "").strip()
-            err = (step.get("error_rate_percent") or "").strip()
-            auto = (step.get("automation_potential") or "").strip().upper()
-            notes = (step.get("automation_notes") or "").strip()
-            entry = f"{sid} ({label})" if label else sid
-            extras = []
-            if actor:
-                extras.append(actor)
-            if duration:
-                extras.append(duration)
-            if cost:
-                extras.append(f"${cost}")
-            if err:
-                extras.append(f"{err}% err")
-            if auto:
-                extras.append(f"{auto} automation")
-            if extras:
-                entry += ", " + ", ".join(extras)
-            if notes:
-                entry += " | Notes: " + notes
-            listed.append(entry)
-        parts.append(f"{lane.get('id', '')} {lane.get('name', '')}: {', '.join(listed)}")
+    listed = []
+    for step in graph.steps_in_order():
+        stype = step.get("type", "")
+        if stype in ("start", "end"):
+            continue
+        sid = step.get("id", "")
+        label = step.get("name", "").strip()
+        actor = (step.get("actor") or "").strip()
+        duration = (step.get("duration_min") or "").strip()
+        cost = (step.get("cost_per_execution") or "").strip()
+        err = (step.get("error_rate_percent") or "").strip()
+        auto = (step.get("automation_potential") or "").strip().upper()
+        notes = (step.get("automation_notes") or "").strip()
+        entry = f"{sid} ({label})" if label else sid
+        extras = []
+        if actor:
+            extras.append(actor)
+        if duration:
+            extras.append(duration)
+        if cost:
+            extras.append(f"${cost}")
+        if err:
+            extras.append(f"{err}% err")
+        if auto:
+            extras.append(f"{auto} automation")
+        if extras:
+            entry += ", " + ", ".join(extras)
+        if notes:
+            entry += " | Notes: " + notes
+        listed.append(entry)
+    if listed:
+        parts.append(f"{graph.name or pid}: {', '.join(listed)}")
     edges = [f"{f.get('from', '')}->{f.get('to', '')}" for f in graph.flows]
     if edges:
         parts.append("Edges: " + ", ".join(edges))
@@ -431,7 +441,7 @@ def _score_match(needle: str, name: str, id_val: str) -> float:
 
 
 def resolve_step(session_id: str, name_fragment: str, process_id: str | None = None) -> list[dict[str, Any]]:
-    """Resolve step/lane names to IDs via fuzzy matching."""
+    """Resolve step names to IDs via fuzzy matching. process_id in results comes from request."""
     needle = (name_fragment or "").strip().lower()
     if not needle:
         return []
@@ -446,44 +456,30 @@ def resolve_step(session_id: str, name_fragment: str, process_id: str | None = N
                 continue
             name = (step.get("name") or "").strip()
             step_id = step.get("id", "")
-            short_id = step.get("short_id", "")
             if not name and not step_id:
                 continue
-            score = max(_score_match(needle, name, step_id), _score_match(needle, name, short_id))
+            score = _score_match(needle, name, step_id)
             if score >= 0.55:
                 results.append((score, {
                     "type": stype, "node_id": step_id, "name": name,
-                    "process_id": graph.process_id,
-                }))
-        for lane in graph.lanes:
-            name = (lane.get("name") or "").strip()
-            lane_id = lane.get("id", "")
-            score = _score_match(needle, name, lane_id)
-            if score >= 0.55:
-                results.append((score, {
-                    "type": "lane", "lane_id": lane_id, "name": name,
-                    "process_id": graph.process_id,
+                    "process_id": pid,
                 }))
     results.sort(key=lambda x: x[0], reverse=True)
     return [item for _score, item in results[:10]]
 
 
 def get_node(session_id: str, node_id: str, process_id: str | None = None) -> dict | None:
+    pid = _normalize_process_id(process_id)
     graph = _get_graph(session_id, process_id)
     step = graph.get_step(node_id)
     if step is None:
         return None
-    lane = graph.get_lane(step.get("lane_id", "")) if step.get("lane_id") else None
     out: dict[str, Any] = {
         "id": step["id"],
         "name": step.get("name", ""),
         "node_type": step.get("type", "step"),
-        "process_id": graph.process_id,
-        "phaseName": lane["name"] if lane else "",
-        "phaseId": step.get("lane_id", ""),
+        "process_id": pid,
     }
-    if step.get("short_id"):
-        out["short_id"] = step["short_id"]
     if step.get("called_element"):
         out["called_element"] = step["called_element"]
     for key in STEP_METADATA_KEYS:
@@ -539,39 +535,27 @@ def _next_custom_process_id(session_id: str, ws: WorkspaceManifest) -> str:
 
 
 def _starter_process_graph(process_id: str, name: str, parent_info: dict | None) -> dict[str, Any]:
-    lane_id = "MAIN"
     start_id = f"Start_{process_id}"
     end_id = f"End_{process_id}"
     return {
-        "format_version": "1.0",
-        "process_id": process_id,
         "name": name,
         "metadata": {
             "owner": (parent_info or {}).get("owner", "Pharmacy Department"),
             "category": (parent_info or {}).get("category", "clinical"),
             "criticality": (parent_info or {}).get("criticality", "medium"),
         },
-        "lanes": [
-            {
-                "id": lane_id,
-                "name": name,
-                "description": "",
-                "node_refs": [start_id, end_id],
-            }
-        ],
+        "step_order": [start_id, end_id],
         "steps": [
             {
                 "id": start_id,
                 "name": "Start",
                 "type": "start",
-                "lane_id": lane_id,
                 "position": {"x": 280, "y": 78},
             },
             {
                 "id": end_id,
                 "name": "End",
                 "type": "end",
-                "lane_id": lane_id,
                 "position": {"x": 740, "y": 78},
             },
         ],
@@ -600,38 +584,45 @@ def update_node(session_id: str, node_id: str, updates: dict, process_id: str | 
 
 
 def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | None = None) -> dict | None:
+    """Add a step/decision/subprocess. lane_id is ignored; prefix derived from process_id."""
+    pid = _normalize_process_id(process_id)
     graph = _get_graph(session_id, process_id)
-    lane = graph.get_lane(lane_id)
-    if not lane:
-        return None
-
-    refs = lane.get("node_refs", [])
     existing_ids = graph.all_step_ids()
-    prefix = f"{lane_id}."
-    max_suffix = 0
-    for nid in existing_ids:
-        if not nid.startswith(prefix):
-            continue
-        suffix = nid[len(prefix):]
-        if suffix.isdigit():
-            max_suffix = max(max_suffix, int(suffix))
-    step_num = max_suffix + 1 if max_suffix > 0 else 1
-    new_id = f"{lane_id}.{step_num}"
-    while new_id in existing_ids:
-        step_num += 1
-        new_id = f"{lane_id}.{step_num}"
+    step_type = step_data.get("type", "step")
+
+    if pid == DEFAULT_PROCESS_ID:
+        # Global map: only subprocesses get P8, P9; steps/decisions get a synthetic id (should be rare)
+        if step_type == "subprocess":
+            new_id = _next_global_subprocess_id(graph)
+        else:
+            new_id = f"GLOBAL.{len(existing_ids) + 1}"
+            while new_id in existing_ids:
+                new_id = f"GLOBAL.{int(new_id.split('.')[-1]) + 1}"
+    else:
+        # Process_P1 -> P1; existing P1.1, P1.2 -> next is P1.4
+        prefix = pid.replace("Process_", "", 1) if pid.startswith("Process_") else pid
+        max_suffix = 0
+        for nid in existing_ids:
+            if not nid.startswith(prefix + "."):
+                continue
+            suffix = nid[len(prefix) + 1:]
+            if suffix.isdigit():
+                max_suffix = max(max_suffix, int(suffix))
+        step_num = max_suffix + 1 if max_suffix > 0 else 1
+        new_id = f"{prefix}.{step_num}"
+        while new_id in existing_ids:
+            step_num += 1
+            new_id = f"{prefix}.{step_num}"
 
     provided_pos = step_data.get("position")
     if isinstance(provided_pos, dict) and "x" in provided_pos and "y" in provided_pos:
         pos = {"x": int(provided_pos.get("x", 0)), "y": int(provided_pos.get("y", 0))}
     else:
-        pos = auto_position(graph, lane_id, new_step=step_data)
+        pos = auto_position(graph, new_step=step_data)
     new_step: dict[str, Any] = {
         "id": new_id,
         "name": step_data.get("name", "New step"),
-        "type": step_data.get("type", "step"),
-        "short_id": new_id,
-        "lane_id": lane_id,
+        "type": step_type,
         "position": pos,
     }
     for key in STEP_METADATA_KEYS:
@@ -641,7 +632,14 @@ def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | N
         new_step["risks"] = _dedupe_risks(new_step["risks"])
 
     graph.steps.append(new_step)
-    lane["node_refs"] = list(refs) + [new_id]
+    # Insert new id before End in step_order
+    order = list(graph.step_order)
+    end_id = next((s.get("id") for s in graph.steps if s.get("type") == "end"), None)
+    if end_id and end_id in order:
+        idx = order.index(end_id)
+        graph.step_order = order[:idx] + [new_id] + order[idx:]
+    else:
+        graph.step_order = order + [new_id]
 
     _persist(session_id, process_id)
     _refresh_workspace_summary(session_id, process_id)
@@ -816,11 +814,7 @@ def delete_node(session_id: str, node_id: str, process_id: str | None = None) ->
     if step.get("type") == "subprocess" and step.get("called_element"):
         _teardown_linked_subprocess(session_id, pid, step["called_element"])
 
-    lane_id = step.get("lane_id")
-    if lane_id:
-        lane = graph.get_lane(lane_id)
-        if lane and "node_refs" in lane:
-            lane["node_refs"] = [r for r in lane["node_refs"] if r != node_id]
+    graph.step_order = [r for r in graph.step_order if r != node_id]
     graph.steps[:] = [s for s in graph.steps if s.get("id") != node_id]
     graph.flows[:] = [
         f for f in graph.flows
@@ -843,16 +837,14 @@ def _next_global_subprocess_id(graph: ProcessGraph) -> str:
 
 
 def _rename_step_in_graph(graph: ProcessGraph, old_id: str, new_id: str) -> None:
-    """Rename a step's id throughout the graph (step, lane node_refs, flows)."""
+    """Rename a step's id throughout the graph (step, step_order, flows)."""
     step = graph.get_step(old_id)
     if not step:
         return
     step["id"] = new_id
-    step["short_id"] = new_id
-    for lane in graph.lanes:
-        refs = lane.get("node_refs", [])
-        if old_id in refs:
-            lane["node_refs"] = [new_id if r == old_id else r for r in refs]
+    order = list(graph.step_order)
+    if old_id in order:
+        graph.step_order = [new_id if r == old_id else r for r in order]
     for flow in graph.flows:
         if flow.get("from") == old_id:
             flow["from"] = new_id
@@ -994,10 +986,9 @@ def validate_graph(session_id: str, process_id: str | None = None) -> dict:
             issues.append(f"Edge source '{flow.get('from')}' is not a valid step id.")
         if flow.get("to") not in ids:
             issues.append(f"Edge target '{flow.get('to')}' is not a valid step id.")
-    for lane in graph.lanes:
-        refs = lane.get("node_refs", [])
-        if len(refs) != len(set(refs)):
-            issues.append(f"Lane {lane.get('id')} has duplicate step ids.")
+    order = graph.step_order
+    if len(order) != len(set(order)):
+        issues.append("step_order has duplicate step ids.")
     return {"valid": len(issues) == 0, "issues": issues}
 
 
@@ -1011,6 +1002,8 @@ def _next_lane_id(graph: ProcessGraph) -> str:
 
 def add_lane(session_id: str, lane_data: dict, process_id: str | None = None) -> dict | None:
     graph = _get_graph(session_id, process_id)
+    if not graph.lanes:
+        return None  # New format: single implicit lane, no add
     name = (lane_data.get("name") or "").strip() or "New phase"
     description = (lane_data.get("description") or "").strip()
     lane_id = _next_lane_id(graph)
@@ -1020,13 +1013,15 @@ def add_lane(session_id: str, lane_data: dict, process_id: str | None = None) ->
         "description": description,
         "node_refs": [],
     }
-    graph.lanes.append(lane)
+    graph.data.setdefault("lanes", []).append(lane)
     _persist(session_id, process_id)
     return {"id": lane_id, "name": name, "description": description, "node_refs": []}
 
 
 def update_lane(session_id: str, lane_id: str, updates: dict, process_id: str | None = None) -> dict | None:
     graph = _get_graph(session_id, process_id)
+    if not graph.lanes:
+        return None
     lane = graph.get_lane(lane_id)
     if not lane:
         return None
@@ -1041,19 +1036,23 @@ def update_lane(session_id: str, lane_id: str, updates: dict, process_id: str | 
 
 def delete_lane(session_id: str, lane_id: str, process_id: str | None = None) -> bool:
     graph = _get_graph(session_id, process_id)
+    if not graph.lanes:
+        return False
     lane = graph.get_lane(lane_id)
     if not lane:
         return False
     refs = list(lane.get("node_refs", []))
     for nid in refs:
         delete_node(session_id, nid, process_id=process_id)
-    graph.lanes[:] = [ln for ln in graph.lanes if ln.get("id") != lane_id]
+    graph.data["lanes"] = [ln for ln in graph.lanes if ln.get("id") != lane_id]
     _persist(session_id, process_id)
     return True
 
 
 def reorder_lanes(session_id: str, lane_ids: list[str], process_id: str | None = None) -> bool:
     graph = _get_graph(session_id, process_id)
+    if not graph.lanes:
+        return False
     current_ids = [ln.get("id") for ln in graph.lanes]
     if set(lane_ids) != set(current_ids) or len(lane_ids) != len(current_ids):
         return False
@@ -1074,6 +1073,14 @@ def move_node(
     step = graph.get_step(node_id)
     if not step:
         return None
+    if not graph.lanes:
+        # New format: single implicit lane; reorder step_order if position given
+        if position is not None and 0 <= position < len(graph.step_order):
+            order = [r for r in graph.step_order if r != node_id]
+            order.insert(min(position, len(order)), node_id)
+            graph.step_order = order
+            _persist(session_id, process_id)
+        return get_node(session_id, node_id, process_id=process_id)
     target_lane = graph.get_lane(target_lane_id)
     if not target_lane:
         return None
@@ -1094,6 +1101,14 @@ def move_node(
 
 def reorder_steps(session_id: str, lane_id: str, ordered_ids: list[str], process_id: str | None = None) -> bool:
     graph = _get_graph(session_id, process_id)
+    if not graph.lanes:
+        # New format: set step_order to ordered_ids if they match current steps
+        current = set(graph.step_order)
+        if set(ordered_ids) != current or len(ordered_ids) != len(graph.step_order):
+            return False
+        graph.step_order = list(ordered_ids)
+        _persist(session_id, process_id)
+        return True
     lane = graph.get_lane(lane_id)
     if not lane:
         return False

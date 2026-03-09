@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from config import SESSION_ID_MAX_LEN, DEFAULT_PROCESS_ID
 from graph.store import (
     get_graph_json,
+    get_graph_dict_for_client,
     get_workspace_json,
     get_baseline_json,
     resolve_step,
@@ -50,10 +51,10 @@ def api_graph_json(
     session_id: str = Query(..., description="Session id"),
     process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
 ):
-    """Return the session graph as a JSON document."""
+    """Return the session graph as a JSON document (with process_id and lanes for UI)."""
     _validate_session_id(session_id)
-    graph_json = get_graph_json(session_id, process_id=process_id)
-    return Response(content=graph_json, media_type="application/json")
+    data = get_graph_dict_for_client(session_id, process_id)
+    return Response(content=json.dumps(data, ensure_ascii=False, indent=2), media_type="application/json")
 
 
 @router.get("/workspace")
@@ -281,7 +282,7 @@ def api_export_bpmn(
     _validate_session_id(session_id)
     graph_json = get_graph_json(session_id, process_id=process_id)
     graph = ProcessGraph.from_json(graph_json)
-    xml = export_bpmn_xml(graph)
+    xml = export_bpmn_xml(graph, process_id=process_id)
     return Response(content=xml, media_type="application/xml")
 
 
@@ -292,7 +293,7 @@ def api_baseline_bpmn(
     """Return baseline as BPMN 2.0 XML."""
     json_str = get_baseline_json(process_id)
     graph = ProcessGraph.from_json(json_str)
-    xml = export_bpmn_xml(graph)
+    xml = export_bpmn_xml(graph, process_id=process_id)
     return Response(content=xml, media_type="application/xml")
 
 
@@ -311,6 +312,20 @@ def api_resolve_step(
     return {"matches": matches}
 
 
+def _inject_lanes_for_client(data: dict, process_id: str) -> dict:
+    """Inject process_id and synthetic lanes into graph dict for UI."""
+    data = dict(data)
+    data["process_id"] = process_id
+    if not data.get("lanes"):
+        data["lanes"] = [{
+            "id": "default",
+            "name": data.get("name", ""),
+            "description": "",
+            "node_refs": data.get("step_order", []),
+        }]
+    return data
+
+
 @router.post("/undo")
 def api_undo_graph(
     session_id: str = Query(..., description="Session id"),
@@ -320,7 +335,8 @@ def api_undo_graph(
     restored_json = undo_graph(session_id, process_id=process_id)
     if restored_json is None:
         raise HTTPException(status_code=404, detail="Nothing to undo")
-    return {"graph_json": json.loads(restored_json)}
+    data = _inject_lanes_for_client(json.loads(restored_json), process_id)
+    return {"graph_json": data}
 
 
 @router.post("/redo")
@@ -332,7 +348,8 @@ def api_redo_graph(
     restored_json = redo_graph(session_id, process_id=process_id)
     if restored_json is None:
         raise HTTPException(status_code=404, detail="Nothing to redo")
-    return {"graph_json": json.loads(restored_json)}
+    data = _inject_lanes_for_client(json.loads(restored_json), process_id)
+    return {"graph_json": data}
 
 
 @router.post("/reset")
@@ -342,4 +359,5 @@ def api_reset_graph(
 ):
     _validate_session_id(session_id)
     restored_json = reset_to_baseline(session_id, process_id=process_id)
-    return {"graph_json": json.loads(restored_json)}
+    data = _inject_lanes_for_client(json.loads(restored_json), process_id)
+    return {"graph_json": data}

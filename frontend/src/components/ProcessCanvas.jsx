@@ -185,12 +185,14 @@ function Canvas({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
+  // Sync graph from refetch to canvas. Skip when chat just sent a graph so the chat effect can apply it first.
   useEffect(() => {
+    if (structuralChangeFromChat && structuralChangeGraph) return
     setNodes(initialNodes)
     setEdges(initialEdges)
-  }, [initialNodes, initialEdges, setNodes, setEdges])
+  }, [initialNodes, initialEdges, setNodes, setEdges, structuralChangeFromChat, structuralChangeGraph])
 
-  // When chat caused a structural change, run auto-arrange on the graph from the chat response (not stale refetch) and POST positions.
+  // When chat used tools and returned a graph: apply it immediately so nodes update, then optionally run layout.
   useEffect(() => {
     if (!structuralChangeFromChat || !structuralChangeGraph || !onConsumedStructuralChange) return
     const { nodes: arrangeNodes, edges: arrangeEdges } = toReactFlowData(structuralChangeGraph, workspaceProcesses)
@@ -198,6 +200,9 @@ function Canvas({
       onConsumedStructuralChange()
       return
     }
+    // Apply graph immediately so the user sees updated node data (e.g. actor, duration) right away.
+    setNodes(arrangeNodes)
+    setEdges(arrangeEdges)
     let cancelled = false
     ;(async () => {
       const { nodes: nextNodes, edges: nextEdges, positions } = await autoArrangeNodes(
@@ -205,20 +210,22 @@ function Canvas({
         arrangeEdges,
         { graph: structuralChangeGraph }
       )
-      if (cancelled || Object.keys(positions).length === 0) {
+      if (cancelled) {
         onConsumedStructuralChange()
         return
       }
-      setNodes(nextNodes)
-      setEdges(nextEdges)
-      setTimeout(() => fitView(), 100)
-      try {
-        await updatePositions(sessionId, processId, positions)
-        onRequestRefresh?.()
-      } catch (err) {
-        console.warn('Auto-arrange after structural change failed', err)
+      if (Object.keys(positions).length > 0) {
+        setNodes(nextNodes)
+        setEdges(nextEdges)
+        setTimeout(() => fitView(), 100)
+        try {
+          await updatePositions(sessionId, processId, positions)
+          onRequestRefresh?.()
+        } catch (err) {
+          console.warn('Auto-arrange after chat update failed', err)
+        }
       }
-      if (!cancelled) onConsumedStructuralChange()
+      onConsumedStructuralChange()
     })()
     return () => { cancelled = true }
   }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, sessionId, processId, setNodes, setEdges, fitView, onRequestRefresh, onConsumedStructuralChange])

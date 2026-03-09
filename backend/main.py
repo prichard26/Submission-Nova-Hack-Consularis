@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import GROQ_KEY, ALLOWED_CORS_ORIGINS
+from config import ALLOWED_CORS_ORIGINS
 from db import get_conn
 from graph.store import init_baseline
 from routers import health_router, chat_router, graph_router, analyze_router, session_router
@@ -17,10 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message
 async def lifespan(app: FastAPI):
     get_conn()
     init_baseline()
-    if GROQ_KEY and GROQ_KEY != "missing" and not GROQ_KEY.startswith("your_"):
-        logger.info("Consularis: GROQ_KEY is set — Aurelius chat enabled.")
-    else:
-        logger.info("Consularis: GROQ_KEY not set. Copy backend/env.example to backend/.env and set GROQ_KEY.")
+    logger.info("Consularis: Aurelius chat uses Amazon Nova (Bedrock). Set AWS credentials for chat.")
     yield
 
 

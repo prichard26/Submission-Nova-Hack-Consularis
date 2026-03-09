@@ -1,32 +1,15 @@
 {
-  "format_version": "1.0",
-  "process_id": "Process_P1",
   "name": "Prescription",
   "metadata": {
     "owner": "Pharmacy Department",
     "category": "clinical",
     "criticality": "high"
   },
-  "lanes": [
-    {
-      "id": "P1",
-      "name": "Prescription",
-      "description": "",
-      "node_refs": [
-        "Start_P1",
-        "P1.1",
-        "P1.2",
-        "P1.3",
-        "End_P1"
-      ]
-    }
-  ],
   "steps": [
     {
       "id": "Start_P1",
       "name": "Start",
       "type": "start",
-      "lane_id": "P1",
       "position": {
         "x": 280,
         "y": 78
@@ -36,8 +19,6 @@
       "id": "P1.1",
       "name": "Prescribe Medication",
       "type": "step",
-      "short_id": "P1.1",
-      "lane_id": "P1",
       "position": {
         "x": 504,
         "y": 44
@@ -87,8 +68,6 @@
       "id": "P1.2",
       "name": "Verify Prescription",
       "type": "step",
-      "short_id": "P1.2",
-      "lane_id": "P1",
       "position": {
         "x": 904,
         "y": 44
@@ -138,8 +117,6 @@
       "id": "P1.3",
       "name": "Approve Prescription",
       "type": "step",
-      "short_id": "P1.3",
-      "lane_id": "P1",
       "position": {
         "x": 1304,
         "y": 44
@@ -181,7 +158,6 @@
       "id": "End_P1",
       "name": "End",
       "type": "end",
-      "lane_id": "P1",
       "position": {
         "x": 1704,
         "y": 78
@@ -209,5 +185,12 @@
       "to": "End_P1",
       "label": "Complete"
     }
+  ],
+  "step_order": [
+    "Start_P1",
+    "P1.1",
+    "P1.2",
+    "P1.3",
+    "End_P1"
   ]
 }

@@ -13,7 +13,7 @@ flowchart TB
     GraphStore[graph.store]
     GraphModel[graph.model]
     GraphWorkspace[graph.workspace]
-    AgentRun[agent.runtime]
+    AgentRun[agent.runtime_nova]
     AgentPrompt[agent.prompt]
     AgentTools[agent.tools]
   end
@@ -29,7 +29,7 @@ flowchart TB
 ```
 
 - **main.py**: FastAPI app, lifespan (init DB + seed baseline), CORS, router registration.
-- **config.py**: Single place for env and constants (`GROQ_KEY`, `BASELINE_GRAPHS_DIR`, `BASELINE_WORKSPACE_PATH`, `DEFAULT_PROCESS_ID`, limits).
+- **config.py**: Single place for env and constants (AWS/Bedrock, `BASELINE_GRAPHS_DIR`, `BASELINE_WORKSPACE_PATH`, `DEFAULT_PROCESS_ID`, limits).
 - **db.py**: In-memory SQLite singleton. Tables: `baseline_processes`, `baseline_workspace`, `session_processes`, `session_workspace`, `session_process_history`, `chat_messages`. All persistence reads and writes go through this module. Graph data is stored as **graph_json** (JSON strings).
 - **graph.store**: Session-scoped JSON graph CRUD. Keeps a parsed `ProcessGraph` cache keyed by `(session_id, process_id)` and a workspace cache per session. Every mutation (except position-only updates) triggers `_persist`, which can push to history then write JSON to SQLite.
 - **graph.model**: `ProcessGraph` wrapper around the raw JSON dict; no separate parsing layer.

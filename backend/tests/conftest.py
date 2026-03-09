@@ -33,17 +33,6 @@ def reset_db():
     graph_store._ws_cache.clear()
 
 
-@pytest.fixture(autouse=True)
-def force_missing_groq_key(monkeypatch):
-    """Keep tests offline by forcing chat runtime into no-key mode."""
-    monkeypatch.setenv("GROQ_KEY", "missing")
-    import config as app_config
-    import agent.runtime as runtime
-
-    monkeypatch.setattr(app_config, "GROQ_KEY", "missing", raising=False)
-    monkeypatch.setattr(runtime, "GROQ_KEY", "missing", raising=False)
-
-
 @pytest.fixture
 def client():
     """TestClient for API tests."""

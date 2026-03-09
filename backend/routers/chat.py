@@ -13,7 +13,7 @@ import stats
 from agent import run_chat
 from agent.runtime_nova import run_chat_confirm
 from config import SESSION_ID_MAX_LEN
-from graph.store import get_graph_json
+from graph.store import get_graph_dict_for_client
 
 logger = logging.getLogger("consularis")
 
@@ -144,16 +144,10 @@ async def api_chat(req: ChatRequest):
             session_id, req.process_id, meta["tools_used"],
         )
         graph_dict = None
-        if graph_json_str:
+        if graph_json_str or meta.get("tools_used"):
             try:
-                graph_dict = json.loads(graph_json_str)
-            except (json.JSONDecodeError, TypeError):
-                pass
-        # When tools ran, ensure frontend gets updated graph (refetch if parse failed)
-        if meta.get("tools_used") and graph_dict is None:
-            try:
-                graph_dict = json.loads(get_graph_json(session_id, process_id=req.process_id))
-            except (json.JSONDecodeError, TypeError):
+                graph_dict = get_graph_dict_for_client(session_id, req.process_id)
+            except Exception:
                 pass
         return {
             "message": message,
@@ -194,15 +188,10 @@ async def api_chat_confirm(req: ChatConfirmRequest):
         "pending_plan": None,
     }
     graph_dict = None
-    if graph_json_str:
+    if graph_json_str or meta.get("tools_used"):
         try:
-            graph_dict = json.loads(graph_json_str)
-        except (json.JSONDecodeError, TypeError):
-            pass
-    if meta.get("tools_used") and graph_dict is None:
-        try:
-            graph_dict = json.loads(get_graph_json(session_id, process_id=req.process_id))
-        except (json.JSONDecodeError, TypeError):
+            graph_dict = get_graph_dict_for_client(session_id, req.process_id)
+        except Exception:
             pass
     return {
         "message": message,

@@ -1,13 +1,13 @@
 # Consularis Backend
 
-FastAPI API for the Consularis app: Aurelius chat (Groq + tools), hierarchical JSON-native process store, and in-memory SQLite persistence.
+FastAPI API for the Consularis app: Aurelius chat (Amazon Nova + tools), hierarchical JSON-native process store, and in-memory SQLite persistence.
 
 ## Run
 
 ```bash
 cd backend
 cp env.example .env
-# Edit .env and set GROQ_KEY (get one at https://console.groq.com)
+# Edit .env and set AWS credentials for Bedrock (Nova); see env.example
 
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
@@ -23,7 +23,7 @@ To run tests, install dev dependencies: `pip install -r requirements-dev.txt`, t
 ```
 backend/
 ├── main.py              # FastAPI app, lifespan (init DB + seed baseline), CORS, routers
-├── config.py            # Env and constants (GROQ_KEY, paths, CORS, limits)
+├── config.py            # Env and constants (AWS/Bedrock, paths, CORS, limits)
 ├── db.py                # In-memory SQLite: baseline_processes, session_processes, workspace, chat_messages, history
 ├── requirements.txt
 ├── env.example          # Template for .env
@@ -34,9 +34,9 @@ backend/
 │   └── graph.py         # JSON graph, workspace, BPMN export, name resolution, node CRUD, positions, undo
 │
 ├── agent/               # Aurelius chat + tools
-│   ├── runtime.py       # run_chat loop (Groq, tool rounds, timeout/retries)
+│   ├── runtime_nova.py   # run_chat loop (Nova/Bedrock, tool rounds, timeout/retries)
 │   ├── tools.py         # Tool schemas + registry (all 19 metadata fields), run_tool dispatch
-│   └── prompt.py        # SYSTEM_PROMPT
+│   └── prompt.py        # MULTIAGENT_CONTEXT, PLANNER, EXECUTOR prompts
 │
 ├── graph/               # JSON-native process graph domain
 │   ├── model.py         # ProcessGraph: flat JSON wrapper, STEP_METADATA_KEYS, lookups
@@ -68,7 +68,7 @@ backend/
 
 ### What each module does
 
-**main.py** — App entry point. The `lifespan` initializes the SQLite database (`db.get_conn()`), seeds the baseline from `workspace.json` + JSON graph files (`graph.store.init_baseline()`), and logs Groq key status.
+**main.py** — App entry point. The `lifespan` initializes the SQLite database (`db.get_conn()`), seeds the baseline from `workspace.json` + JSON graph files (`graph.store.init_baseline()`), and logs Bedrock/Nova status.
 
 **config.py** — All env vars and constants. Key settings: `GROQ_KEY`, `BASELINE_GRAPHS_DIR`, `BASELINE_WORKSPACE_PATH`, `DEFAULT_PROCESS_ID`, `MAX_TOOL_ROUNDS`, `GROQ_TIMEOUT`, `ALLOWED_CORS_ORIGINS`, `SESSION_ID_MAX_LEN`.
 
@@ -76,7 +76,7 @@ backend/
 
 **routers/** — HTTP endpoints. Health check, chat (with per-session locking), and graph (JSON graph, workspace, BPMN export, node CRUD, positions, undo, name resolution).
 
-**agent/** — The Aurelius assistant. Runtime runs the Groq chat loop with tools. Tools define what the LLM can do: all 19 metadata fields are available in update_node. Prompt includes guidance on operational data fields.
+**agent/** — The Aurelius assistant. Runtime runs the Nova (Bedrock) chat loop with tools. Tools define what the LLM can do: all 19 metadata fields are available in update_node. Prompt includes guidance on operational data fields.
 
 **graph/** — JSON-native process graph domain. Model wraps a raw dict (no parsing needed). Workspace manages the process tree index. Store provides session-scoped CRUD with an LRU cache backed by SQLite. Layout positions new nodes. BPMN export converts JSON graphs to BPMN 2.0 XML for download compatibility.
 
@@ -107,4 +107,4 @@ Mutations are direct dict operations on the `ProcessGraph.data` dict — no XML 
 
 ### Configuration
 
-See `env.example` for all variables. Copy to `.env` and set at least `GROQ_KEY` for chat.
+See `env.example` for all variables. Copy to `.env` and set AWS credentials (Bedrock) for chat.

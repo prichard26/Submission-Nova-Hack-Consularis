@@ -1,5 +1,5 @@
 """
-Centralized config: env and constants. Single place for GROQ_KEY, paths, and limits.
+Centralized config: env and constants. AWS Bedrock (Nova), paths, and limits.
 """
 import os
 from pathlib import Path
@@ -8,11 +8,6 @@ from dotenv import load_dotenv
 
 _BACKEND_DIR = Path(__file__).resolve().parent
 load_dotenv(_BACKEND_DIR / ".env")
-
-# API — Groq (kept but inactive by default)
-GROQ_KEY: str = os.getenv("GROQ_KEY", "")
-if not GROQ_KEY or GROQ_KEY.startswith("your_"):
-    GROQ_KEY = "missing"
 
 # API — AWS Bedrock (Amazon Nova)
 AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
@@ -32,8 +27,6 @@ DEFAULT_PROCESS_ID: str = os.getenv("DEFAULT_PROCESS_ID", "Process_Global")
 
 # Agent
 MAX_TOOL_ROUNDS: int = int(os.getenv("MAX_TOOL_ROUNDS", "10"))
-GROQ_TIMEOUT: float = float(os.getenv("GROQ_TIMEOUT", "60"))
-GROQ_MAX_RETRIES: int = int(os.getenv("GROQ_MAX_RETRIES", "2"))
 BEDROCK_TIMEOUT: int = int(os.getenv("BEDROCK_TIMEOUT", "120"))
 BEDROCK_MAX_RETRIES: int = int(os.getenv("BEDROCK_MAX_RETRIES", "2"))
 

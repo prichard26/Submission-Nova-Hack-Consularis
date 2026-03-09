@@ -96,7 +96,7 @@ export default function Dashboard({ companyName }) {
         if (data.meta?.tools_used) {
           handleExternalGraphUpdate()
         }
-        if (data.graph_json && data.meta?.structural_change) {
+        if (data.graph_json && data.meta?.tools_used) {
           setStructuralChangeGraph(data.graph_json)
           setStructuralChangeFromChat(true)
         }
@@ -133,7 +133,7 @@ export default function Dashboard({ companyName }) {
       if (data.meta?.tools_used) {
         handleExternalGraphUpdate()
       }
-      if (data.graph_json && data.meta?.structural_change) {
+      if (data.graph_json && data.meta?.tools_used) {
         setStructuralChangeGraph(data.graph_json)
         setStructuralChangeFromChat(true)
       }

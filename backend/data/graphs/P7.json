@@ -1,32 +1,15 @@
 {
-  "format_version": "1.0",
-  "process_id": "Process_P7",
   "name": "Monitoring and Waste Management",
   "metadata": {
     "owner": "Pharmacy Department",
     "category": "compliance",
     "criticality": "high"
   },
-  "lanes": [
-    {
-      "id": "P7",
-      "name": "Monitoring and Waste Management",
-      "description": "",
-      "node_refs": [
-        "Start_P7",
-        "P7.1",
-        "P7.2",
-        "P7.3",
-        "End_P7"
-      ]
-    }
-  ],
   "steps": [
     {
       "id": "Start_P7",
       "name": "Start",
       "type": "start",
-      "lane_id": "P7",
       "position": {
         "x": 280,
         "y": 78
@@ -36,8 +19,6 @@
       "id": "P7.1",
       "name": "Monitor Patient Response",
       "type": "step",
-      "short_id": "P7.1",
-      "lane_id": "P7",
       "position": {
         "x": 504,
         "y": 44
@@ -87,8 +68,6 @@
       "id": "P7.2",
       "name": "Handle Returns and Expired Stock",
       "type": "step",
-      "short_id": "P7.2",
-      "lane_id": "P7",
       "position": {
         "x": 904,
         "y": 44
@@ -137,8 +116,6 @@
       "id": "P7.3",
       "name": "Regulatory Reporting",
       "type": "step",
-      "short_id": "P7.3",
-      "lane_id": "P7",
       "position": {
         "x": 1372,
         "y": 44
@@ -191,7 +168,6 @@
       "id": "End_P7",
       "name": "End",
       "type": "end",
-      "lane_id": "P7",
       "position": {
         "x": 1772,
         "y": 78
@@ -219,5 +195,12 @@
       "to": "End_P7",
       "label": "Process complete"
     }
+  ],
+  "step_order": [
+    "Start_P7",
+    "P7.1",
+    "P7.2",
+    "P7.3",
+    "End_P7"
   ]
 }

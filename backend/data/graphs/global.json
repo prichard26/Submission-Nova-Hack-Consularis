@@ -1,36 +1,15 @@
 {
-  "format_version": "1.0",
-  "process_id": "Process_Global",
   "name": "Pharmacy medication circuit",
   "metadata": {
     "owner": "Pharmacy Department",
     "category": "clinical",
     "criticality": "high"
   },
-  "lanes": [
-    {
-      "id": "GLOBAL",
-      "name": "Global map",
-      "description": "",
-      "node_refs": [
-        "Start_Global",
-        "P1",
-        "P2",
-        "P3",
-        "P4",
-        "P5",
-        "P6",
-        "P7",
-        "End_Global"
-      ]
-    }
-  ],
   "steps": [
     {
       "id": "Start_Global",
       "name": "Start",
       "type": "start",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 280,
         "y": 78
@@ -41,7 +20,6 @@
       "name": "Prescription",
       "type": "subprocess",
       "called_element": "Process_P1",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 504,
         "y": 44
@@ -52,7 +30,6 @@
       "name": "Selection, Acquisition, and Reception",
       "type": "subprocess",
       "called_element": "Process_P2",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 904,
         "y": 44
@@ -63,7 +40,6 @@
       "name": "Storage and Storage Management",
       "type": "subprocess",
       "called_element": "Process_P3",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 1417,
         "y": 44
@@ -74,7 +50,6 @@
       "name": "Distribution",
       "type": "subprocess",
       "called_element": "Process_P4",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 1867,
         "y": 44
@@ -85,7 +60,6 @@
       "name": "Dispensing and Preparation",
       "type": "subprocess",
       "called_element": "Process_P5",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 2267,
         "y": 44
@@ -96,7 +70,6 @@
       "name": "Administration",
       "type": "subprocess",
       "called_element": "Process_P6",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 2681,
         "y": 44
@@ -107,7 +80,6 @@
       "name": "Monitoring and Waste Management",
       "type": "subprocess",
       "called_element": "Process_P7",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 3081,
         "y": 44
@@ -117,7 +89,6 @@
       "id": "End_Global",
       "name": "End",
       "type": "end",
-      "lane_id": "GLOBAL",
       "position": {
         "x": 3540,
         "y": 78
@@ -165,5 +136,16 @@
       "to": "End_Global",
       "label": "Complete"
     }
+  ],
+  "step_order": [
+    "Start_Global",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P7",
+    "End_Global"
   ]
 }

@@ -24,24 +24,29 @@ def test_add_edge_idempotent():
     assert len(from_p1_1) == 1
 
 
-def test_add_node_uses_unique_id_when_lane_refs_not_ordered():
+def test_add_node_uses_unique_id_when_step_order_has_gaps():
     sid = "test-add-node-unique-id"
     graph = _get_graph(sid, "Process_P1")
-    lane = graph.get_lane("P1")
-    assert lane is not None
-
-    # Simulate lane refs becoming non-monotonic (e.g., after reordering).
-    lane["node_refs"] = ["Start_P1", "P1.10", "P1.2", "End_P1"]
+    # Simulate step_order with a gap (P1.10 present, next should be P1.11).
     if graph.get_step("P1.10") is None:
         graph.steps.append({
             "id": "P1.10",
             "name": "Synthetic step",
             "type": "step",
-            "lane_id": "P1",
             "position": {"x": 0, "y": 0},
         })
+    order = list(graph.step_order)
+    if "P1.10" not in order:
+        # Insert P1.10 before End_P1
+        end_id = next((s["id"] for s in graph.steps if s.get("type") == "end"), None)
+        if end_id and end_id in order:
+            idx = order.index(end_id)
+            order = order[:idx] + ["P1.10"] + order[idx:]
+        else:
+            order.append("P1.10")
+    graph.step_order = order
 
-    created = add_node(sid, "P1", {"name": "New step", "type": "step"}, process_id="Process_P1")
+    created = add_node(sid, "default", {"name": "New step", "type": "step"}, process_id="Process_P1")
     assert created is not None
     assert created["id"] == "P1.11"
 

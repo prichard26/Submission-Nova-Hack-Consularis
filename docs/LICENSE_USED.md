@@ -68,7 +68,7 @@ As of the last `license-checker` run, the full frontend dependency tree breaks d
 | uvicorn[standard] | 0.41.0 | BSD-3-Clause | ASGI server |
 | pydantic | 2.12.5 | MIT | Data validation |
 | python-dotenv | 1.2.1 | BSD-3-Clause | Environment variables |
-| groq | 1.0.0 | Apache-2.0 | Groq API client |
+| boto3 | ≥1.35.0 | Apache-2.0 | AWS SDK (Bedrock / Nova) |
 
 ### Backend Direct DevDependencies
 

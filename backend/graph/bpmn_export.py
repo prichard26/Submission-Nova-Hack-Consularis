@@ -70,7 +70,7 @@ def _extension_elements(step: dict) -> ET.Element | None:
     return ext_el if has_any else None
 
 
-def export_bpmn_xml(graph: ProcessGraph) -> str:
+def export_bpmn_xml(graph: ProcessGraph, process_id: str | None = None) -> str:
     """Convert a ProcessGraph to BPMN 2.0 XML string (model only; no diagram interchange)."""
     definitions = _elem("definitions")
     definitions.set("xmlns:bpmn", BPMN_NS)
@@ -78,15 +78,22 @@ def export_bpmn_xml(graph: ProcessGraph) -> str:
     definitions.set("id", "Definitions_1")
     definitions.set("targetNamespace", "http://bpmn.io/schema/bpmn")
 
-    process = _sub(definitions, "process", id=graph.process_id, name=graph.name, isExecutable="false")
+    pid = process_id or graph.process_id or "Process_1"
+    process = _sub(definitions, "process", id=pid, name=graph.name, isExecutable="false")
 
-    # Lanes
+    # Lanes: use graph.lanes (legacy) or build one from step_order
+    order = graph.step_order
     if graph.lanes:
         lane_set = _sub(process, "laneSet", id="LaneSet_1")
         for lane in graph.lanes:
             lane_el = _sub(lane_set, "lane", id=lane["id"], name=lane.get("name", ""))
             for ref in lane.get("node_refs", []):
                 _sub(lane_el, "flowNodeRef", text=ref)
+    elif order:
+        lane_set = _sub(process, "laneSet", id="LaneSet_1")
+        lane_el = _sub(lane_set, "lane", id="default", name=graph.name or "Main")
+        for ref in order:
+            _sub(lane_el, "flowNodeRef", text=ref)
 
     # Steps -> BPMN elements
     for step in graph.steps:

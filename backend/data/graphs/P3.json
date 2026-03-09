@@ -1,33 +1,15 @@
 {
-  "format_version": "1.0",
-  "process_id": "Process_P3",
   "name": "Storage and Storage Management",
   "metadata": {
     "owner": "Pharmacy Department",
     "category": "logistics",
     "criticality": "medium"
   },
-  "lanes": [
-    {
-      "id": "P3",
-      "name": "Storage and Storage Management",
-      "description": "",
-      "node_refs": [
-        "Start_P3",
-        "P3.1",
-        "P3.2",
-        "P3.3",
-        "G3",
-        "End_P3"
-      ]
-    }
-  ],
   "steps": [
     {
       "id": "Start_P3",
       "name": "Start",
       "type": "start",
-      "lane_id": "P3",
       "position": {
         "x": 280,
         "y": 78
@@ -37,8 +19,6 @@
       "id": "P3.1",
       "name": "Classify and Shelve",
       "type": "step",
-      "short_id": "P3.1",
-      "lane_id": "P3",
       "position": {
         "x": 504,
         "y": 44
@@ -84,8 +64,6 @@
       "id": "P3.2",
       "name": "Monitor Storage Conditions",
       "type": "step",
-      "short_id": "P3.2",
-      "lane_id": "P3",
       "position": {
         "x": 904,
         "y": 44
@@ -134,8 +112,6 @@
       "id": "P3.3",
       "name": "Inventory Management",
       "type": "step",
-      "short_id": "P3.3",
-      "lane_id": "P3",
       "position": {
         "x": 1318,
         "y": 44
@@ -188,7 +164,6 @@
       "id": "G3",
       "name": "Inventory decision",
       "type": "decision",
-      "lane_id": "P3",
       "position": {
         "x": 1718,
         "y": 72
@@ -198,7 +173,6 @@
       "id": "End_P3",
       "name": "End",
       "type": "end",
-      "lane_id": "P3",
       "position": {
         "x": 1954,
         "y": 78
@@ -231,5 +205,13 @@
       "to": "G3",
       "label": "P3.3 → G3"
     }
+  ],
+  "step_order": [
+    "Start_P3",
+    "P3.1",
+    "P3.2",
+    "P3.3",
+    "G3",
+    "End_P3"
   ]
 }

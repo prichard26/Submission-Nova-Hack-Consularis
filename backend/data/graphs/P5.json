@@ -1,33 +1,15 @@
 {
-  "format_version": "1.0",
-  "process_id": "Process_P5",
   "name": "Dispensing and Preparation",
   "metadata": {
     "owner": "Pharmacy Department",
     "category": "clinical",
     "criticality": "high"
   },
-  "lanes": [
-    {
-      "id": "P5",
-      "name": "Dispensing and Preparation",
-      "description": "",
-      "node_refs": [
-        "Start_P5",
-        "P5.1",
-        "P5.2",
-        "G5",
-        "P5.3",
-        "End_P5"
-      ]
-    }
-  ],
   "steps": [
     {
       "id": "Start_P5",
       "name": "Start",
       "type": "start",
-      "lane_id": "P5",
       "position": {
         "x": 280,
         "y": 78
@@ -37,8 +19,6 @@
       "id": "P5.1",
       "name": "Compound / Prepare",
       "type": "step",
-      "short_id": "P5.1",
-      "lane_id": "P5",
       "position": {
         "x": 504,
         "y": 44
@@ -88,8 +68,6 @@
       "id": "P5.2",
       "name": "Final Verification",
       "type": "step",
-      "short_id": "P5.2",
-      "lane_id": "P5",
       "position": {
         "x": 904,
         "y": 44
@@ -133,8 +111,6 @@
       "id": "P5.3",
       "name": "Patient Counseling",
       "type": "step",
-      "short_id": "P5.3",
-      "lane_id": "P5",
       "position": {
         "x": 1540,
         "y": 44
@@ -180,7 +156,6 @@
       "id": "G5",
       "name": "Outpatient or Inpatient?",
       "type": "decision",
-      "lane_id": "P5",
       "position": {
         "x": 1304,
         "y": 72
@@ -190,7 +165,6 @@
       "id": "End_P5",
       "name": "End",
       "type": "end",
-      "lane_id": "P5",
       "position": {
         "x": 1940,
         "y": 78
@@ -224,5 +198,13 @@
       "label": "Outpatient",
       "condition": "Outpatient"
     }
+  ],
+  "step_order": [
+    "Start_P5",
+    "P5.1",
+    "P5.2",
+    "G5",
+    "P5.3",
+    "End_P5"
   ]
 }
