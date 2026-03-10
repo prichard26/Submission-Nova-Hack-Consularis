@@ -166,9 +166,68 @@
   background: var(--bg-primary, #0d0a07);
 }
 
-.process-canvas .react-flow__minimap {
+/* ── Landscape minimap wrapper + Open landscape button ── */
+.landscape-minimap-wrapper {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 180px;
+  height: 120px;
+  border-radius: 8px;
+  overflow: visible;
+  background: var(--bg-secondary, #1a1510);
   border: 1px solid var(--border, #2e2820);
-  border-radius: var(--radius, 8px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.landscape-minimap__open-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #2e2820);
+  background: var(--bg-card, #1e1914);
+  color: var(--text-secondary, #c9bfb0);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.landscape-minimap__open-btn:hover {
+  border-color: var(--accent, #e85d04);
+  color: var(--accent, #e85d04);
+  background: var(--accent-soft, rgba(232, 93, 4, 0.15));
+}
+
+/* Tooltip (same style as toolbar) — show to the left of the button */
+.landscape-minimap__open-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 5px 10px;
+  background: var(--bg-secondary, #1a1510);
+  border: 1px solid var(--border, #2e2820);
+  border-radius: 6px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 11px;
+  color: var(--text-primary, #fbf9f1);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.landscape-minimap__open-btn[data-tip]:hover::after {
+  opacity: 1;
 }
 
 /* Connection handles — larger touch area */

@@ -10,7 +10,7 @@ const HEIGHT = 120
  * Minimap showing the process landscape (tree) with the current process highlighted.
  * Replaces the default React Flow minimap so users see where they are in the workspace.
  */
-export default function LandscapeMinimap({ workspace, currentProcessId, onProcessSelect, minimapRef }) {
+export default function LandscapeMinimap({ workspace, currentProcessId, onProcessSelect }) {
   const { viewBox, transform, nodes, edges } = useMemo(() => {
     const { nodes: layoutNodes, edges: layoutEdges } = layoutTree(workspace || {})
     if (layoutNodes.length === 0) {
@@ -38,8 +38,10 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
       (WIDTH - 2 * PAD) / contentW,
       (HEIGHT - 2 * PAD) / contentH,
     )
-    const tx = PAD - minX * scale
-    const ty = PAD - minY * scale
+    const scaledW = contentW * scale
+    const scaledH = contentH * scale
+    const tx = (WIDTH - scaledW) / 2 - minX * scale
+    const ty = (HEIGHT - scaledH) / 2 - minY * scale
 
     const nodeMap = new Map(layoutNodes.map((n) => [n.id, n]))
     const edgesWithPoints = layoutEdges.map((e) => {
@@ -61,14 +63,12 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
       nodes: layoutNodes,
       edges: edgesWithPoints,
     }
-  }, [workspace, currentProcessId])
+  }, [workspace])
 
   if (!workspace?.process_tree?.processes || Object.keys(workspace.process_tree.processes).length === 0) {
     return (
       <div
-        ref={minimapRef}
         className="landscape-minimap landscape-minimap--empty"
-        style={{ width: WIDTH, height: HEIGHT }}
         title="Landscape (no processes)"
       >
         <span className="landscape-minimap__placeholder">No processes</span>
@@ -78,9 +78,7 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
 
   return (
     <div
-      ref={minimapRef}
       className="landscape-minimap"
-      style={{ width: WIDTH, height: HEIGHT }}
       title="Landscape — current process highlighted"
     >
       <svg

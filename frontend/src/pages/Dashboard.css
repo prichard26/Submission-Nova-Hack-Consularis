@@ -38,6 +38,7 @@
 .dashboard__topbar-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 6px 10px;
   border-radius: 8px;
@@ -52,6 +53,18 @@
 }
 
 .dashboard__topbar-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dashboard__topbar-btn--active {
+  border-color: var(--accent, #e85d04);
+  color: var(--accent, #e85d04);
+  background: var(--accent-soft, rgba(232, 93, 4, 0.15));
+}
+
+.dashboard__topbar-btn--active:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);

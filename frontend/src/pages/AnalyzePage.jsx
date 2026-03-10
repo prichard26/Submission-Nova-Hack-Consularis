@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { analyzeGraph, requestAppointment } from '../services/api'
 import Robot from '../components/Robot'
+import DashboardTopBar from '../components/DashboardTopBar'
+import './Dashboard.css'
 import './AnalyzePage.css'
 
 /** Animated score 0–100 with circular ring */
@@ -189,16 +191,7 @@ export default function AnalyzePage({ sessionId }) {
 
   return (
     <div className="analyze-page">
-      <header className="analyze-page__header">
-        <Link to="/dashboard" className="analyze-page__back-btn">
-          Back to graph
-        </Link>
-        <div className="analyze-page__brand">
-          <img className="analyze-page__logo" src="/logo.png" alt="" width="32" height="32" />
-          <span className="analyze-page__logo-text">Consularis<span className="analyze-page__logo-dot">.</span></span>
-        </div>
-        <h1 className="analyze-page__title">Automation analysis</h1>
-      </header>
+      <DashboardTopBar activeMode="analyze" />
 
       <main className="analyze-page__main">
         {loading && (

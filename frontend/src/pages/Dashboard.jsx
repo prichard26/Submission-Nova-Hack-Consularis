@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import AureliusChat from '../components/AureliusChat'
 import ProcessCanvas from '../components/ProcessCanvas'
 import LandscapeView from '../components/LandscapeView'
+import DashboardTopBar from '../components/DashboardTopBar'
 import DashboardTutorial, { getTutorialDone } from '../components/DashboardTutorial'
 import { useWorkspace } from '../hooks/useWorkspace'
 import { useChat } from '../hooks/useChat'
@@ -11,12 +12,13 @@ import './Dashboard.css'
 const DEFAULT_PROCESS_ID = 'global'
 
 export default function Dashboard({ companyName }) {
-  const navigate = useNavigate()
+  const location = useLocation()
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [activeProcessId, setActiveProcessId] = useState(DEFAULT_PROCESS_ID)
   const [selectedStep, setSelectedStep] = useState(null)
   const [viewMode, setViewMode] = useState('detail')
   const [showTutorial, setShowTutorial] = useState(() => !getTutorialDone())
+  const activeMode = location.pathname === '/dashboard/analyze' ? 'analyze' : (showTutorial ? 'info' : 'chat')
   const topbarRef = useRef(null)
   const canvasAreaRef = useRef(null)
   const panelRef = useRef(null)
@@ -139,42 +141,15 @@ export default function Dashboard({ companyName }) {
 
   return (
     <div className="dashboard">
-      <header ref={topbarRef} className="dashboard__topbar">
-        <span className="dashboard__logo">
-          <img className="dashboard__logo-icon" src="/logo.png" alt="Consularis" width="24" height="24" />
-          Consularis.ai
-        </span>
-        <div className="dashboard__topbar-actions">
-          <button
-            type="button"
-            className="dashboard__topbar-btn"
-            onClick={() => setViewMode('landscape')}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="1.5" y="3" width="5" height="4.5" rx="1" /><rect x="9.5" y="3" width="5" height="4.5" rx="1" /><rect x="5.5" y="9" width="5" height="4.5" rx="1" /></svg>
-            Landscape
-          </button>
-          <button
-            type="button"
-            className="dashboard__topbar-btn dashboard__topbar-btn--accent"
-            onClick={() => navigate('/dashboard/analyze')}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 1v6M5 4l3-3 3 3" /><path d="M2 8.5a6 6 0 0 0 12 0" /><circle cx="8" cy="12" r="1" fill="currentColor" /></svg>
-            Analyze
-          </button>
-          <button
-            type="button"
-            className="dashboard__topbar-btn dashboard__topbar-btn--icon"
-            onClick={() => {
-              setViewMode('detail')
-              setShowTutorial(true)
-            }}
-            title="Show tour"
-            aria-label="Show tour"
-          >
-            <span className="dashboard__topbar-icon-i">i</span>
-          </button>
-        </div>
-      </header>
+      <DashboardTopBar
+        activeMode={activeMode}
+        panelChatRef={panelChatRef}
+        onShowTutorial={() => {
+          setViewMode('detail')
+          setShowTutorial(true)
+        }}
+        topbarRef={topbarRef}
+      />
 
       <div className="dashboard__canvas">
         {viewMode === 'landscape' ? (

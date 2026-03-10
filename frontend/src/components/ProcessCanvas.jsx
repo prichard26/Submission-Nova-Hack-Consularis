@@ -38,6 +38,12 @@ import './ProcessCanvas.css'
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
 
+const FIT_VIEW_ICON = (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M2 6V3.5A1.5 1.5 0 0 1 3.5 2H6M10 2h2.5A1.5 1.5 0 0 1 14 3.5V6M14 10v2.5a1.5 1.5 0 0 1-1.5 1.5H10M6 14H3.5A1.5 1.5 0 0 1 2 12.5V10" />
+  </svg>
+)
+
 function Canvas({
   sessionId,
   processId = 'global',
@@ -110,6 +116,7 @@ function Canvas({
   const posTimerRef = useRef(null)
   const pendingPositions = useRef({})
   const tbDragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0, moved: false })
+  const userJustAddedNodeRef = useRef(false)
 
   useEffect(() => {
     if (!resizing) return
@@ -191,10 +198,16 @@ function Canvas({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
-  // Sync graph from refetch to canvas. Always apply auto-arrange as the default layout. Skip when chat just sent a graph so the chat effect can apply it first.
+  // Sync graph from refetch to canvas. Auto-arrange on initial load only; skip when user just added a node or when chat will apply its own graph.
   useEffect(() => {
     if (structuralChangeFromChat && structuralChangeGraph) return
     if (initialNodes.length === 0) {
+      setNodes(initialNodes)
+      setEdges(initialEdges)
+      return
+    }
+    if (userJustAddedNodeRef.current) {
+      userJustAddedNodeRef.current = false
       setNodes(initialNodes)
       setEdges(initialEdges)
       return
@@ -220,7 +233,7 @@ function Canvas({
     return () => { cancelled = true }
   }, [initialNodes, initialEdges, graph, sessionId, processId, processDisplayName, setNodes, setEdges, fitView, structuralChangeFromChat, structuralChangeGraph])
 
-  // When chat used tools and returned a graph: apply it immediately so nodes update, then optionally run layout.
+  // When chat used tools and returned a graph: apply it without auto-arrange so bot-placed positions are kept.
   useEffect(() => {
     if (!structuralChangeFromChat || !structuralChangeGraph || !onConsumedStructuralChange) return
     const { nodes: arrangeNodes, edges: arrangeEdges } = toReactFlowData(structuralChangeGraph, workspaceProcesses, {
@@ -230,35 +243,11 @@ function Canvas({
       onConsumedStructuralChange()
       return
     }
-    // Apply graph immediately so the user sees updated node data (e.g. actor, duration) right away.
     setNodes(arrangeNodes)
     setEdges(arrangeEdges)
-    let cancelled = false
-    ;(async () => {
-      const { nodes: nextNodes, edges: nextEdges, positions } = await autoArrangeNodes(
-        arrangeNodes,
-        arrangeEdges,
-        { graph: structuralChangeGraph, processDisplayName }
-      )
-      if (cancelled) {
-        onConsumedStructuralChange()
-        return
-      }
-      if (Object.keys(positions).length > 0) {
-        setNodes(nextNodes)
-        setEdges(nextEdges)
-        setTimeout(() => fitView({ padding: 0.15 }), 100)
-        try {
-          await updatePositions(sessionId, processId, positions)
-          onRequestRefresh?.()
-        } catch (err) {
-          console.warn('Auto-arrange after chat update failed', err)
-        }
-      }
-      onConsumedStructuralChange()
-    })()
-    return () => { cancelled = true }
-  }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, sessionId, processId, processDisplayName, setNodes, setEdges, fitView, onRequestRefresh, onConsumedStructuralChange])
+    setTimeout(() => fitView({ padding: 0.15 }), 100)
+    onConsumedStructuralChange()
+  }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, processDisplayName, setNodes, setEdges, fitView, onConsumedStructuralChange])
 
   const breadcrumb = useMemo(() => {
     const parts = []
@@ -395,6 +384,7 @@ function Canvas({
         }
         setPendingAddType(null)
         setGhostPos(null)
+        userJustAddedNodeRef.current = true
         onRequestRefresh?.()
       } catch (err) {
         console.warn('Create node failed', err)
@@ -777,12 +767,22 @@ function Canvas({
           proOptions={{ hideAttribution: true }}
           deleteKeyCode={['Backspace', 'Delete']}
         >
-          <LandscapeMinimap
-            workspace={{ process_tree: { processes: workspaceProcesses } }}
-            currentProcessId={processId}
-            onProcessSelect={onDrillDown}
-            minimapRef={minimapRefProp}
-          />
+          <div ref={minimapRefProp} className="landscape-minimap-wrapper">
+            <LandscapeMinimap
+              workspace={{ process_tree: { processes: workspaceProcesses } }}
+              currentProcessId={processId}
+              onProcessSelect={onDrillDown}
+            />
+            <button
+              type="button"
+              className="landscape-minimap__open-btn"
+              onClick={() => onViewModeChange?.('landscape')}
+              data-tip="Open landscape view"
+              aria-label="Open landscape view"
+            >
+              {FIT_VIEW_ICON}
+            </button>
+          </div>
           <Background variant="dots" color="var(--border, #ccc4b8)" gap={20} size={1.5} />
         </ReactFlow>
         </div>

@@ -10,19 +10,23 @@
  * Sugiyama: ranks = rows (DOWN) or columns (RIGHT); serial = one per rank; parallel = multiple per rank. No overlap by construction.
  */
 
-const LANE_PADDING = 40
-const LANE_MIN_HEIGHT = 160
-const NODE_WIDTH = 260
+const LANE_PADDING = 50
+const LANE_MIN_HEIGHT = 150
+const NODE_WIDTH = 250
 const NODE_HEIGHT = 120
 const EVENT_SIZE = 44
 const GATEWAY_SIZE = 56
 const DECISION_SIZE = 80
 
-const V_SPACING = 100
-const H_SPACING = 80
+const V_SPACING = 75
+const H_SPACING = 40
+
 /** Extra gap between nodes when a rank has 2+ nodes (parallel branches) so they read as distinct columns. */
-const PARALLEL_H_SPACING = 120
-const STRAIGHT_ALIGN_TOLERANCE = 2
+const PARALLEL_H_SPACING = 50
+const STRAIGHT_ALIGN_TOLERANCE = 5
+
+/** Width reserved for dummy nodes (long-edge virtualization) so the edge path gets horizontal space. */
+const DUMMY_WIDTH = 300
 
 export function getNodeDimensions(node) {
   const type = node.type || 'step'
@@ -280,6 +284,12 @@ function orderNodesInRanks(rankToNodes, dag) {
  */
 function assignCoordinates(rankToOrderedNodes, stepNodes, direction = 'DOWN') {
   const dimById = new Map(stepNodes.map((n) => [n.id, getNodeDimensions(n)]))
+  function dim(id) {
+    const d = dimById.get(id)
+    if (d) return d
+    if (id.startsWith('__dummy__')) return { width: DUMMY_WIDTH, height: 0 }
+    return { width: NODE_WIDTH, height: NODE_HEIGHT }
+  }
   const rankIndices = [...rankToOrderedNodes.keys()].sort((a, b) => a - b)
   const positions = new Map()
 
@@ -287,16 +297,12 @@ function assignCoordinates(rankToOrderedNodes, stepNodes, direction = 'DOWN') {
     let currentX = 0
     for (const r of rankIndices) {
       const ids = rankToOrderedNodes.get(r) || []
-      const maxWidth = ids.reduce((max, id) => {
-        const d = dimById.get(id)
-        return d ? Math.max(max, d.width) : max
-      }, 0)
+      const maxWidth = ids.reduce((max, id) => Math.max(max, dim(id).width), 0)
       const isParallel = ids.length > 1
       const vGap = isParallel ? PARALLEL_H_SPACING : V_SPACING
       let columnHeight = 0
       const heights = ids.map((id) => {
-        const d = dimById.get(id)
-        const h = d ? d.height : NODE_HEIGHT
+        const h = dim(id).height
         columnHeight += h + (columnHeight > 0 ? vGap : 0)
         return h
       })
@@ -305,8 +311,7 @@ function assignCoordinates(rankToOrderedNodes, stepNodes, direction = 'DOWN') {
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i]
         const h = heights[i]
-        const d = dimById.get(id)
-        const w = d ? d.width : NODE_WIDTH
+        const w = dim(id).width
         positions.set(id, { x: currentX + w / 2, y })
         y += h + vGap
       }
@@ -318,17 +323,13 @@ function assignCoordinates(rankToOrderedNodes, stepNodes, direction = 'DOWN') {
   let currentY = 0
   for (const r of rankIndices) {
     const ids = rankToOrderedNodes.get(r) || []
-    const maxHeight = ids.reduce((max, id) => {
-      const d = dimById.get(id)
-      return d ? Math.max(max, d.height) : max
-    }, 0)
+    const maxHeight = ids.reduce((max, id) => Math.max(max, dim(id).height), 0)
 
     const isParallel = ids.length > 1
     const hGap = isParallel ? PARALLEL_H_SPACING : H_SPACING
     let rankWidth = 0
     const widths = ids.map((id) => {
-      const d = dimById.get(id)
-      const w = d ? d.width : NODE_WIDTH
+      const w = dim(id).width
       rankWidth += w + (rankWidth > 0 ? hGap : 0)
       return w
     })
@@ -344,6 +345,45 @@ function assignCoordinates(rankToOrderedNodes, stepNodes, direction = 'DOWN') {
   }
 
   return positions
+}
+
+/**
+ * Insert dummy nodes for edges that span more than one rank, so the layout reserves horizontal space
+ * at each intermediate rank and long edges are not hidden behind centered nodes.
+ * Mutates ranks and dag; returns the set of dummy node IDs (to strip from output later).
+ * @param {Map<string, number>} ranks
+ * @param {{ predForRanking: Map<string, string[]>, succForRanking: Map<string, string[]> }} dag
+ * @param {Array<{ source: string, target: string }>} edges
+ * @returns {Set<string>}
+ */
+function insertDummyNodes(ranks, dag, edges) {
+  const dummyIds = new Set()
+  for (const edge of edges) {
+    const sRank = ranks.get(edge.source)
+    const tRank = ranks.get(edge.target)
+    if (sRank == null || tRank == null || tRank - sRank <= 1) continue
+
+    let prev = edge.source
+    for (let r = sRank + 1; r < tRank; r++) {
+      const dId = `__dummy__${edge.source}__${edge.target}__${r}`
+      dummyIds.add(dId)
+      ranks.set(dId, r)
+      if (!dag.succForRanking.has(dId)) dag.succForRanking.set(dId, [])
+      dag.predForRanking.set(dId, [prev])
+      dag.succForRanking.get(prev).push(dId)
+      prev = dId
+    }
+    dag.succForRanking.get(prev).push(edge.target)
+    const tgtPreds = dag.predForRanking.get(edge.target)
+    if (tgtPreds) tgtPreds.push(prev)
+
+    const srcSuccs = dag.succForRanking.get(edge.source)
+    const idx1 = srcSuccs.indexOf(edge.target)
+    if (idx1 >= 0) srcSuccs.splice(idx1, 1)
+    const idx2 = tgtPreds ? tgtPreds.indexOf(edge.source) : -1
+    if (idx2 >= 0) tgtPreds.splice(idx2, 1)
+  }
+  return dummyIds
 }
 
 /** @param {Map<string, number>} ranks @returns {Map<number, string[]>} */
@@ -383,16 +423,39 @@ function centerParentsOverChildren(positions, rankToNodes, succForRanking, direc
 }
 
 /**
+ * Align start and end nodes to the same horizontal (DOWN) or vertical (RIGHT) coordinate so they sit one above the other.
+ * @param {Map<string, { x: number, y: number }>} positions mutated in place
+ * @param {Array<{ id: string, type?: string }>} stepNodes
+ * @param {'DOWN'|'RIGHT'} direction
+ */
+function alignStartAndEnd(positions, stepNodes, direction) {
+  const startEndIds = stepNodes
+    .filter((n) => (n.type === 'start' || n.type === 'end') && positions.has(n.id))
+    .map((n) => n.id)
+  if (startEndIds.length < 2) return
+  const coords = startEndIds.map((id) => (direction === 'DOWN' ? positions.get(id).x : positions.get(id).y))
+  const aligned = coords.reduce((a, b) => a + b, 0) / coords.length
+  for (const id of startEndIds) {
+    const pos = positions.get(id)
+    if (direction === 'DOWN') positions.set(id, { ...pos, x: aligned })
+    else positions.set(id, { ...pos, y: aligned })
+  }
+}
+
+/**
  * Layout one connected component: ranks → order → coordinates → center parents. Returns id → position (center-of-top-edge).
  */
 function layoutOneComponent(stepNodes, edges, direction) {
   const dag = buildDAG(stepNodes, edges)
   const ranks = assignRanks(dag)
+  const dummyIds = insertDummyNodes(ranks, dag, edges)
   const rankToNodes = groupByRank(ranks)
   const ordered = orderNodesInRanks(rankToNodes, dag)
   const positions = assignCoordinates(ordered, stepNodes, direction)
   centerParentsOverChildren(positions, rankToNodes, dag.succForRanking, direction)
-  return positions
+  alignStartAndEnd(positions, stepNodes, direction)
+  for (const id of dummyIds) positions.delete(id)
+  return { positions, ranks }
 }
 
 /**
@@ -400,15 +463,18 @@ function layoutOneComponent(stepNodes, edges, direction) {
  */
 function runSugiyamaLayout(stepNodes, edges, options = {}) {
   const direction = options.direction || 'DOWN'
-  if (stepNodes.length === 0) return { placed: stepNodes }
+  if (stepNodes.length === 0) return { placed: stepNodes, rankMap: new Map() }
   const idSet = new Set(stepNodes.map((n) => n.id))
-  if (!edges.some((e) => idSet.has(e.source) && idSet.has(e.target))) return { placed: stepNodes }
+  if (!edges.some((e) => idSet.has(e.source) && idSet.has(e.target))) return { placed: stepNodes, rankMap: new Map() }
 
   const dag = buildDAG(stepNodes, edges)
   const allPositions = new Map()
+  const allRanks = new Map()
 
   if (dag.components.length === 1) {
-    for (const [id, pos] of layoutOneComponent(stepNodes, edges, direction)) allPositions.set(id, pos)
+    const { positions, ranks } = layoutOneComponent(stepNodes, edges, direction)
+    for (const [id, pos] of positions) allPositions.set(id, pos)
+    for (const [id, rank] of ranks) allRanks.set(id, rank)
   } else {
     const isRight = direction === 'RIGHT'
     let offsetY = 0
@@ -416,7 +482,7 @@ function runSugiyamaLayout(stepNodes, edges, options = {}) {
     for (const comp of dag.components) {
       const subNodes = stepNodes.filter((n) => comp.includes(n.id))
       const subEdges = edges.filter((e) => comp.includes(e.source) && comp.includes(e.target))
-      const positions = layoutOneComponent(subNodes, subEdges, direction)
+      const { positions, ranks } = layoutOneComponent(subNodes, subEdges, direction)
       let compMaxY = 0
       let compMaxX = 0
       for (const [id, pos] of positions) {
@@ -429,6 +495,7 @@ function runSugiyamaLayout(stepNodes, edges, options = {}) {
           y: pos.y + (isRight ? 0 : offsetY),
         })
       }
+      for (const [id, rank] of ranks) allRanks.set(id, rank)
       if (isRight) offsetX += compMaxX + H_SPACING
       else offsetY += compMaxY + V_SPACING
     }
@@ -436,6 +503,7 @@ function runSugiyamaLayout(stepNodes, edges, options = {}) {
 
   return {
     placed: stepNodes.map((n) => ({ ...n, position: allPositions.get(n.id) || n.position })),
+    rankMap: allRanks,
   }
 }
 
@@ -450,24 +518,220 @@ const HANDLE_OFFSETS = {
   top: (w) => ({ x: w / 2, y: 0 }),
 }
 
-function getHandlesForEdge(sourceInfo, targetInfo) {
-  const sides = ['top', 'bottom', 'left', 'right']
-  let best = null
-  let bestDist = Infinity
-  for (const ss of sides) {
-    const sp = HANDLE_OFFSETS[ss](sourceInfo.w, sourceInfo.h)
-    for (const ts of sides) {
-      const tp = HANDLE_OFFSETS[ts](targetInfo.w, targetInfo.h)
-      const dx = (sourceInfo.x + sp.x) - (targetInfo.x + tp.x)
-      const dy = (sourceInfo.y + sp.y) - (targetInfo.y + tp.y)
-      const dist = dx * dx + dy * dy
-      if (dist < bestDist) {
-        bestDist = dist
-        best = { sourceHandle: `${ss}-source`, targetHandle: `${ts}-target` }
+function classifyEdge(edge, rankMap, sourceInfo, targetInfo, direction) {
+  if (edge.source === edge.target) return 'self-loop'
+  if (rankMap && rankMap.has(edge.source) && rankMap.has(edge.target)) {
+    const sRank = rankMap.get(edge.source)
+    const tRank = rankMap.get(edge.target)
+    if (sRank < tRank) return 'forward'
+    if (sRank > tRank) return 'back'
+    return 'same-rank'
+  }
+
+  if (direction === 'RIGHT') {
+    if (sourceInfo.x < targetInfo.x) return 'forward'
+    if (sourceInfo.x > targetInfo.x) return 'back'
+    return 'same-rank'
+  }
+  if (sourceInfo.y < targetInfo.y) return 'forward'
+  if (sourceInfo.y > targetInfo.y) return 'back'
+  return 'same-rank'
+}
+
+function assignPrimaryHandles(edge, classification, direction, sourceInfo, targetInfo) {
+  if (classification === 'self-loop') {
+    return { sourceHandle: 'right-source', targetHandle: 'top-target' }
+  }
+
+  if (direction === 'RIGHT') {
+    if (classification === 'forward') return { sourceHandle: 'right-source', targetHandle: 'left-target' }
+    if (classification === 'back') return { sourceHandle: 'left-source', targetHandle: 'right-target' }
+    const sourceIsAbove = sourceInfo.y <= targetInfo.y
+    return sourceIsAbove
+      ? { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
+      : { sourceHandle: 'top-source', targetHandle: 'bottom-target' }
+  }
+
+  if (classification === 'forward') return { sourceHandle: 'bottom-source', targetHandle: 'top-target' }
+  if (classification === 'back') return { sourceHandle: 'top-source', targetHandle: 'bottom-target' }
+  const sourceIsLeft = sourceInfo.x <= targetInfo.x
+  return sourceIsLeft
+    ? { sourceHandle: 'right-source', targetHandle: 'left-target' }
+    : { sourceHandle: 'left-source', targetHandle: 'right-target' }
+}
+
+function getCrossAxisValue(node, handle, direction) {
+  const side = (handle ? handle.split('-')[0] : '')
+  const offset = HANDLE_OFFSETS[side]?.(node.w, node.h)
+  if (!offset) return direction === 'RIGHT' ? node.y + node.h / 2 : node.x + node.w / 2
+  if (direction === 'RIGHT') return node.y + offset.y
+  return node.x + offset.x
+}
+
+function getPreferredSide(handle) {
+  return handle ? handle.split('-')[0] : 'bottom'
+}
+
+function getSourceCandidatesBySide(side) {
+  if (side === 'bottom') return ['left-source', 'bottom-source', 'right-source']
+  if (side === 'top') return ['left-source', 'top-source', 'right-source']
+  if (side === 'right') return ['top-source', 'right-source', 'bottom-source']
+  return ['top-source', 'left-source', 'bottom-source']
+}
+
+function getTargetCandidatesBySide(side) {
+  if (side === 'top') return ['left-target', 'top-target', 'right-target']
+  if (side === 'bottom') return ['left-target', 'bottom-target', 'right-target']
+  if (side === 'left') return ['top-target', 'left-target', 'bottom-target']
+  return ['top-target', 'right-target', 'bottom-target']
+}
+
+function selectDistributedCandidate(candidates, index, total) {
+  if (!candidates.length) return null
+  if (total <= 1) return candidates[Math.floor(candidates.length / 2)]
+  const ratio = index / (total - 1)
+  const candidateIndex = Math.round(ratio * (candidates.length - 1))
+  return candidates[candidateIndex]
+}
+
+function distributeBoundaryHandles(result, nodeInfo, direction) {
+  const bySourceSide = new Map()
+  const byTargetSide = new Map()
+
+  for (let i = 0; i < result.length; i++) {
+    const edge = result[i]
+    const sourceNode = nodeInfo.get(edge.source)
+    const targetNode = nodeInfo.get(edge.target)
+    if (!sourceNode || !targetNode) continue
+    const sourceSide = getPreferredSide(edge.sourceHandle)
+    const targetSide = getPreferredSide(edge.targetHandle)
+    const sourceKey = `${edge.source}::${sourceSide}`
+    const targetKey = `${edge.target}::${targetSide}`
+    if (!bySourceSide.has(sourceKey)) bySourceSide.set(sourceKey, [])
+    if (!byTargetSide.has(targetKey)) byTargetSide.set(targetKey, [])
+    bySourceSide.get(sourceKey).push(i)
+    byTargetSide.get(targetKey).push(i)
+  }
+
+  for (const [key, indices] of bySourceSide) {
+    if (indices.length < 2) continue
+    const [, side] = key.split('::')
+    const candidates = getSourceCandidatesBySide(side)
+    const sorted = [...indices].sort((a, b) => {
+      const ta = nodeInfo.get(result[a].target)
+      const tb = nodeInfo.get(result[b].target)
+      const av = direction === 'RIGHT' ? (ta?.y ?? 0) : (ta?.x ?? 0)
+      const bv = direction === 'RIGHT' ? (tb?.y ?? 0) : (tb?.x ?? 0)
+      return av - bv
+    })
+    for (let index = 0; index < sorted.length; index++) {
+      const edgeIndex = sorted[index]
+      const distributed = selectDistributedCandidate(candidates, index, sorted.length)
+      if (distributed) result[edgeIndex].sourceHandle = distributed
+    }
+  }
+
+  for (const [key, indices] of byTargetSide) {
+    if (indices.length < 2) continue
+    const [, side] = key.split('::')
+    const candidates = getTargetCandidatesBySide(side)
+    const sorted = [...indices].sort((a, b) => {
+      const sa = nodeInfo.get(result[a].source)
+      const sb = nodeInfo.get(result[b].source)
+      const av = direction === 'RIGHT' ? (sa?.y ?? 0) : (sa?.x ?? 0)
+      const bv = direction === 'RIGHT' ? (sb?.y ?? 0) : (sb?.x ?? 0)
+      return av - bv
+    })
+    for (let index = 0; index < sorted.length; index++) {
+      const edgeIndex = sorted[index]
+      const distributed = selectDistributedCandidate(candidates, index, sorted.length)
+      if (distributed) result[edgeIndex].targetHandle = distributed
+    }
+  }
+}
+
+function pairCrosses(edgeA, edgeB, nodeInfo, direction) {
+  const sourceA = nodeInfo.get(edgeA.source)
+  const sourceB = nodeInfo.get(edgeB.source)
+  const targetA = nodeInfo.get(edgeA.target)
+  const targetB = nodeInfo.get(edgeB.target)
+  if (!sourceA || !sourceB || !targetA || !targetB) return false
+
+  if (edgeA.source === edgeB.source) {
+    const sourceAxisA = getCrossAxisValue(sourceA, edgeA.sourceHandle, direction)
+    const sourceAxisB = getCrossAxisValue(sourceB, edgeB.sourceHandle, direction)
+    const targetAxisA = getCrossAxisValue(targetA, edgeA.targetHandle, direction)
+    const targetAxisB = getCrossAxisValue(targetB, edgeB.targetHandle, direction)
+    return (sourceAxisA - sourceAxisB) * (targetAxisA - targetAxisB) < 0
+  }
+
+  if (edgeA.target === edgeB.target) {
+    const sourceAxisA = getCrossAxisValue(sourceA, edgeA.sourceHandle, direction)
+    const sourceAxisB = getCrossAxisValue(sourceB, edgeB.sourceHandle, direction)
+    const targetAxisA = getCrossAxisValue(targetA, edgeA.targetHandle, direction)
+    const targetAxisB = getCrossAxisValue(targetB, edgeB.targetHandle, direction)
+    return (sourceAxisA - sourceAxisB) * (targetAxisA - targetAxisB) < 0
+  }
+
+  return false
+}
+
+function reduceCrossingsWithSwaps(result, nodeInfo, direction) {
+  for (let i = 0; i < result.length; i++) {
+    for (let j = i + 1; j < result.length; j++) {
+      const a = result[i]
+      const b = result[j]
+      if (a.source !== b.source && a.target !== b.target) continue
+      const crosses = pairCrosses(a, b, nodeInfo, direction)
+      if (!crosses) continue
+
+      if (a.source === b.source) {
+        const oldA = a.sourceHandle
+        const oldB = b.sourceHandle
+        a.sourceHandle = oldB
+        b.sourceHandle = oldA
+        if (pairCrosses(a, b, nodeInfo, direction)) {
+          a.sourceHandle = oldA
+          b.sourceHandle = oldB
+        }
+      } else if (a.target === b.target) {
+        const oldA = a.targetHandle
+        const oldB = b.targetHandle
+        a.targetHandle = oldB
+        b.targetHandle = oldA
+        if (pairCrosses(a, b, nodeInfo, direction)) {
+          a.targetHandle = oldA
+          b.targetHandle = oldB
+        }
       }
     }
   }
-  return best
+}
+
+function applyDoglegFallback(result, nodeInfo, direction) {
+  for (let i = 0; i < result.length; i++) {
+    for (let j = i + 1; j < result.length; j++) {
+      const a = result[i]
+      const b = result[j]
+      if (!pairCrosses(a, b, nodeInfo, direction)) continue
+
+      const sourceA = nodeInfo.get(a.source)
+      const targetA = nodeInfo.get(a.target)
+      if (!sourceA || !targetA) continue
+
+      if (direction === 'RIGHT') {
+        a.sourceHandle = (targetA.y >= sourceA.y) ? 'bottom-source' : 'top-source'
+      } else {
+        a.sourceHandle = (targetA.x >= sourceA.x) ? 'right-source' : 'left-source'
+      }
+      a.type = 'smoothstep'
+    }
+  }
+}
+
+function detectAndSwapCrossings(result, nodeInfo, direction) {
+  reduceCrossingsWithSwaps(result, nodeInfo, direction)
+  applyDoglegFallback(result, nodeInfo, direction)
 }
 
 function getEdgeTypeFromHandles(sourceInfo, targetInfo, sourceHandle, targetHandle) {
@@ -488,7 +752,7 @@ function getEdgeTypeFromHandles(sourceInfo, targetInfo, sourceHandle, targetHand
  * @param {Array<{ id: string, source: string, target: string, [key: string]: unknown }>} edges
  * @returns {Array<{ id: string, source: string, target: string, sourceHandle: string, targetHandle: string, type: string, [key: string]: unknown }>}
  */
-export function computeSmartHandles(nodes, edges, _direction = null, forceRecalc = false) {
+export function computeSmartHandles(nodes, edges, direction = 'DOWN', forceRecalc = false, rankMap = null) {
   const nodeInfo = new Map()
   for (const n of nodes) {
     if (n.id.startsWith('lane_')) continue
@@ -501,16 +765,37 @@ export function computeSmartHandles(nodes, edges, _direction = null, forceRecalc
     })
   }
 
-  // First pass: compute optimal handles per edge.
-  // When forceRecalc is true (e.g. from auto-arrange), always recompute; otherwise keep existing gates.
+  const nodeById = new Map(nodes.filter((n) => !n.id.startsWith('lane_')).map((n) => [n.id, n]))
+
+  // First pass: classify and assign direction-aware primary handles.
   const result = edges.map((edge) => {
     const s = nodeInfo.get(edge.source)
     const t = nodeInfo.get(edge.target)
     if (!s || !t) return { ...edge, type: 'smoothstep' }
     const keepExisting = !forceRecalc && edge.sourceHandle && edge.targetHandle
-    const { sourceHandle, targetHandle } = keepExisting
-      ? { sourceHandle: edge.sourceHandle, targetHandle: edge.targetHandle }
-      : getHandlesForEdge(s, t)
+    let sourceHandle, targetHandle
+    if (keepExisting) {
+      sourceHandle = edge.sourceHandle
+      targetHandle = edge.targetHandle
+    } else {
+      const sourceNode = nodeById.get(edge.source)
+      const targetNode = nodeById.get(edge.target)
+      const isStartToEnd = sourceNode?.type === 'start' && targetNode?.type === 'end'
+      if (isStartToEnd) {
+        // Prefer side handles so the line is not forced vertical when start/end are aligned.
+        if (direction === 'DOWN') {
+          sourceHandle = 'right-source'
+          targetHandle = 'left-target'
+        } else {
+          sourceHandle = 'bottom-source'
+          targetHandle = 'top-target'
+        }
+      } else {
+        const assigned = assignPrimaryHandles(edge, classifyEdge(edge, rankMap, s, t, direction), direction, s, t)
+        sourceHandle = assigned.sourceHandle
+        targetHandle = assigned.targetHandle
+      }
+    }
     const type = getEdgeTypeFromHandles(s, t, sourceHandle, targetHandle)
     return {
       ...edge,
@@ -520,64 +805,19 @@ export function computeSmartHandles(nodes, edges, _direction = null, forceRecalc
     }
   })
 
-  // Second pass: fan-out — when a source has 2+ edges, spread source handles by target x-position
-  const bySource = new Map()
-  for (let i = 0; i < result.length; i++) {
-    const e = result[i]
-    if (!nodeInfo.has(e.source) || !nodeInfo.has(e.target)) continue
-    if (!bySource.has(e.source)) bySource.set(e.source, [])
-    bySource.get(e.source).push(i)
-  }
-  for (const [, indices] of bySource) {
-    if (indices.length < 2) continue
-    const sorted = [...indices].sort((a, b) => {
-      const ta = nodeInfo.get(result[a].target)
-      const tb = nodeInfo.get(result[b].target)
-      return (ta?.x ?? 0) - (tb?.x ?? 0)
-    })
-    for (let k = 0; k < sorted.length; k++) {
-      const idx = sorted[k]
-      const e = result[idx]
-      const s = nodeInfo.get(e.source)
-      const t = nodeInfo.get(e.target)
-      if (!s || !t) continue
-      let newSourceHandle
-      if (k === 0 && sorted.length >= 2) newSourceHandle = 'left-source'
-      else if (k === sorted.length - 1 && sorted.length >= 2) newSourceHandle = 'right-source'
-      else newSourceHandle = 'bottom-source'
-      const type = getEdgeTypeFromHandles(s, t, newSourceHandle, e.targetHandle)
-      result[idx] = { ...e, sourceHandle: newSourceHandle, type }
-    }
-  }
+  // Second pass: boundary fan-out / fan-in distribution.
+  distributeBoundaryHandles(result, nodeInfo, direction)
 
-  // Third pass: fan-in — when a target has 2+ edges, spread target handles by source x-position
-  const byTarget = new Map()
+  // Third pass: crossing minimization and longer-path fallback.
+  detectAndSwapCrossings(result, nodeInfo, direction)
+
+  // Last pass: update edge type from finalized handles.
   for (let i = 0; i < result.length; i++) {
     const e = result[i]
-    if (!nodeInfo.has(e.source) || !nodeInfo.has(e.target)) continue
-    if (!byTarget.has(e.target)) byTarget.set(e.target, [])
-    byTarget.get(e.target).push(i)
-  }
-  for (const [, indices] of byTarget) {
-    if (indices.length < 2) continue
-    const sorted = [...indices].sort((a, b) => {
-      const sa = nodeInfo.get(result[a].source)
-      const sb = nodeInfo.get(result[b].source)
-      return (sa?.x ?? 0) - (sb?.x ?? 0)
-    })
-    for (let k = 0; k < sorted.length; k++) {
-      const idx = sorted[k]
-      const e = result[idx]
-      const s = nodeInfo.get(e.source)
-      const t = nodeInfo.get(e.target)
-      if (!s || !t) continue
-      let newTargetHandle
-      if (k === 0 && sorted.length >= 2) newTargetHandle = 'left-target'
-      else if (k === sorted.length - 1 && sorted.length >= 2) newTargetHandle = 'right-target'
-      else newTargetHandle = 'top-target'
-      const type = getEdgeTypeFromHandles(s, t, e.sourceHandle, newTargetHandle)
-      result[idx] = { ...e, targetHandle: newTargetHandle, type }
-    }
+    const s = nodeInfo.get(e.source)
+    const t = nodeInfo.get(e.target)
+    if (!s || !t) continue
+    result[i].type = getEdgeTypeFromHandles(s, t, e.sourceHandle, e.targetHandle)
   }
 
   return result
@@ -745,10 +985,11 @@ export function toReactFlowData(graph, workspaceProcesses = {}, options = {}) {
   }
 
   const laneNodesFromPositions = computeLaneNodesFromPlaced(graph, stepNodes, { processDisplayName })
+  const direction = options.direction || 'DOWN'
 
   return {
     nodes: [...laneNodesFromPositions, ...stepNodes],
-    edges: computeSmartHandles(stepNodes, edges, 'DOWN'),
+    edges: computeSmartHandles(stepNodes, edges, direction),
   }
 }
 
@@ -766,7 +1007,7 @@ export function autoArrangeNodes(nodes, edges, options = {}) {
   if (stepNodes.length === 0) return { nodes, edges, positions: {} }
 
   const { processDisplayName } = options
-  const { placed } = runSugiyamaLayout(stepNodes, edges, { direction })
+  const { placed, rankMap } = runSugiyamaLayout(stepNodes, edges, { direction })
   const positions = {}
   const placedTopLeft = placed.map((node) => {
     const centerPos = node.position
@@ -779,7 +1020,7 @@ export function autoArrangeNodes(nodes, edges, options = {}) {
     }
   })
   // Force handle recalc so gates match new positions (do not keep pre-arrange sourceHandle/targetHandle).
-  const smartEdges = computeSmartHandles(placedTopLeft, edges, 'DOWN', true)
+  const smartEdges = computeSmartHandles(placedTopLeft, edges, direction, true, rankMap)
   const outLaneNodes = graph
     ? computeLaneNodesFromPlaced(graph, placedTopLeft, { processDisplayName })
     : laneNodes
