@@ -323,7 +323,9 @@ def _handle_delete_edge(session_id: str, arguments: dict, process_id: str | None
     if not pid:
         return _tool_error(f"Process not found for edge: {source} -> {target}")
     ok = store_delete_edge(session_id, source, target, process_id=pid)
-    return json.dumps({"ok": ok, "removed": ok})
+    if not ok:
+        return _tool_error(f"Edge not found: {source} -> {target} (it may already have been removed when a node was deleted)")
+    return json.dumps({"ok": True, "removed": True})
 
 
 def _handle_update_edge(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:

@@ -9,12 +9,14 @@ from dotenv import load_dotenv
 _BACKEND_DIR = Path(__file__).resolve().parent
 load_dotenv(_BACKEND_DIR / ".env")
 
-# API — AWS Bedrock (Amazon Nova)
+# API — AWS Bedrock
 AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
 AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
 NOVA_MODEL_ID: str = os.getenv("NOVA_MODEL_ID", "us.amazon.nova-pro-v1:0")
 NOVA_CHEAP_MODEL_ID: str = os.getenv("NOVA_CHEAP_MODEL_ID", NOVA_MODEL_ID)
+# Set NOVA_MODEL_ID to a Claude model on Bedrock (e.g. us.anthropic.claude-sonnet-4-6-v1:0)
+# to use the optimized Claude prompt variant automatically.
 
 # Paths
 _default_graphs_dir = _BACKEND_DIR / "data" / "graphs"
