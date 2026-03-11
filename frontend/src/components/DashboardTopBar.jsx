@@ -45,7 +45,14 @@ export default function DashboardTopBar({
           aria-label="Open automation analysis"
           aria-current={activeMode === 'analyze' ? 'true' : undefined}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 1v6M5 4l3-3 3 3" /><path d="M2 8.5a6 6 0 0 0 12 0" /><circle cx="8" cy="12" r="1" fill="currentColor" /></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="6.5" cy="6.5" r="4.25" />
+            <path d="M9.15 9.15l3.6 3.6" />
+            <path d="M4.25 7.5l1.5-1.2 1.5 1.5 1.25-2" strokeWidth="1.1" />
+            <circle cx="4.25" cy="7.5" r="0.55" fill="currentColor" stroke="none" />
+            <circle cx="5.75" cy="6.3" r="0.55" fill="currentColor" stroke="none" />
+            <circle cx="7.25" cy="7.8" r="0.55" fill="currentColor" stroke="none" />
+          </svg>
           Analyze
         </button>
         <button

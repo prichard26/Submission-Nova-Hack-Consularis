@@ -16,8 +16,6 @@ def reset_db():
     conn = _db.get_conn()
     conn.execute("DELETE FROM session_processes")
     conn.execute("DELETE FROM session_workspace")
-    conn.execute("DELETE FROM session_process_history")
-    conn.execute("DELETE FROM session_process_redo")
     conn.execute("DELETE FROM chat_messages")
     conn.commit()
     graph_store._cache.clear()
@@ -25,8 +23,6 @@ def reset_db():
     yield
     conn.execute("DELETE FROM session_processes")
     conn.execute("DELETE FROM session_workspace")
-    conn.execute("DELETE FROM session_process_history")
-    conn.execute("DELETE FROM session_process_redo")
     conn.execute("DELETE FROM chat_messages")
     conn.commit()
     graph_store._cache.clear()

@@ -16,8 +16,6 @@ import { useProcessGraph } from '../hooks/useProcessGraph'
 import { toReactFlowData, autoArrangeNodes, topLeftToCenter } from '../services/graphTransform'
 import { nodeTypes } from './nodes/nodeTypes.jsx'
 import {
-  undoGraph,
-  redoGraph,
   resetToBaseline,
   updatePositions,
   createNode,
@@ -28,12 +26,14 @@ import {
   deleteNode,
   exportBpmnXml,
 } from '../services/api'
+import { useGraphHistory } from '../hooks/useGraphHistory'
 import DetailPanel from './DetailPanel'
 import DataViewState from './DataViewState'
 import FloatingToolbar from './FloatingToolbar'
 import EdgeEditorModal from './EdgeEditorModal'
 import ProcessNameHeader from './ProcessNameHeader'
 import LandscapeMinimap from './LandscapeMinimap'
+import { ProcessCanvasContext } from '../contexts/ProcessCanvasContext'
 import './ProcessCanvas.css'
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
@@ -72,8 +72,8 @@ function Canvas({
   const { screenToFlowPosition, flowToScreenPosition, zoomIn, zoomOut, fitView } = useReactFlow()
   const { zoom } = useViewport()
   const { graph, loading, error } = useProcessGraph(sessionId, processId, refreshTrigger)
-  const [undoBotPending, setUndoBotPending] = useState(false)
-  const [redoPending, setRedoPending] = useState(false)
+  const graphHistory = useGraphHistory()
+  const lastPushedGraphRef = useRef(null)
   const [resetPending, setResetPending] = useState(false)
   const [renameTrigger, setRenameTrigger] = useState(0)
   const [panelWidth, setPanelWidth] = useState(340)
@@ -233,9 +233,16 @@ function Canvas({
     return () => { cancelled = true }
   }, [initialNodes, initialEdges, graph, sessionId, processId, processDisplayName, setNodes, setEdges, fitView, structuralChangeFromChat, structuralChangeGraph])
 
+  const pushGraphToHistory = useCallback((g) => {
+    if (!g || g === lastPushedGraphRef.current) return
+    lastPushedGraphRef.current = g
+    graphHistory.pushState(g)
+  }, [graphHistory])
+
   // When chat used tools and returned a graph: apply it without auto-arrange so bot-placed positions are kept.
   useEffect(() => {
     if (!structuralChangeFromChat || !structuralChangeGraph || !onConsumedStructuralChange) return
+    if (graph) pushGraphToHistory(graph)
     const { nodes: arrangeNodes, edges: arrangeEdges } = toReactFlowData(structuralChangeGraph, workspaceProcesses, {
       processDisplayName,
     })
@@ -247,7 +254,7 @@ function Canvas({
     setEdges(arrangeEdges)
     setTimeout(() => fitView({ padding: 0.15 }), 100)
     onConsumedStructuralChange()
-  }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, processDisplayName, setNodes, setEdges, fitView, onConsumedStructuralChange])
+  }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, processDisplayName, setNodes, setEdges, fitView, onConsumedStructuralChange, graph, pushGraphToHistory])
 
   const breadcrumb = useMemo(() => {
     const parts = []
@@ -289,31 +296,29 @@ function Canvas({
     [onNodesChange, sessionId, processId, nodes],
   )
 
-  const handleUndoBot = useCallback(async () => {
-    if (!sessionId || undoBotPending || !onRequestRefresh) return
-    setUndoBotPending(true)
-    try {
-      await undoGraph(sessionId, { processId })
-      onRequestRefresh()
-    } catch (err) {
-      if (err?.status !== 404) console.warn('Undo bot failed', err)
-    } finally {
-      setUndoBotPending(false)
+  const handleUndoBot = useCallback(() => {
+    if (!graph) return
+    const previous = graphHistory.undo(graph)
+    if (previous) {
+      const { nodes: n, edges: e } = toReactFlowData(previous, workspaceProcesses, { processDisplayName })
+      setNodes(n)
+      setEdges(e)
+      lastPushedGraphRef.current = previous
+      setTimeout(() => fitView({ padding: 0.15 }), 100)
     }
-  }, [sessionId, processId, onRequestRefresh, undoBotPending])
+  }, [graph, graphHistory, workspaceProcesses, processDisplayName, setNodes, setEdges, fitView])
 
-  const handleRedo = useCallback(async () => {
-    if (!sessionId || redoPending || !onRequestRefresh) return
-    setRedoPending(true)
-    try {
-      await redoGraph(sessionId, { processId })
-      onRequestRefresh()
-    } catch (err) {
-      if (err?.status !== 404) console.warn('Redo failed', err)
-    } finally {
-      setRedoPending(false)
+  const handleRedo = useCallback(() => {
+    if (!graph) return
+    const next = graphHistory.redo(graph)
+    if (next) {
+      const { nodes: n, edges: e } = toReactFlowData(next, workspaceProcesses, { processDisplayName })
+      setNodes(n)
+      setEdges(e)
+      lastPushedGraphRef.current = next
+      setTimeout(() => fitView({ padding: 0.15 }), 100)
     }
-  }, [sessionId, processId, onRequestRefresh, redoPending])
+  }, [graph, graphHistory, workspaceProcesses, processDisplayName, setNodes, setEdges, fitView])
 
   const handleReset = useCallback(async () => {
     if (!sessionId || resetPending || !onRequestRefresh) return
@@ -360,6 +365,7 @@ function Canvas({
       const flowTopLeft = screenToFlowPosition({ x: event.clientX, y: event.clientY })
       const position = topLeftToCenter(flowTopLeft, { type: pendingAddType })
       try {
+        if (graph) pushGraphToHistory(graph)
         const createdNode = await createNode(sessionId, processId, laneId, name, pendingAddType, position)
         if (pendingAddType === 'subprocess' && createdNode?.id) {
           try {
@@ -390,7 +396,7 @@ function Canvas({
         console.warn('Create node failed', err)
       }
     },
-    [pendingAddType, graph, screenToFlowPosition, sessionId, processId, onRequestRefresh],
+    [pendingAddType, graph, screenToFlowPosition, sessionId, processId, onRequestRefresh, pushGraphToHistory],
   )
 
   const handleNodeClick = useCallback(
@@ -470,6 +476,7 @@ function Canvas({
     if (!edgeEditor || edgeEditorSaving) return
     setEdgeEditorSaving(true)
     try {
+      if (graph) pushGraphToHistory(graph)
       if (edgeEditor.mode === 'create') {
         await createEdge(sessionId, processId, edgeEditor.source, edgeEditor.target, edgeEditor.label || '', {
           sourceHandle: edgeEditor.sourceHandle,
@@ -485,10 +492,11 @@ function Canvas({
     } finally {
       setEdgeEditorSaving(false)
     }
-  }, [edgeEditor, edgeEditorSaving, sessionId, processId, onRequestRefresh])
+  }, [edgeEditor, edgeEditorSaving, sessionId, processId, onRequestRefresh, graph, pushGraphToHistory])
 
   const handleEdgesDelete = useCallback(
     async (deletedEdges) => {
+      if (graph) pushGraphToHistory(graph)
       for (const edge of deletedEdges) {
         try {
           await deleteEdge(sessionId, processId, edge.source, edge.target)
@@ -498,11 +506,12 @@ function Canvas({
       }
       onRequestRefresh?.()
     },
-    [sessionId, processId, onRequestRefresh],
+    [sessionId, processId, onRequestRefresh, graph, pushGraphToHistory],
   )
 
   const handleNodesDelete = useCallback(
     async (deletedNodes) => {
+      if (graph) pushGraphToHistory(graph)
       const nonLaneNodes = deletedNodes.filter((node) => !node.id.startsWith('lane_'))
       for (const node of nonLaneNodes) {
         if (node.type === 'start' || node.type === 'end') continue
@@ -514,13 +523,14 @@ function Canvas({
       }
       onRequestRefresh?.()
     },
-    [sessionId, processId, onRequestRefresh],
+    [sessionId, processId, onRequestRefresh, graph, pushGraphToHistory],
   )
 
   const handleReconnect = useCallback(
     async (oldEdge, newConnection) => {
       if (!newConnection?.source || !newConnection?.target) return
       try {
+        if (graph) pushGraphToHistory(graph)
         const reconnectsSamePair =
           oldEdge.source === newConnection.source && oldEdge.target === newConnection.target
         await createEdge(sessionId, processId, newConnection.source, newConnection.target, '', {
@@ -535,7 +545,7 @@ function Canvas({
         console.warn('Reconnect edge failed', err)
       }
     },
-    [sessionId, processId, onRequestRefresh],
+    [sessionId, processId, onRequestRefresh, graph, pushGraphToHistory],
   )
 
   const handleExportPng = useCallback(async () => {
@@ -618,10 +628,10 @@ function Canvas({
         disabled={disabled}
         onAutoArrange={handleAutoArrange}
         onUndo={handleUndoBot}
-        undoDisabled={disabled || undoBotPending || !onRequestRefresh}
+        undoDisabled={disabled || !graphHistory.canUndo}
         undoTip={undoTip}
         onRedo={handleRedo}
-        redoDisabled={disabled || redoPending || !onRequestRefresh}
+        redoDisabled={disabled || !graphHistory.canRedo}
         redoTip={redoTip}
         onReset={handleReset}
         resetDisabled={disabled || resetPending || !onRequestRefresh}
@@ -695,6 +705,7 @@ function Canvas({
         onChangeLabel={handleEdgeEditorLabelChange}
       />
 
+      <ProcessCanvasContext.Provider value={{ sessionId, processId, onRequestRefresh }}>
       <div className="process-canvas__graph">
         <div
           ref={setFlowRef}
@@ -787,6 +798,7 @@ function Canvas({
         </ReactFlow>
         </div>
       </div>
+      </ProcessCanvasContext.Provider>
     </div>
   )
 }

@@ -6,6 +6,25 @@
   background: var(--bg-primary, #0d0a07);
 }
 
+/* ── Shared tooltip base (data-tip) ── */
+.process-canvas [data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  padding: 5px 10px;
+  background: var(--bg-secondary, #1a1510);
+  border: 1px solid var(--border, #2e2820);
+  border-radius: 6px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: 11px;
+  color: var(--text-primary, #fbf9f1);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 /* ── Graph area (left): title + flow ── */
 .process-canvas__graph {
   display: flex;
@@ -41,21 +60,8 @@
   to { opacity: 1; }
 }
 
-/* Step: 260×120, border-radius 8px, padding 10px 14px (matches StepNode.css) */
-.ghost-preview__step {
-  width: 260px;
-  min-height: 120px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
-  background: color-mix(in srgb, var(--node-fill, #f5d4b8) 58%, transparent);
-  border: 2px solid color-mix(in srgb, var(--node-stroke, #c97d3a) 80%, transparent);
-}
-
-/* Subprocess: 260×120, border-radius 8px, padding 10px 14px (matches SubprocessNode.css) */
+/* Shared base for step & subprocess ghost previews */
+.ghost-preview__step,
 .ghost-preview__subprocess {
   width: 260px;
   min-height: 120px;
@@ -64,8 +70,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+}
+
+.ghost-preview__step {
+  background: color-mix(in srgb, var(--node-fill, #f5d4b8) 58%, transparent);
+  border: 2px solid color-mix(in srgb, var(--node-stroke, #c97d3a) 80%, transparent);
+}
+
+.ghost-preview__subprocess {
+  gap: 8px;
   background: color-mix(in srgb, var(--node-fill, #f5d4b8) 54%, transparent);
   border: 3px double color-mix(in srgb, var(--node-stroke, #c97d3a) 80%, transparent);
 }
@@ -204,26 +218,11 @@
   background: var(--accent-soft, rgba(232, 93, 4, 0.15));
 }
 
-/* Tooltip (same style as toolbar) — show to the left of the button */
+/* Tooltip — show to the left of the minimap button */
 .landscape-minimap__open-btn[data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
   right: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
-  padding: 5px 10px;
-  background: var(--bg-secondary, #1a1510);
-  border: 1px solid var(--border, #2e2820);
-  border-radius: 6px;
-  font-family: var(--font-body, 'DM Sans', sans-serif);
-  font-size: 11px;
-  color: var(--text-primary, #fbf9f1);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s;
-  z-index: 60;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .landscape-minimap__open-btn[data-tip]:hover::after {
@@ -344,48 +343,18 @@
   cursor: grabbing;
 }
 
-/* Tooltip for toggle */
+/* Tooltip for toggle — position variants */
 .floating-toolbar--vertical .ftb__toggle[data-tip]::after,
 .floating-toolbar--collapsed .ftb__toggle[data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
   left: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
-  padding: 5px 10px;
-  background: var(--bg-secondary, #1a1510);
-  border: 1px solid var(--border, #2e2820);
-  border-radius: 6px;
-  font-family: var(--font-body, 'DM Sans', sans-serif);
-  font-size: 11px;
-  color: var(--text-primary, #fbf9f1);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s;
-  z-index: 60;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .floating-toolbar--horizontal .ftb__toggle[data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
   top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  padding: 5px 10px;
-  background: var(--bg-secondary, #1a1510);
-  border: 1px solid var(--border, #2e2820);
-  border-radius: 6px;
-  font-family: var(--font-body, 'DM Sans', sans-serif);
-  font-size: 11px;
-  color: var(--text-primary, #fbf9f1);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s;
-  z-index: 60;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .ftb__toggle[data-tip]:hover::after {
@@ -453,51 +422,18 @@
   flex-shrink: 0;
 }
 
-/* ── Tooltip (appears on hover) ── */
-
-/* Vertical layout: tooltip to the right */
+/* ── Tooltip (appears on hover) — position variants ── */
 .floating-toolbar--vertical .ftb__btn[data-tip]::after,
 .floating-toolbar--collapsed .ftb__btn[data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
   left: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
-  padding: 5px 10px;
-  background: var(--bg-secondary, #1a1510);
-  border: 1px solid var(--border, #2e2820);
-  border-radius: 6px;
-  font-family: var(--font-body, 'DM Sans', sans-serif);
-  font-size: 11px;
-  color: var(--text-primary, #fbf9f1);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s;
-  z-index: 60;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Horizontal layout: tooltip below */
 .floating-toolbar--horizontal .ftb__btn[data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
   top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  padding: 5px 10px;
-  background: var(--bg-secondary, #1a1510);
-  border: 1px solid var(--border, #2e2820);
-  border-radius: 6px;
-  font-family: var(--font-body, 'DM Sans', sans-serif);
-  font-size: 11px;
-  color: var(--text-primary, #fbf9f1);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s;
-  z-index: 60;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .ftb__btn[data-tip]:hover::after {

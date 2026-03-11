@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useChat } from '../hooks/useChat'
 import BotFace from './BotFace'
+import ModelPicker from './ModelPicker'
 import './AureliusChat.css'
 
 export const WELCOME_MSG = "Here you're looking at an example process graph. I can help you understand it—which steps do what, who is responsible, how the flow runs—and modify it: add or remove steps, change actors or durations, connect or disconnect flows, and add subprocesses. Describe what you see, ask questions, or tell me what you'd like to change, and I'll update the graph accordingly."
@@ -25,6 +26,9 @@ export default function AureliusChat({
   onApplyPlan: controlledOnApplyPlan,
   onCancelPlan: controlledOnCancelPlan,
   confirmLoading: controlledConfirmLoading,
+  modelId: controlledModelId,
+  onModelIdChange,
+  availableModels: controlledAvailableModels,
 }) {
   const uncontrolled = useChat(sessionId, { processId, onGraphUpdate: onGraphUpdate })
   const bottomRef = useRef(null)
@@ -37,6 +41,9 @@ export default function AureliusChat({
   const loading = isControlled ? (controlledLoading ?? false) : uncontrolled.loading
   const pendingMessageId = isControlled ? (controlledPendingMessageId ?? null) : uncontrolled.pendingMessageId
   const confirmLoadingState = isControlled ? (controlledConfirmLoading ?? false) : uncontrolled.confirmLoading
+  const currentModelId = isControlled ? (controlledModelId ?? null) : uncontrolled.modelId
+  const setModelId = isControlled ? (onModelIdChange ?? (() => {})) : uncontrolled.setModelId
+  const models = isControlled ? (controlledAvailableModels ?? []) : uncontrolled.availableModels
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -180,6 +187,7 @@ export default function AureliusChat({
             ↑
           </button>
         </div>
+        <ModelPicker models={models} value={currentModelId} onChange={setModelId} disabled={loading} />
       </form>
     </div>
   )

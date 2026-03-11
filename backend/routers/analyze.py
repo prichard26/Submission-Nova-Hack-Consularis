@@ -8,7 +8,8 @@ from pydantic import BaseModel, field_validator
 
 import db
 from agent.analyzer import run_analysis
-from graph.store import get_analysis_metrics
+from agent.report_generator import run_report_narratives
+from graph.store import get_analysis_metrics, get_report_metrics
 from routers.validation import validate_session_id
 
 logger = logging.getLogger("consularis")
@@ -55,6 +56,36 @@ class AppointmentRequest(BaseModel):
 
 class AppointmentResponse(BaseModel):
     ok: bool = True
+
+
+class ReportRequest(BaseModel):
+    session_id: str
+
+    @field_validator("session_id")
+    @classmethod
+    def session_id_non_empty(cls, v: str) -> str:
+        return validate_session_id(v)
+
+
+class ReportResponse(BaseModel):
+    metrics: dict  # full get_report_metrics() output
+    narratives: dict  # executive_summary, process_narratives, operations_analysis
+
+
+@router.post("/report", response_model=ReportResponse)
+async def api_report(req: ReportRequest):
+    """Generate the full Company Process Intelligence Report: computed metrics + LLM narratives."""
+    try:
+        metrics = await asyncio.to_thread(get_report_metrics, req.session_id)
+    except Exception as e:
+        logger.exception("report metrics session_id=%s error: %s", req.session_id, e)
+        raise HTTPException(status_code=503, detail="Could not load report metrics.")
+    try:
+        narratives = await asyncio.to_thread(run_report_narratives, req.session_id, metrics)
+    except Exception as e:
+        logger.exception("report narratives session_id=%s error: %s", req.session_id, e)
+        raise HTTPException(status_code=503, detail="Report narratives temporarily unavailable.")
+    return ReportResponse(metrics=metrics, narratives=narratives)
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)

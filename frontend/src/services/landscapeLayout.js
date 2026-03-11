@@ -58,4 +58,3 @@ export function layoutTree(workspace) {
   return { nodes, edges }
 }
 
-export { NODE_WIDTH, NODE_HEIGHT }

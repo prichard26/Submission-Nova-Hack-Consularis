@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { sendChat, confirmChatPlan } from '../services/api'
+import { useState, useCallback, useEffect } from 'react'
+import { sendChat, confirmChatPlan, getModels } from '../services/api'
 import { WELCOME_MSG } from '../components/AureliusChat'
 
 function getChatErrorText(err, fallback = 'The consul is temporarily unavailable. Please ensure the backend is running (e.g. ./run.sh) and try again.') {
@@ -32,6 +32,18 @@ export function useChat(sessionId, { processId = 'global', onGraphUpdate, onWork
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [usage, setUsage] = useState(null)
   const [lastResponseData, setLastResponseData] = useState(null)
+  const [modelId, setModelId] = useState(null)
+  const [availableModels, setAvailableModels] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    getModels().then((data) => {
+      if (cancelled) return
+      setAvailableModels(data.models || [])
+      if (!modelId && data.default) setModelId(data.default)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSend = useCallback(async (userText) => {
     if (!userText?.trim() || loading) return
@@ -40,7 +52,7 @@ export function useChat(sessionId, { processId = 'global', onGraphUpdate, onWork
     setLoading(true)
     setPendingMessageId(null)
     try {
-      const data = await sendChat(sessionId, userText.trim(), { processId })
+      const data = await sendChat(sessionId, userText.trim(), { processId, modelId })
       const reply = data.message || 'I could not process that. Please try again.'
       const assistantId = Date.now() + 1
       setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', text: reply }])
@@ -57,7 +69,7 @@ export function useChat(sessionId, { processId = 'global', onGraphUpdate, onWork
     } finally {
       setLoading(false)
     }
-  }, [sessionId, processId, loading, onGraphUpdate, onWorkspaceUpdate])
+  }, [sessionId, processId, loading, onGraphUpdate, onWorkspaceUpdate, modelId])
 
   const handleApplyPlan = useCallback(async () => {
     if (confirmLoading || !pendingMessageId) return
@@ -96,5 +108,8 @@ export function useChat(sessionId, { processId = 'global', onGraphUpdate, onWork
     handleSend,
     handleApplyPlan,
     handleCancelPlan,
+    modelId,
+    setModelId,
+    availableModels,
   }
 }

@@ -15,8 +15,6 @@ from graph.store import (
     get_workspace_json,
     get_baseline_json,
     resolve_step,
-    undo_graph,
-    redo_graph,
     reset_to_baseline,
     update_node,
     delete_node,
@@ -312,32 +310,6 @@ def api_resolve_step(
 
 def _inject_lanes_for_client(data: dict, process_id: str) -> dict:
     return inject_lanes_for_client(data, process_id)
-
-
-@router.post("/undo")
-def api_undo_graph(
-    session_id: str = Query(..., description="Session id"),
-    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
-):
-    _validate_session_id(session_id)
-    restored_json = undo_graph(session_id, process_id=process_id)
-    if restored_json is None:
-        raise HTTPException(status_code=404, detail="Nothing to undo")
-    data = _inject_lanes_for_client(json.loads(restored_json), process_id)
-    return {"graph_json": data}
-
-
-@router.post("/redo")
-def api_redo_graph(
-    session_id: str = Query(..., description="Session id"),
-    process_id: str = Query(DEFAULT_PROCESS_ID, description="Process id"),
-):
-    _validate_session_id(session_id)
-    restored_json = redo_graph(session_id, process_id=process_id)
-    if restored_json is None:
-        raise HTTPException(status_code=404, detail="Nothing to redo")
-    data = _inject_lanes_for_client(json.loads(restored_json), process_id)
-    return {"graph_json": data}
 
 
 @router.post("/reset")

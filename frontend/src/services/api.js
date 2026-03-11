@@ -157,12 +157,16 @@ export function exportBpmnXml(sessionId, options = {}) {
 // ---------------------------------------------------------------------------
 
 export function sendChat(sessionId, message, options = {}) {
-  const { processId, ...rest } = options
+  const { processId, modelId, ...rest } = options
   return request('/api/chat', {
     ...rest,
     method: 'POST',
-    body: JSON.stringify({ session_id: sessionId, message, process_id: processId || null }),
+    body: JSON.stringify({ session_id: sessionId, message, process_id: processId || null, model_id: modelId || null }),
   })
+}
+
+export function getModels(options = {}) {
+  return request('/api/models', options)
 }
 
 /** Apply a pending plan (after planner called propose_plan). Same response shape as sendChat. */
@@ -187,12 +191,9 @@ export function initSession(sessionId, fromBlank = false, options = {}) {
   })
 }
 
-// ---------------------------------------------------------------------------
-// Analyze (automation advisor) and appointment
-// ---------------------------------------------------------------------------
-
-export function analyzeGraph(sessionId, options = {}) {
-  return request('/api/analyze', {
+/** Full Company Process Intelligence Report: metrics + LLM narratives. */
+export function getReport(sessionId, options = {}) {
+  return request('/api/report', {
     ...options,
     method: 'POST',
     body: JSON.stringify({ session_id: sessionId }),
@@ -204,26 +205,6 @@ export function requestAppointment(sessionId, email, name = null, options = {}) 
     ...options,
     method: 'POST',
     body: JSON.stringify({ session_id: sessionId, email, name: name || null }),
-  })
-}
-
-// ---------------------------------------------------------------------------
-// Undo
-// ---------------------------------------------------------------------------
-
-export function undoGraph(sessionId, options = {}) {
-  const { processId, ...rest } = options
-  return request(buildUrl('/api/graph/undo', sessionId, processId), {
-    ...rest,
-    method: 'POST',
-  })
-}
-
-export function redoGraph(sessionId, options = {}) {
-  const { processId, ...rest } = options
-  return request(buildUrl('/api/graph/redo', sessionId, processId), {
-    ...rest,
-    method: 'POST',
   })
 }
 

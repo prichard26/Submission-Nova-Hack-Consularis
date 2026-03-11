@@ -39,6 +39,14 @@ def _normalize_process_id(process_id: str | None) -> str:
     return (process_id or DEFAULT_PROCESS_ID).strip() or DEFAULT_PROCESS_ID
 
 
+def invalidate_session_cache(session_id: str) -> None:
+    """Drop in-memory graph and workspace cache for a session so the next fetch reads from DB."""
+    _ws_cache.pop(session_id, None)
+    for key in list(_cache):
+        if key[0] == session_id:
+            del _cache[key]
+
+
 # ---------------------------------------------------------------------------
 # Infrastructure
 # ---------------------------------------------------------------------------
@@ -75,17 +83,12 @@ def _get_graph(session_id: str, process_id: str | None = None) -> ProcessGraph:
 
 
 def _persist(session_id: str, process_id: str | None = None, *, skip_history: bool = False) -> None:
-    """Write the cached graph back to DB. Optionally saves previous JSON to history (skip for position-only updates)."""
+    """Write the cached graph back to DB. History/undo is managed client-side."""
     pid = _normalize_process_id(process_id)
     key = (session_id, pid)
     graph = _cache.get(key)
     if graph is None:
         return
-    if not skip_history:
-        current = db.get_session_json(session_id, pid)
-        if current:
-            db.push_history(session_id, pid, current)
-        db.clear_redo(session_id, pid)
     db.upsert_session_json(session_id, pid, graph.to_json())
 
 
@@ -265,20 +268,6 @@ def get_process_id_for_step(session_id: str, step_id: str) -> str | None:
         pass
     return None
 
-
-def get_process_id_for_add_node(session_id: str, location_id: str) -> str | None:
-    """Resolve where to add a new node. If location_id is a subprocess node, return its page id (node.id); else return the process that contains location_id."""
-    pid = get_process_id_for_step(session_id, location_id)
-    if not pid:
-        return None
-    try:
-        graph = _get_graph(session_id, pid)
-        node = graph.get_step(location_id)
-        if node and node.get("type") == "subprocess":
-            return node["id"]  # subprocess node id = page id (e.g. S1)
-    except Exception:
-        pass
-    return pid
 
 
 def get_process_id_for_proposed_id(session_id: str, proposed_id: str, step_type: str) -> str | None:
@@ -469,21 +458,20 @@ def get_analysis_metrics(session_id: str) -> dict[str, Any]:
                 continue
             step_count_here += 1
             attrs = _node_attrs(node)
-            auto = _safe_str(attrs.get("automation_potential")).upper()
-            if "HIGH" in auto or auto == "H":
+            auto_key = _classify_automation(attrs.get("automation_potential"))
+            if auto_key == "high":
                 high += 1
-            elif "MEDIUM" in auto or "MED" in auto or auto == "M":
+            elif auto_key == "medium":
                 medium += 1
-            elif "LOW" in auto or auto == "L":
+            elif auto_key == "low":
                 low += 1
             else:
                 none += 1
         if step_count_here > 0:
             processes_with_steps += 1
     total_steps = high + medium + low + none
-    # Overall score 0–100: weighted by potential (high=100, medium=60, low=30, none=0)
     if total_steps:
-        raw = (high * 100 + medium * 60 + low * 30 + none * 0) / total_steps
+        raw = (high * _AUTOMATION_WEIGHTS["high"] + medium * _AUTOMATION_WEIGHTS["medium"] + low * _AUTOMATION_WEIGHTS["low"]) / total_steps
         overall_score = round(min(100, max(0, raw)))
     else:
         overall_score = 0
@@ -506,6 +494,227 @@ def get_analysis_metrics(session_id: str) -> dict[str, Any]:
             "total_steps": total_steps,
             "processes": total_processes,
         },
+    }
+
+
+_AUTOMATION_WEIGHTS = {"high": 100, "medium": 60, "low": 30, "none": 0}
+TOP_ISSUES_LIMIT = 10
+RESOLVE_STEP_MIN_SCORE = 0.55
+
+
+def _classify_automation(raw: str) -> str:
+    """Normalize an automation_potential string to one of: high, medium, low, none."""
+    v = (raw or "").strip().upper()
+    if "HIGH" in v or v == "H":
+        return "high"
+    if "MEDIUM" in v or "MED" in v or v == "M":
+        return "medium"
+    if "LOW" in v or v == "L":
+        return "low"
+    return "none"
+
+
+def _classify_current_state(raw: str) -> str:
+    """Normalize a current_state string to one of: manual, semi_automated, automated, unknown."""
+    v = (raw or "").strip().lower().replace(" ", "_")
+    if "semi" in v:
+        return "semi_automated"
+    if "manual" in v:
+        return "manual"
+    if "automated" in v:
+        return "automated"
+    return "unknown"
+
+
+def _parse_float_from_attr(val: Any) -> float:
+    """Parse a numeric value from step attributes (e.g. '5.00 EUR', '43800', 3.5)."""
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip()
+    if not s:
+        return 0.0
+    # Strip currency or units (e.g. "5.00 EUR", "15 min")
+    for sep in (" ", "\t"):
+        if sep in s:
+            s = s.split(sep)[0]
+    s = s.replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def get_report_metrics(session_id: str) -> dict[str, Any]:
+    """Compute full report metrics: totals, per_process, per_step, distributions, top_issues.
+    Used by the Company Process Intelligence Report."""
+    _ws_cache.pop(session_id, None)
+    for key in list(_cache):
+        if key[0] == session_id:
+            del _cache[key]
+    ws = _get_workspace(session_id)
+    root_id = ws.data.get("process_tree", {}).get("root", DEFAULT_PROCESS_ID)
+    procs = ws.data.get("process_tree", {}).get("processes", {})
+    order = _all_process_ids_in_tree_order(ws, root_id)
+
+    totals_annual_cost = 0.0
+    totals_annual_volume = 0.0
+    total_weighted_error = 0.0
+    step_count = 0
+    decision_count = 0
+    per_process: list[dict[str, Any]] = []
+    per_step: list[dict[str, Any]] = []
+    dist_automation: dict[str, int] = {"high": 0, "medium": 0, "low": 0, "none": 0}
+    dist_current_state: dict[str, int] = {"manual": 0, "semi_automated": 0, "automated": 0, "unknown": 0}
+    steps_for_issues: list[dict[str, Any]] = []  # id, process_id, name, annual_cost, error_rate, annual_volume, current_state, automation_potential
+
+    for pid in order:
+        if pid == root_id:
+            # Root often has no steps (only subprocess refs); still count if it has steps
+            pass
+        try:
+            graph = _get_graph(session_id, pid)
+        except Exception:
+            continue
+        info = procs.get(pid) or {}
+        proc_name = info.get("name", graph.name or pid)
+        owner = info.get("owner", "")
+        category = info.get("category", "")
+        criticality = info.get("criticality", "")
+
+        proc_annual_cost = 0.0
+        proc_annual_volume = 0.0
+        proc_error_sum = 0.0
+        proc_error_weight = 0.0
+        proc_automation: dict[str, int] = {"high": 0, "medium": 0, "low": 0, "none": 0}
+        proc_steps: list[dict[str, Any]] = []
+
+        for node in graph.nodes:
+            ntype = node.get("type", "")
+            if ntype in ("start", "end"):
+                continue
+            if ntype == "decision":
+                decision_count += 1
+                continue
+            if ntype != "step":
+                continue
+            step_count += 1
+            attrs = _node_attrs(node)
+            node_id = node.get("id", "")
+            name = _safe_str(attrs.get("name"))
+            actor = _safe_str(attrs.get("actor"))
+            duration = _safe_str(attrs.get("duration_min"))
+            frequency = _safe_str(attrs.get("frequency"))
+            cost_per = _parse_float_from_attr(attrs.get("cost_per_execution"))
+            volume = _parse_float_from_attr(attrs.get("annual_volume"))
+            err = _parse_float_from_attr(attrs.get("error_rate_percent"))
+            auto_key = _classify_automation(attrs.get("automation_potential"))
+            state_key = _classify_current_state(attrs.get("current_state"))
+
+            annual_cost = cost_per * volume if volume else 0.0
+            totals_annual_cost += annual_cost
+            totals_annual_volume += volume
+            total_weighted_error += err * volume
+            proc_annual_cost += annual_cost
+            proc_annual_volume += volume
+            proc_error_sum += err * volume
+            proc_error_weight += volume
+            dist_automation[auto_key] = dist_automation.get(auto_key, 0) + 1
+            dist_current_state[state_key] = dist_current_state.get(state_key, 0) + 1
+            proc_automation[auto_key] = proc_automation.get(auto_key, 0) + 1
+
+            pain_points = attrs.get("pain_points")
+            if isinstance(pain_points, list):
+                pain_points = list(pain_points)
+            else:
+                pain_points = []
+            risks = attrs.get("risks")
+            if isinstance(risks, list):
+                risks = list(risks)
+            else:
+                risks = []
+
+            step_entry: dict[str, Any] = {
+                "id": node_id,
+                "name": name,
+                "process_id": pid,
+                "actor": actor,
+                "duration_min": duration,
+                "frequency": frequency,
+                "annual_volume": volume,
+                "cost_per_execution": cost_per,
+                "annual_cost": annual_cost,
+                "error_rate_percent": err,
+                "automation_potential": auto_key,
+                "current_state": state_key,
+                "pain_points": pain_points,
+                "risks": risks,
+            }
+            per_step.append(step_entry)
+            proc_steps.append(step_entry)
+            steps_for_issues.append({
+                "id": node_id,
+                "process_id": pid,
+                "name": name,
+                "annual_cost": annual_cost,
+                "error_rate_percent": err,
+                "annual_volume": volume,
+                "current_state": state_key,
+                "automation_potential": auto_key,
+            })
+
+        avg_error = (proc_error_sum / proc_error_weight) if proc_error_weight else 0.0
+        per_process.append({
+            "id": pid,
+            "name": proc_name,
+            "owner": owner,
+            "category": category,
+            "criticality": criticality,
+            "step_count": len(proc_steps),
+            "annual_cost": round(proc_annual_cost, 2),
+            "annual_volume": int(proc_annual_volume),
+            "avg_error_rate": round(avg_error, 2),
+            "automation_breakdown": dict(proc_automation),
+            "steps": proc_steps,
+        })
+
+    weighted_avg_error = (total_weighted_error / totals_annual_volume) if totals_annual_volume else 0.0
+    existing_metrics = get_analysis_metrics(session_id)
+    overall_score = existing_metrics.get("overall_score", 0)
+
+    steps_for_issues.sort(key=lambda x: x["error_rate_percent"], reverse=True)
+    highest_error_steps = [{"id": s["id"], "process_id": s["process_id"], "name": s["name"], "error_rate_percent": s["error_rate_percent"]} for s in steps_for_issues[:TOP_ISSUES_LIMIT]]
+    steps_for_issues.sort(key=lambda x: x["annual_cost"], reverse=True)
+    highest_cost_steps = [{"id": s["id"], "process_id": s["process_id"], "name": s["name"], "annual_cost": s["annual_cost"]} for s in steps_for_issues[:TOP_ISSUES_LIMIT]]
+    manual_high_volume = [s for s in steps_for_issues if s["current_state"] == "manual" and s["annual_volume"] > 0]
+    manual_high_volume.sort(key=lambda x: x["annual_volume"], reverse=True)
+    manual_high_volume_steps = [{"id": s["id"], "process_id": s["process_id"], "name": s["name"], "annual_volume": s["annual_volume"]} for s in manual_high_volume[:TOP_ISSUES_LIMIT]]
+
+    return {
+        "workspace_name": ws.data.get("name", ""),
+        "totals": {
+            "annual_cost": round(totals_annual_cost, 2),
+            "annual_volume": int(totals_annual_volume),
+            "weighted_avg_error_rate": round(weighted_avg_error, 2),
+            "automation_readiness_score": overall_score,
+            "step_count": step_count,
+            "process_count": len(order),
+            "decision_count": decision_count,
+        },
+        "per_process": per_process,
+        "per_step": per_step,
+        "distributions": {
+            "automation_potential": dist_automation,
+            "current_state": dist_current_state,
+        },
+        "top_issues": {
+            "highest_error_steps": highest_error_steps,
+            "highest_cost_steps": highest_cost_steps,
+            "manual_high_volume_steps": manual_high_volume_steps,
+        },
+        "categories": existing_metrics.get("categories", {}),
+        "counts": existing_metrics.get("counts", {}),
     }
 
 
@@ -541,13 +750,13 @@ def resolve_step(session_id: str, name_fragment: str, process_id: str | None = N
             if not name and not step_id:
                 continue
             score = _score_match(needle, name, step_id)
-            if score >= 0.55:
+            if score >= RESOLVE_STEP_MIN_SCORE:
                 results.append((score, {
                     "type": stype, "node_id": step_id, "name": name,
                     "process_id": pid,
                 }))
     results.sort(key=lambda x: x[0], reverse=True)
-    return [item for _score, item in results[:10]]
+    return [item for _score, item in results[:TOP_ISSUES_LIMIT]]
 
 
 def get_node(session_id: str, node_id: str, process_id: str | None = None) -> dict | None:
@@ -948,9 +1157,26 @@ def _looks_like_global_map_step(step_id: str) -> bool:
         return False
     if step_id in ("global_start", "global_end"):
         return True
-    if step_id.startswith("S") and step_id[1:].isdigit():
-        return True
-    return False
+    return step_id.startswith("S") and step_id[1:].isdigit()
+
+
+def _resolve_edge_graph(
+    session_id: str, source: str, target: str, process_id: str | None = None
+) -> tuple[ProcessGraph, str] | None:
+    """Find the graph and pid that contains both source and target, falling back to the global map."""
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, pid)
+    ids = graph.all_step_ids()
+    if source in ids and target in ids:
+        return graph, pid
+    if pid != DEFAULT_PROCESS_ID and (
+        _looks_like_global_map_step(source) or _looks_like_global_map_step(target)
+    ):
+        graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
+        ids = graph.all_step_ids()
+        if source in ids and target in ids:
+            return graph, DEFAULT_PROCESS_ID
+    return None
 
 
 def add_edge(
@@ -963,21 +1189,10 @@ def add_edge(
     target_handle: str | None = None,
     process_id: str | None = None,
 ) -> dict | None:
-    pid = _normalize_process_id(process_id)
-    graph = _get_graph(session_id, pid)
-    ids = graph.all_step_ids()
-    if source not in ids or target not in ids:
-        if pid != DEFAULT_PROCESS_ID and (
-            _looks_like_global_map_step(source) or _looks_like_global_map_step(target)
-        ):
-            graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
-            ids = graph.all_step_ids()
-            if source in ids and target in ids:
-                pid = DEFAULT_PROCESS_ID
-            else:
-                return None
-        else:
-            return None
+    resolved = _resolve_edge_graph(session_id, source, target, process_id)
+    if not resolved:
+        return None
+    graph, pid = resolved
     existing = graph.get_flow(source, target)
     if existing:
         if label:
@@ -999,19 +1214,13 @@ def add_edge(
 
 
 def update_edge(session_id: str, source: str, target: str, updates: dict, process_id: str | None = None) -> dict | None:
-    pid = _normalize_process_id(process_id)
-    graph = _get_graph(session_id, pid)
+    resolved = _resolve_edge_graph(session_id, source, target, process_id)
+    if not resolved:
+        return None
+    graph, pid = resolved
     edge = graph.get_flow(source, target)
     if not edge:
-        if pid != DEFAULT_PROCESS_ID and (
-            _looks_like_global_map_step(source) or _looks_like_global_map_step(target)
-        ):
-            graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
-            edge = graph.get_flow(source, target)
-            if edge:
-                pid = DEFAULT_PROCESS_ID
-        if not edge:
-            return None
+        return None
     if "label" in updates:
         edge["label"] = updates["label"]
     _persist(session_id, pid)
@@ -1019,134 +1228,17 @@ def update_edge(session_id: str, source: str, target: str, updates: dict, proces
 
 
 def delete_edge(session_id: str, source: str, target: str, process_id: str | None = None) -> bool:
-    pid = _normalize_process_id(process_id)
-    graph = _get_graph(session_id, pid)
+    resolved = _resolve_edge_graph(session_id, source, target, process_id)
+    if not resolved:
+        return False
+    graph, pid = resolved
     for i, e in enumerate(graph.edges):
         if e.get("from") == source and e.get("to") == target:
             graph.edges.pop(i)
             _persist(session_id, pid)
             return True
-    if pid != DEFAULT_PROCESS_ID and (
-        _looks_like_global_map_step(source) or _looks_like_global_map_step(target)
-    ):
-        graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
-        for i, e in enumerate(graph.edges):
-            if e.get("from") == source and e.get("to") == target:
-                graph.edges.pop(i)
-                _persist(session_id, DEFAULT_PROCESS_ID)
-                return True
     return False
 
-
-def validate_graph(session_id: str, process_id: str | None = None) -> dict:
-    graph = _get_graph(session_id, process_id)
-    ids = graph.all_step_ids()
-    issues = []
-    for e in graph.edges:
-        if e.get("from") not in ids:
-            issues.append(f"Edge source '{e.get('from')}' is not a valid node id.")
-        if e.get("to") not in ids:
-            issues.append(f"Edge target '{e.get('to')}' is not a valid node id.")
-    return {"valid": len(issues) == 0, "issues": issues}
-
-
-def _next_lane_id(graph: ProcessGraph) -> str:
-    existing = {ln.get("id") for ln in graph.lanes}
-    n = 1
-    while f"Lane_{n}" in existing:
-        n += 1
-    return f"Lane_{n}"
-
-
-def add_lane(session_id: str, lane_data: dict, process_id: str | None = None) -> dict | None:
-    graph = _get_graph(session_id, process_id)
-    if not graph.lanes:
-        return None  # New format: single implicit lane, no add
-    name = (lane_data.get("name") or "").strip() or "New phase"
-    description = (lane_data.get("description") or "").strip()
-    lane_id = _next_lane_id(graph)
-    lane: dict[str, Any] = {
-        "id": lane_id,
-        "name": name,
-        "description": description,
-        "node_refs": [],
-    }
-    graph.data.setdefault("lanes", []).append(lane)
-    _persist(session_id, process_id)
-    return {"id": lane_id, "name": name, "description": description, "node_refs": []}
-
-
-def update_lane(session_id: str, lane_id: str, updates: dict, process_id: str | None = None) -> dict | None:
-    graph = _get_graph(session_id, process_id)
-    if not graph.lanes:
-        return None
-    lane = graph.get_lane(lane_id)
-    if not lane:
-        return None
-    if "name" in updates and updates["name"] is not None:
-        lane["name"] = str(updates["name"]).strip() or lane.get("name", "")
-    if "description" in updates:
-        lane["description"] = str(updates["description"]).strip() if updates["description"] is not None else ""
-    _persist(session_id, process_id)
-    return {"id": lane_id, "name": lane.get("name", ""), "description": lane.get("description", ""),
-            "node_refs": lane.get("node_refs", [])}
-
-
-def delete_lane(session_id: str, lane_id: str, process_id: str | None = None) -> bool:
-    graph = _get_graph(session_id, process_id)
-    if not graph.lanes:
-        return False
-    lane = graph.get_lane(lane_id)
-    if not lane:
-        return False
-    refs = list(lane.get("node_refs", []))
-    for nid in refs:
-        delete_node(session_id, nid, process_id=process_id)
-    graph.data["lanes"] = [ln for ln in graph.lanes if ln.get("id") != lane_id]
-    _persist(session_id, process_id)
-    return True
-
-
-def reorder_lanes(session_id: str, lane_ids: list[str], process_id: str | None = None) -> bool:
-    graph = _get_graph(session_id, process_id)
-    if not graph.lanes:
-        return False
-    current_ids = [ln.get("id") for ln in graph.lanes]
-    if set(lane_ids) != set(current_ids) or len(lane_ids) != len(current_ids):
-        return False
-    by_id = {ln["id"]: ln for ln in graph.lanes}
-    graph.data["lanes"] = [by_id[lid] for lid in lane_ids]
-    _persist(session_id, process_id)
-    return True
-
-
-def move_node(
-    session_id: str,
-    node_id: str,
-    target_lane_id: str,
-    position: int | None = None,
-    process_id: str | None = None,
-) -> dict | None:
-    graph = _get_graph(session_id, process_id)
-    node = graph.get_step(node_id)
-    if not node:
-        return None
-    if position is not None and 0 <= position <= len(graph.nodes):
-        order = [n["id"] for n in graph.nodes if n.get("id") != node_id]
-        order.insert(min(position, len(order)), node_id)
-        graph.step_order = order
-        _persist(session_id, process_id)
-    return get_node(session_id, node_id, process_id=process_id)
-
-
-def reorder_steps(session_id: str, lane_id: str, ordered_ids: list[str], process_id: str | None = None) -> bool:
-    graph = _get_graph(session_id, process_id)
-    current = set(graph.step_order)
-    if set(ordered_ids) != current or len(ordered_ids) != len(graph.nodes):
-        return False
-    graph.step_order = list(ordered_ids)
-    _persist(session_id, process_id)
-    return True
 
 
 def rename_process(session_id: str, new_name: str, process_id: str | None = None) -> bool:
@@ -1168,38 +1260,6 @@ def rename_process(session_id: str, new_name: str, process_id: str | None = None
     return True
 
 
-def undo_graph(session_id: str, process_id: str | None = None) -> str | None:
-    """Restore previous graph state from history. Returns restored JSON or None."""
-    pid = _normalize_process_id(process_id)
-    current_json = db.get_session_json(session_id, pid)
-    prev_json = db.pop_history(session_id, pid)
-    if prev_json is None:
-        return None
-    if current_json:
-        db.push_redo(session_id, pid, current_json)
-    key = (session_id, pid)
-    _cache.pop(key, None)
-    db.upsert_session_json(session_id, pid, prev_json)
-    _refresh_workspace_summary(session_id, pid)
-    return prev_json
-
-
-def redo_graph(session_id: str, process_id: str | None = None) -> str | None:
-    """Re-apply next graph state from redo stack. Returns restored JSON or None."""
-    pid = _normalize_process_id(process_id)
-    current_json = db.get_session_json(session_id, pid)
-    next_json = db.pop_redo(session_id, pid)
-    if next_json is None:
-        return None
-    if current_json:
-        db.push_history(session_id, pid, current_json)
-    key = (session_id, pid)
-    _cache.pop(key, None)
-    db.upsert_session_json(session_id, pid, next_json)
-    _refresh_workspace_summary(session_id, pid)
-    return next_json
-
-
 def reset_to_baseline(session_id: str, process_id: str | None = None) -> str:
     """Reset to baseline. If resetting the root (global) process, restore entire session (all pages + workspace) so subprocess links work again."""
     pid = _normalize_process_id(process_id)
@@ -1219,8 +1279,6 @@ def reset_to_baseline(session_id: str, process_id: str | None = None) -> str:
     key = (session_id, pid)
     _cache.pop(key, None)
     db.upsert_session_json(session_id, pid, baseline_json)
-    db.clear_history(session_id, pid)
-    db.clear_redo(session_id, pid)
     _refresh_workspace_summary(session_id, pid)
     return baseline_json
 

@@ -24,4 +24,43 @@
   color: var(--text-muted, #9a8e80);
   background: var(--bg-secondary, #1a1510);
   border-bottom: 1px solid var(--lane-border, rgba(201, 125, 58, 0.2));
+  pointer-events: auto;
+}
+
+.lane-node__title-btn {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0 4px;
+  margin: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: center;
+  border-radius: 4px;
+}
+
+.lane-node__title-btn:hover {
+  color: var(--text-primary, #e8e4de);
+  background: color-mix(in srgb, currentColor 0.08, transparent);
+}
+
+.lane-node__title-input {
+  width: 100%;
+  max-width: 100%;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #e8e4de);
+  background: var(--bg-card, #2a2218);
+  border: 1px solid var(--border-accent, rgba(232, 93, 4, 0.3));
+  border-radius: 4px;
+  outline: none;
+}
+
+.lane-node__title-input:focus {
+  border-color: var(--accent, #e85d04);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #e85d04) 0.2, transparent);
 }

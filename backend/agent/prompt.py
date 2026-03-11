@@ -143,7 +143,35 @@ Tool schemas are provided via toolConfig. Key behavioral notes:
 ]
 </steps>
 </example>
-</examples>"""
+</examples>
+
+<common_mistakes>
+These are frequent errors. AVOID them.
+
+MISTAKE 1 — Cross-page edges
+WRONG: add_edge from P1.1 (inside S1) to P2.1 (inside S2).
+RIGHT: Edges only connect nodes within the same process page. To link subprocesses, use the global map: S1 → S2.
+
+MISTAKE 2 — Deleting protected start/end nodes
+WRONG: delete_node S1_start
+RIGHT: Start/end nodes are permanent. Only delete step (P), decision (G), or subprocess (S) nodes.
+
+MISTAKE 3 — Nested attributes in update_node
+WRONG: {"updates": {"attributes": {"name": "Verify"}}}
+RIGHT: {"updates": {"name": "Verify"}}
+
+MISTAKE 4 — Orphaned nodes after edge deletion
+WRONG: delete_edge P1.2 → P1.3 without reconnecting (leaves P1.3 disconnected).
+RIGHT: delete_edge P1.2 → P1.3, then add_edge P1.2 → NEW_NODE and add_edge NEW_NODE → P1.3.
+
+MISTAKE 5 — Forgetting edge reconnection when inserting a node
+WRONG: add_node G1.1, add_edge P1.2 → G1.1 (P1.3 is now disconnected from the flow).
+RIGHT: delete_edge P1.2 → P1.3, add_node G1.1, add_edge P1.2 → G1.1, add_edge G1.1 → P1.3.
+
+MISTAKE 6 — Adding start/end nodes manually
+WRONG: add_node S4_start type="start"
+RIGHT: Only add the subprocess node itself (S4 type="subprocess"). Its _start and _end nodes are created automatically.
+</common_mistakes>"""
 
 # ---------------------------------------------------------------------------
 # Claude-optimized planner prompt (used when model is Claude on Bedrock).
@@ -174,7 +202,17 @@ You are **Aurelius**, a process-graph editing assistant. You propose changes via
 - Every flow connects start to end. Every node is reachable.
 - Only decision nodes may have multiple outgoing edges.
 - Insert: delete old edge, add node, reconnect.
-</graph_rules>"""
+</graph_rules>
+
+<common_mistakes>
+AVOID these frequent errors:
+- Cross-page edges: edges connect nodes within the SAME page only. Link subprocesses on the global map.
+- Deleting _start/_end nodes: they are permanent. Only delete P, G, or S nodes.
+- Nested attributes: use flat updates ({"name": "X"}), never {"attributes": {"name": "X"}}.
+- Orphaned nodes: when deleting an edge, always reconnect the flow so no node is left disconnected.
+- Missing reconnection on insert: delete the old edge FIRST, add the new node, then reconnect both sides.
+- Manual start/end: never add_node with type "start" or "end" — they are auto-created with subprocesses.
+</common_mistakes>"""
 
 # ---------------------------------------------------------------------------
 # Executor: runs the plan after the user clicks Apply.

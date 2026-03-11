@@ -1,4 +1,4 @@
-"""Chat endpoint: POST /api/chat and POST /api/chat/confirm."""
+"""Chat endpoint: POST /api/chat, POST /api/chat/confirm, GET /api/models."""
 import asyncio
 import json
 import logging
@@ -10,6 +10,7 @@ from pydantic import BaseModel, field_validator
 
 import db
 import stats
+from config import BEDROCK_MODELS, NOVA_MODEL_ID
 from agent import run_chat
 from agent.runtime_nova import run_chat_confirm
 from graph.store import get_graph_dict_for_client
@@ -20,7 +21,6 @@ logger = logging.getLogger("consularis")
 # Tools that change graph structure; when any is used we set meta.structural_change so the frontend can auto-arrange.
 STRUCTURAL_TOOLS = frozenset({
     "add_node", "delete_node", "add_edge", "delete_edge", "update_edge",
-    "add_lane", "delete_lane", "move_node", "reorder_steps", "reorder_lanes",
 })
 
 
@@ -74,10 +74,10 @@ def _build_chat_response(message: str, session_id: str, process_id: str | None, 
     }
 
 
-def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None):
+def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None, model_id: str | None = None):
     """Append user message, run agent, append assistant message."""
     db.append_chat_message(session_id, "user", user_message)
-    result = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id)
+    result = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id, model_id=model_id)
     db.append_chat_message(session_id, "assistant", result.message)
     meta = _build_meta(
         session_id,
@@ -127,6 +127,7 @@ class ChatRequest(BaseModel):
     session_id: str
     message: str
     process_id: str | None = None
+    model_id: str | None = None
 
     @field_validator("session_id")
     @classmethod
@@ -175,13 +176,29 @@ async def api_stats():
     return stats.get_stats()
 
 
+@router.get("/models")
+async def api_models():
+    """Return the list of available Bedrock models for the planner/reasoning role."""
+    models = []
+    for model_id, info in BEDROCK_MODELS.items():
+        models.append({
+            "id": model_id,
+            "label": info["label"],
+            "family": info["family"],
+            "tier": info["tier"],
+            "description": info["description"],
+            "is_default": model_id == NOVA_MODEL_ID,
+        })
+    return {"models": models, "default": NOVA_MODEL_ID}
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def api_chat(req: ChatRequest):
     session_id = req.session_id
     lock = _lock_for_session(session_id)
     with lock:
         message, include_graph, meta = await asyncio.to_thread(
-            _handle_chat_turn, session_id, req.message, req.process_id
+            _handle_chat_turn, session_id, req.message, req.process_id, req.model_id
         )
         logger.info(
             "chat session_id=%s process_id=%s tools_used=%s",

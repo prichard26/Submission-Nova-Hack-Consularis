@@ -9,12 +9,13 @@ import '@xyflow/react/dist/style.css'
 import { layoutTree } from '../services/landscapeLayout'
 import './LandscapeView.css'
 
-function buildFlowNodesAndEdges(workspace) {
+function buildFlowNodesAndEdges(workspace, currentProcessId) {
   const { nodes: layoutNodes, edges: layoutEdges } = layoutTree(workspace)
   const processes = workspace?.process_tree?.processes || {}
 
   const nodes = layoutNodes.map((n) => {
     const info = processes[n.id] || {}
+    const isCurrent = n.id === currentProcessId
     return {
       id: n.id,
       type: 'default',
@@ -41,8 +42,8 @@ function buildFlowNodesAndEdges(workspace) {
         ),
       },
       style: {
-        background: 'var(--node-fill, #f5d4b8)',
-        border: '2px solid var(--node-stroke, #c97d3a)',
+        background: isCurrent ? 'var(--accent-soft, rgba(232, 93, 4, 0.25))' : 'var(--node-fill, #f5d4b8)',
+        border: isCurrent ? '2px solid var(--accent, #e85d04)' : '2px solid var(--node-stroke, #c97d3a)',
         borderRadius: '10px',
         padding: 0,
         width: n.width,
@@ -60,8 +61,11 @@ function buildFlowNodesAndEdges(workspace) {
   return { nodes, edges }
 }
 
-function LandscapeCanvas({ workspace, onProcessSelect, onSwitchView }) {
-  const { nodes, edges } = useMemo(() => buildFlowNodesAndEdges(workspace), [workspace])
+function LandscapeCanvas({ workspace, currentProcessId, onProcessSelect, onSwitchView }) {
+  const { nodes, edges } = useMemo(
+    () => buildFlowNodesAndEdges(workspace, currentProcessId),
+    [workspace, currentProcessId],
+  )
   const handleNodeClick = useCallback(
     (_event, node) => onProcessSelect?.(node.id),
     [onProcessSelect],

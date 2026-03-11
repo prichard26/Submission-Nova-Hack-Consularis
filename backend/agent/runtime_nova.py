@@ -11,6 +11,7 @@ from uuid import uuid4
 from botocore.exceptions import ClientError
 
 from config import (
+    BEDROCK_MODELS,
     MAX_RECENT_MESSAGES,
     MAX_TOOL_ROUNDS,
     NOVA_CHEAP_MODEL_ID,
@@ -24,11 +25,23 @@ from agent.bedrock_client import (
 )
 import db
 from graph.store import get_full_graph, get_process_id_for_step
+from graph.summary import generate_graph_summary
 from agent.context import prepare_chat_context
 from agent.prompt import EXECUTOR_SYSTEM_PROMPT, MULTIAGENT_CONTEXT, PLANNER_SYSTEM_PROMPT, PLANNER_SYSTEM_PROMPT_CLAUDE
 from agent.tools import PLANNER_TOOL_SCHEMAS, TOOL_SCHEMAS, TOOL_HANDLERS, run_tool
+from graph.validation import validate_step_schema, validate_full_graph
 
 logger = logging.getLogger("consularis.agent")
+
+PLANNER_MAX_TOKENS = 8192
+PLANNER_TEMPERATURE = 0.3
+EXECUTOR_MAX_TOKENS = 2048
+EXECUTOR_TEMPERATURE = 0.2
+REPAIR_TEMPERATURE = 0.1
+MAX_ERROR_MSG_LEN = 280
+MIN_REPLY_LEN = 20
+MIN_SANITIZED_LEN = 10
+MAX_PLAN_VALIDATION_RETRIES = 2
 
 
 @dataclass
@@ -150,6 +163,7 @@ def _is_protected_node_id(node_id: str) -> bool:
 
 
 def _validate_plan_steps(steps: list[dict], session_id: str | None = None) -> str | None:
+    """Validate plan steps using Pydantic schema validation (Layer 1) plus cross-page edge check."""
     for idx, step in enumerate(steps, start=1):
         name = (step or {}).get("tool_name")
         args = (step or {}).get("arguments") or {}
@@ -157,69 +171,65 @@ def _validate_plan_steps(steps: list[dict], session_id: str | None = None) -> st
             return f"Step {idx} is missing tool_name."
         if not isinstance(args, dict):
             return f"Step {idx} has non-object arguments."
-        if name in {"add_edge", "delete_edge", "update_edge"}:
-            source = (
-                args.get("source")
-                or args.get("from")
-                or args.get("source_id")
-                or args.get("from_id")
-                or ""
-            )
-            target = (
-                args.get("target")
-                or args.get("to")
-                or args.get("target_id")
-                or args.get("to_id")
-                or ""
-            )
-            if not str(source).strip() or not str(target).strip():
-                return f"Step {idx} ({name}) is missing required edge endpoints (source/target)."
-            if name == "add_edge" and session_id and source and target:
-                pid_src = get_process_id_for_step(session_id, str(source).strip())
-                pid_tgt = get_process_id_for_step(session_id, str(target).strip())
+
+        schema_err = validate_step_schema(name, args)
+        if schema_err:
+            return f"Step {idx} ({name}): {schema_err}"
+
+        if name == "add_edge" and session_id:
+            source = args.get("source") or args.get("from") or args.get("source_id") or args.get("from_id") or ""
+            target = args.get("target") or args.get("to") or args.get("target_id") or args.get("to_id") or ""
+            source, target = str(source).strip(), str(target).strip()
+            if source and target:
+                pid_src = get_process_id_for_step(session_id, source)
+                pid_tgt = get_process_id_for_step(session_id, target)
                 if pid_src is not None and pid_tgt is not None and pid_src != pid_tgt:
                     return (
                         f"Step {idx} (add_edge) connects nodes on different pages: {source} is in process {pid_src}, "
                         f"{target} is in process {pid_tgt}. Edges must be within the same process (same page)."
                     )
-            if name == "update_edge" and not isinstance(args.get("updates"), dict):
-                return f"Step {idx} (update_edge) requires an updates object."
-        if name == "add_node":
-            if not str(args.get("id") or "").strip():
-                return f"Step {idx} (add_node) is missing id."
-            node_type = str(args.get("type") or "").strip().lower()
-            if not node_type:
-                return f"Step {idx} (add_node) is missing type."
-            if node_type in ("start", "end"):
-                return (
-                    f"Step {idx} (add_node): do not add start or end nodes. They are created automatically when you add a subprocess. "
-                    "To add a new subprocess, only add the subprocess node (e.g. S8) and reconnect global edges; do not add S8_start, S8_end, or internal steps."
-                )
-        if name == "update_node":
-            if not str(args.get("id") or args.get("step_id") or "").strip():
-                return f"Step {idx} (update_node) is missing id."
-            updates = args.get("updates")
-            if not isinstance(updates, dict):
-                return f"Step {idx} (update_node) requires an updates object (e.g. {{\"name\": \"...\"}})."
-            if not updates:
-                return f"Step {idx} (update_node) has empty updates; include at least one field (e.g. name, description)."
-            if set(updates.keys()) == {"attributes"} and isinstance(updates.get("attributes"), dict):
-                return (
-                    f"Step {idx} (update_node) uses nested 'attributes'. "
-                    "Use flat updates, e.g. {{\"name\": \"Verify complete?\"}} instead of {{\"attributes\": {{\"name\": \"...\"}}}}."
-                )
-        if name == "rename_process":
-            if not str(args.get("id") or args.get("process_id") or "").strip():
-                return f"Step {idx} (rename_process) is missing id."
-            if not str(args.get("name") or "").strip():
-                return f"Step {idx} (rename_process) is missing name."
-        if name == "delete_node":
-            node_id = (args.get("id") or args.get("node_id") or "").strip()
-            if not node_id:
-                return f"Step {idx} (delete_node) is missing id."
-            if _is_protected_node_id(node_id):
-                return f"Step {idx} tries to delete a protected node ({node_id})."
     return None
+
+
+def _make_plan_result(
+    reply: str,
+    instructions: str,
+    steps: list[dict] | None,
+    api_calls: int,
+    input_tokens: int,
+    output_tokens: int,
+) -> ChatResult:
+    """Build a ChatResult for a validated plan ready for user confirmation."""
+    plan_preview = _format_plan_preview(steps)
+    final_message = reply or (instructions or "Apply the changes below.").replace("\n", "\n\n")
+    if plan_preview:
+        final_message = f"{final_message}\n\n{plan_preview}\n\nClick **Apply plan** to execute these steps."
+    return ChatResult(
+        message=final_message,
+        include_graph=True,
+        tools_used=False,
+        tools_called=[],
+        api_calls=api_calls,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        pending_plan={"instructions": instructions, "steps": steps},
+        requires_confirmation=True,
+    )
+
+
+def _make_error_result(message: str, api_calls: int = 0, input_tokens: int = 0, output_tokens: int = 0) -> ChatResult:
+    """Build a ChatResult for error/info responses with no plan."""
+    return ChatResult(
+        message=message,
+        include_graph=True,
+        tools_used=False,
+        tools_called=[],
+        api_calls=api_calls,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        pending_plan=None,
+        requires_confirmation=False,
+    )
 
 
 def _format_plan_preview(steps: list[dict] | None) -> str:
@@ -234,35 +244,131 @@ def _format_plan_preview(steps: list[dict] | None) -> str:
     return "\n".join(lines)
 
 
+_MAX_STEP_RETRIES = 3
+
+
+def _retry_failed_step_with_llm(
+    client,
+    session_id: str,
+    step: dict,
+    error_msg: str,
+    full_graph_text: str,
+    process_id: str | None,
+    turn_id: str,
+) -> tuple[dict | None, str | None, int, int, int]:
+    """Ask the LLM to fix a failed tool step given the error. Returns (corrected_step, tool_result, api, in_tok, out_tok)."""
+    total_api, total_in, total_out = 0, 0, 0
+    for attempt in range(1, _MAX_STEP_RETRIES + 1):
+        retry_prompt = (
+            f"A tool call failed during plan execution.\n\n"
+            f"**Failed step:**\n```json\n{json.dumps(step, ensure_ascii=False)}\n```\n\n"
+            f"**Error:** {error_msg}\n\n"
+            f"**Current graph state:**\n{full_graph_text}\n\n"
+            f"Return ONLY a corrected tool call as a single JSON object with keys "
+            f"\"tool_name\" (string) and \"arguments\" (object). No extra text."
+        )
+        retry_system = [{"text": MULTIAGENT_CONTEXT + "\n\n" + EXECUTOR_SYSTEM_PROMPT}]
+        retry_messages = [{"role": "user", "content": [{"text": retry_prompt}]}]
+        try:
+            response = converse_with_retry(
+                client,
+                modelId=NOVA_CHEAP_MODEL_ID,
+                system=retry_system,
+                messages=retry_messages,
+                inferenceConfig={"maxTokens": EXECUTOR_MAX_TOKENS, "temperature": REPAIR_TEMPERATURE},
+            )
+        except Exception as exc:
+            logger.warning("[%s] RETRY_LLM_ERROR attempt=%s error=%s", turn_id, attempt, exc)
+            total_api += 1
+            continue
+
+        total_api += 1
+        total_in += response.get("usage", {}).get("inputTokens", 0) or 0
+        total_out += response.get("usage", {}).get("outputTokens", 0) or 0
+        raw_text = extract_response_text(response)
+        corrected = _parse_corrected_step(raw_text)
+        if not corrected:
+            logger.warning("[%s] RETRY_PARSE_FAIL attempt=%s raw=%s", turn_id, attempt, raw_text[:500])
+            error_msg = f"Could not parse corrected step from LLM response: {raw_text[:200]}"
+            continue
+
+        c_name = corrected.get("tool_name", "")
+        c_args = corrected.get("arguments") or {}
+        if c_name not in TOOL_HANDLERS:
+            error_msg = f"LLM suggested unknown tool: {c_name}"
+            continue
+
+        logger.info("[%s] RETRY_STEP attempt=%s tool=%s", turn_id, attempt, c_name)
+        result_str = run_tool(session_id, c_name, c_args, process_id=process_id, turn_id=turn_id)
+        try:
+            parsed = json.loads(result_str)
+            ok = bool(parsed.get("ok", True))
+        except Exception:
+            ok = False
+            parsed = {"error": result_str}
+
+        if ok:
+            logger.info("[%s] RETRY_SUCCESS attempt=%s tool=%s", turn_id, attempt, c_name)
+            return corrected, result_str, total_api, total_in, total_out
+
+        error_msg = parsed.get("error", "Unknown error on retried step")
+        logger.info("[%s] RETRY_STILL_FAILED attempt=%s error=%s", turn_id, attempt, error_msg)
+
+    return None, None, total_api, total_in, total_out
+
+
+def _parse_corrected_step(text: str) -> dict | None:
+    """Extract a {tool_name, arguments} JSON object from LLM text."""
+    text = text.strip()
+    # Try stripping markdown fences
+    if "```" in text:
+        match = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+        if match:
+            text = match.group(1).strip()
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict) and "tool_name" in obj:
+            return obj
+    except json.JSONDecodeError:
+        pass
+    # Try finding a JSON object in the text
+    match = re.search(r"\{[^{}]*\"tool_name\"[^{}]*\}", text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
 def _execute_plan_steps(
     session_id: str,
     steps: list[dict],
     process_id: str | None,
     turn_id: str,
+    client=None,
+    full_graph_text: str = "",
 ) -> tuple[str, list[str], int, int, int, bool]:
-    """Execute planner-provided steps directly in Python (no LLM round-trip)."""
+    """Execute planner-provided steps directly in Python. On failure, retries via LLM if client is provided."""
     tools_called: list[str] = []
+    total_api, total_in, total_out = 0, 0, 0
     for idx, step in enumerate(steps, start=1):
         name = (step or {}).get("tool_name")
         args = (step or {}).get("arguments") or {}
         if not isinstance(name, str) or not name:
-            return f"Step {idx} is invalid (missing tool_name).", tools_called, 0, 0, 0, False
+            return f"Step {idx} is invalid (missing tool_name).", tools_called, total_api, total_in, total_out, False
         if name not in TOOL_HANDLERS:
             hint = " Use add_node with type \"subprocess\" to add a subprocess." if name == "add_subprocess" else ""
-            return f"Step {idx} uses unknown tool \"{name}\".{hint}", tools_called, 0, 0, 0, False
+            return f"Step {idx} uses unknown tool \"{name}\".{hint}", tools_called, total_api, total_in, total_out, False
         if not isinstance(args, dict):
-            return f"Step {idx} has invalid arguments for {name}.", tools_called, 0, 0, 0, False
+            return f"Step {idx} has invalid arguments for {name}.", tools_called, total_api, total_in, total_out, False
         if name == "delete_node":
             node_id = (args.get("id") or args.get("node_id") or "").strip()
             if _is_protected_node_id(node_id):
                 logger.warning("[%s] PLAN_REJECTED protected_node_delete node_id=%s", turn_id, node_id)
                 return (
                     f"Plan rejected at step {idx}: cannot delete protected start/end node ({node_id}).",
-                    tools_called,
-                    0,
-                    0,
-                    0,
-                    False,
+                    tools_called, total_api, total_in, total_out, False,
                 )
         logger.info("[%s] EXECUTE_STEP %s/%s tool=%s", turn_id, idx, len(steps), name)
         result = run_tool(session_id, name, args, process_id=process_id, turn_id=turn_id)
@@ -276,9 +382,36 @@ def _execute_plan_steps(
         logger.info("[%s] TOOL_RESULT tool=%s ok=%s", turn_id, name, ok)
         logger.debug("[%s] TOOL_RESULT_RAW tool=%s result=%s", turn_id, name, result[:2000])
         if not ok:
-            return f"Failed at step {idx} ({name}): {parsed.get('error', 'Unknown error')}", tools_called, 0, 0, 0, False
+            error_msg = parsed.get("error", "Unknown error")
+            if client:
+                logger.info("[%s] STEP_FAILED_RETRYING step=%s/%s error=%s", turn_id, idx, len(steps), error_msg)
+                graph_text = full_graph_text
+                if not graph_text:
+                    graph_data = get_full_graph(session_id)
+                    graph_text = "**Full graph:**\n```json\n" + json.dumps(graph_data, separators=(",", ":"), ensure_ascii=False) + "\n```"
+                corrected, _, r_api, r_in, r_out = _retry_failed_step_with_llm(
+                    client, session_id, step, error_msg, graph_text, process_id, turn_id,
+                )
+                total_api += r_api
+                total_in += r_in
+                total_out += r_out
+                if corrected:
+                    tools_called.append(corrected.get("tool_name", name))
+                    continue
+            return f"Failed at step {idx} ({name}): {error_msg}", tools_called, total_api, total_in, total_out, False
     summary = "Executed: " + ", ".join(tools_called) if tools_called else "No tools were called."
-    return summary, tools_called, 0, 0, 0, True
+
+    # Layer 3: Post-execution graph validation
+    try:
+        post_graph = get_full_graph(session_id)
+        validation_result = validate_full_graph(post_graph)
+        if not validation_result.ok:
+            logger.warning("[%s] POST_EXEC_VALIDATION issues=%s", turn_id, validation_result.issues)
+            summary += "\n\nNote: " + validation_result.summary()
+    except Exception as exc:
+        logger.warning("[%s] POST_EXEC_VALIDATION_ERROR error=%s", turn_id, exc)
+
+    return summary, tools_called, total_api, total_in, total_out, True
 
 
 def _run_executor_with_llm(
@@ -308,7 +441,7 @@ def _run_executor_with_llm(
             "modelId": NOVA_CHEAP_MODEL_ID,
             "system": executor_system,
             "messages": executor_messages,
-            "inferenceConfig": {"maxTokens": 2048, "temperature": 0.2},
+            "inferenceConfig": {"maxTokens": EXECUTOR_MAX_TOKENS, "temperature": EXECUTOR_TEMPERATURE},
             "toolConfig": {"tools": BEDROCK_EXECUTOR_TOOLS},
         }
         try:
@@ -406,6 +539,7 @@ def _run_planner_repair_pass(
     bedrock_messages: list[dict],
     system_block: list[dict],
     turn_id: str,
+    model_id: str | None = None,
 ) -> tuple[dict | None, int, int, int]:
     """One strict repair pass: ask planner to respond with propose_plan only. Returns (response, api_calls, input_tokens, output_tokens)."""
     repair_instruction = (
@@ -418,10 +552,10 @@ def _run_planner_repair_pass(
     try:
         response = converse_with_retry(
             client,
-            modelId=NOVA_MODEL_ID,
+            modelId=model_id or NOVA_MODEL_ID,
             system=system_block,
             messages=repair_messages,
-            inferenceConfig={"maxTokens": 4096, "temperature": 0.1},
+            inferenceConfig={"maxTokens": PLANNER_MAX_TOKENS // 2, "temperature": REPAIR_TEMPERATURE},
             toolConfig={"tools": BEDROCK_PLANNER_TOOLS},
         )
         api = 1
@@ -440,6 +574,7 @@ def _run_planner_validation_retry(
     system_block: list[dict],
     validation_error: str,
     turn_id: str,
+    model_id: str | None = None,
 ) -> tuple[dict | None, int, int, int]:
     """Ask the planner to propose a corrected plan after a validation failure. Returns (response, api_calls, input_tokens, output_tokens)."""
     retry_instruction = (
@@ -456,10 +591,10 @@ def _run_planner_validation_retry(
     try:
         response = converse_with_retry(
             client,
-            modelId=NOVA_MODEL_ID,
+            modelId=model_id or NOVA_MODEL_ID,
             system=system_block,
             messages=retry_messages,
-            inferenceConfig={"maxTokens": 8192, "temperature": 0.2},
+            inferenceConfig={"maxTokens": PLANNER_MAX_TOKENS, "temperature": EXECUTOR_TEMPERATURE},
             toolConfig={"tools": BEDROCK_PLANNER_TOOLS},
         )
         api = 1
@@ -471,17 +606,186 @@ def _run_planner_validation_retry(
         return None, 1, 0, 0
 
 
+# ---------------------------------------------------------------------------
+# Plan extraction and validation helpers
+# ---------------------------------------------------------------------------
+
+def _extract_plan_from_response(response: dict) -> tuple[str, list[dict] | None] | None:
+    """Extract (instructions, steps) from a propose_plan tool call in a Bedrock response. Returns None if no propose_plan found."""
+    content_blocks = response.get("output", {}).get("message", {}).get("content", [])
+    tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
+    plan_block = next((b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "propose_plan"), None)
+    if plan_block is None:
+        return None
+    tu = plan_block["toolUse"]
+    args = _parse_tool_args(tu.get("input", {}))
+    instructions = args.get("instructions", "") or "Apply the changes discussed."
+    steps = args.get("steps")
+    if not isinstance(steps, list):
+        steps = None
+    return instructions, steps
+
+
+def _validate_and_store_plan(
+    client,
+    session_id: str,
+    process_id: str | None,
+    instructions: str,
+    steps: list[dict],
+    reply_text: str,
+    bedrock_messages: list[dict],
+    system_block: list[dict],
+    model_id: str,
+    turn_id: str,
+    api_calls: int,
+    input_tokens: int,
+    output_tokens: int,
+) -> ChatResult:
+    """Validate plan steps, retry if invalid, store and return a ChatResult."""
+    validation_error = _validate_plan_steps(steps, session_id)
+    for retry_n in range(1, MAX_PLAN_VALIDATION_RETRIES + 1):
+        if not validation_error:
+            break
+        logger.warning("[%s] PLAN_INVALID session_id=%s retry=%s/%s error=%s", turn_id, session_id, retry_n, MAX_PLAN_VALIDATION_RETRIES, validation_error)
+        retry_response, retry_api, retry_in, retry_out = _run_planner_validation_retry(
+            client, session_id, bedrock_messages, system_block, validation_error, turn_id, model_id=model_id
+        )
+        api_calls += retry_api
+        input_tokens += retry_in
+        output_tokens += retry_out
+        if not retry_response:
+            break
+        extracted = _extract_plan_from_response(retry_response)
+        if not extracted:
+            break
+        instructions, steps = extracted[0], extracted[1]
+        if not isinstance(steps, list):
+            break
+        reply_text = _sanitize_reply(extract_response_text(retry_response)) or reply_text
+        validation_error = _validate_plan_steps(steps, session_id)
+
+    if validation_error:
+        return _make_error_result(
+            "The proposed plan contained an invalid step and I could not correct it automatically.\n\n"
+            f"{validation_error}\n\n"
+            "Start/end nodes are protected and permanent. Please rephrase your request (e.g. add or update steps, or restructure the flow).",
+            api_calls, input_tokens, output_tokens,
+        )
+
+    stored_plan = {"instructions": instructions, "steps": steps, "process_id": process_id}
+    db.upsert_pending_plan(session_id, stored_plan)
+    logger.info("[%s] PLAN_STORED session_id=%s steps=%s", turn_id, session_id, len(steps) if steps else 0)
+    reply = reply_text if (reply_text and len(reply_text.strip()) >= MIN_REPLY_LEN) else (instructions or "Apply the changes below.").replace("\n", "\n\n")
+    return _make_plan_result(reply, instructions, steps, api_calls, input_tokens, output_tokens)
+
+
+def _handle_proposed_plan(
+    client,
+    session_id: str,
+    process_id: str | None,
+    propose_plan_block: dict,
+    planner_reply: str,
+    bedrock_messages: list[dict],
+    system_block: list[dict],
+    model_id: str,
+    turn_id: str,
+    api_calls: int,
+    input_tokens: int,
+    output_tokens: int,
+) -> ChatResult:
+    """Handle a propose_plan tool call from the planner response."""
+    tu = propose_plan_block["toolUse"]
+    args = _parse_tool_args(tu.get("input", {}))
+    instructions = args.get("instructions", "") or "Apply the changes discussed."
+    steps = args.get("steps")
+    if not isinstance(steps, list):
+        steps = None
+
+    if isinstance(steps, list):
+        reply_text = _sanitize_reply(planner_reply) if planner_reply else ""
+        return _validate_and_store_plan(
+            client, session_id, process_id, instructions, steps, reply_text,
+            bedrock_messages, system_block, model_id, turn_id,
+            api_calls, input_tokens, output_tokens,
+        )
+
+    stored_plan = {"instructions": instructions, "steps": steps, "process_id": process_id}
+    db.upsert_pending_plan(session_id, stored_plan)
+    logger.info("[%s] PLAN_STORED session_id=%s steps=None", turn_id, session_id)
+    reply = _sanitize_reply(planner_reply) if planner_reply else ""
+    if not reply or len(reply.strip()) < MIN_REPLY_LEN:
+        reply = (instructions or "Apply the changes below.").replace("\n", "\n\n")
+    return _make_plan_result(reply, instructions, steps, api_calls, input_tokens, output_tokens)
+
+
+def _handle_repair_pass(
+    client,
+    session_id: str,
+    process_id: str | None,
+    bedrock_messages: list[dict],
+    system_block: list[dict],
+    model_id: str,
+    turn_id: str,
+    api_calls: int,
+    input_tokens: int,
+    output_tokens: int,
+) -> ChatResult | None:
+    """Try to repair a hallucinated plan text into an actual propose_plan tool call. Returns ChatResult on success, None on failure."""
+    logger.info("[%s] PLANNER_GUARD plan_text_without_tool running repair", turn_id)
+    repair_response, repair_api, repair_in, repair_out = _run_planner_repair_pass(
+        client, session_id, bedrock_messages, system_block, turn_id, model_id=model_id
+    )
+    api_calls += repair_api
+    input_tokens += repair_in
+    output_tokens += repair_out
+    if not repair_response:
+        return None
+
+    extracted = _extract_plan_from_response(repair_response)
+    if not extracted:
+        return None
+    instructions, steps = extracted
+    if not isinstance(steps, list):
+        return None
+
+    reply_text = _sanitize_reply(extract_response_text(repair_response)) or ""
+    return _validate_and_store_plan(
+        client, session_id, process_id, instructions, steps, reply_text,
+        bedrock_messages, system_block, model_id, turn_id,
+        api_calls, input_tokens, output_tokens,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Multi-agent: Planner → (optional Executor) → Planner final reply
 # ---------------------------------------------------------------------------
+
+def _resolve_model_id(model_id: str | None) -> str:
+    """Validate and resolve the model ID. Falls back to NOVA_MODEL_ID if not provided or invalid."""
+    if model_id and model_id in BEDROCK_MODELS:
+        return model_id
+    return NOVA_MODEL_ID
+
+
+def _get_planner_prompt(model_id: str) -> str:
+    """Select the planner prompt based on model family."""
+    model_info = BEDROCK_MODELS.get(model_id, {})
+    family = model_info.get("family", "")
+    if family == "claude" or "claude" in model_id.lower() or "anthropic" in model_id.lower():
+        return PLANNER_SYSTEM_PROMPT_CLAUDE
+    return PLANNER_SYSTEM_PROMPT
+
 
 def run_chat(
     session_id: str,
     messages: list[dict],
     process_id: str | None = None,
+    model_id: str | None = None,
 ) -> ChatResult:
     """Planner proposes and talks to user. If it calls propose_plan we store the plan and return requires_confirmation."""
     turn_id = uuid4().hex[:8]
-    logger.info("[%s] CHAT_TURN_START session_id=%s process_id=%s", turn_id, session_id, process_id)
+    resolved_model = _resolve_model_id(model_id)
+    logger.info("[%s] CHAT_TURN_START session_id=%s process_id=%s model=%s", turn_id, session_id, process_id, resolved_model)
 
     # If there is a pending plan and the user's last message is affirmative, run executor (same as clicking Apply).
     last_content = _last_user_message_content(messages)
@@ -495,23 +799,14 @@ def run_chat(
 
     cred_err = check_bedrock_credentials()
     if cred_err:
-        return ChatResult(
-            message=f"I cannot run yet: {cred_err}",
-            include_graph=True,
-            tools_used=False,
-            tools_called=[],
-            api_calls=0,
-            input_tokens=0,
-            output_tokens=0,
-            pending_plan=None,
-            requires_confirmation=False,
-        )
+        return _make_error_result(f"I cannot run yet: {cred_err}")
 
     client = get_bedrock_client()
     full_graph_data = get_full_graph(session_id)
-    full_graph_block = "**Full graph (all processes, nodes, edges):**\n```json\n" + json.dumps(full_graph_data, separators=(",", ":"), ensure_ascii=False) + "\n```"
-    planner_prompt = PLANNER_SYSTEM_PROMPT_CLAUDE if "claude" in NOVA_MODEL_ID.lower() or "anthropic" in NOVA_MODEL_ID.lower() else PLANNER_SYSTEM_PROMPT
-    system_block = [{"text": MULTIAGENT_CONTEXT + "\n\n" + planner_prompt + "\n\n" + full_graph_block}]
+    graph_summary_text = generate_graph_summary(full_graph_data)
+    graph_context = graph_summary_text + "\n\n**Full graph (all processes, nodes, edges):**\n```json\n" + json.dumps(full_graph_data, separators=(",", ":"), ensure_ascii=False) + "\n```"
+    planner_prompt = _get_planner_prompt(resolved_model)
+    system_block = [{"text": MULTIAGENT_CONTEXT + "\n\n" + planner_prompt + "\n\n" + graph_context}]
     summary_text, recent_msgs = prepare_chat_context(client, session_id, messages, MAX_RECENT_MESSAGES)
     if summary_text:
         system_block[0]["text"] += "\n\n**Conversation so far (summary):**\n" + summary_text
@@ -520,17 +815,17 @@ def run_chat(
     while bedrock_messages and bedrock_messages[0].get("role") != "user":
         bedrock_messages = bedrock_messages[1:]
     kwargs = {
-        "modelId": NOVA_MODEL_ID,
+        "modelId": resolved_model,
         "system": system_block,
         "messages": bedrock_messages,
-        "inferenceConfig": {"maxTokens": 8192, "temperature": 0.3},
+        "inferenceConfig": {"maxTokens": PLANNER_MAX_TOKENS, "temperature": PLANNER_TEMPERATURE},
         "toolConfig": {"tools": BEDROCK_PLANNER_TOOLS},
     }
     logger.info(
         "[%s] PLANNER_REQUEST session_id=%s model=%s messages=%s summary_used=%s",
         turn_id,
         session_id,
-        NOVA_MODEL_ID,
+        resolved_model,
         len(bedrock_messages),
         bool(summary_text),
     )
@@ -544,31 +839,16 @@ def run_chat(
     try:
         response = converse_with_retry(client, **kwargs)
     except ClientError as e:
-        logger.exception("[%s] PLANNER_ERROR session_id=%s error=%s", turn_id, session_id, e)
-        return ChatResult(
-            message="The assistant is temporarily unavailable (AWS Bedrock error). Please try again in a moment.",
-            include_graph=True,
-            tools_used=False,
-            tools_called=[],
-            api_calls=1,
-            input_tokens=0,
-            output_tokens=0,
-            pending_plan=None,
-            requires_confirmation=False,
-        )
+        code = e.response.get("Error", {}).get("Code", "")
+        err_msg = e.response.get("Error", {}).get("Message", str(e))
+        logger.exception("[%s] PLANNER_ERROR session_id=%s code=%s error=%s", turn_id, session_id, code, e)
+        user_msg = f"The assistant is temporarily unavailable (Bedrock: {code}). {err_msg}"
+        if len(user_msg) > MAX_ERROR_MSG_LEN:
+            user_msg = f"The assistant is temporarily unavailable (Bedrock: {code}). Please check model ID and region (e.g. eu. models need AWS_REGION in an EU region like eu-north-1)."
+        return _make_error_result(user_msg, api_calls=1)
     except Exception as e:
         logger.exception("[%s] PLANNER_ERROR session_id=%s error=%s", turn_id, session_id, e)
-        return ChatResult(
-            message="The assistant is temporarily unavailable. Please try again in a moment.",
-            include_graph=True,
-            tools_used=False,
-            tools_called=[],
-            api_calls=1,
-            input_tokens=0,
-            output_tokens=0,
-            pending_plan=None,
-            requires_confirmation=False,
-        )
+        return _make_error_result("The assistant is temporarily unavailable. Please try again in a moment.", api_calls=1)
 
     api_calls += 1
     input_tokens += response.get("usage", {}).get("inputTokens", 0) or 0
@@ -589,223 +869,30 @@ def run_chat(
     tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
     propose_plan_block = next((b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "propose_plan"), None)
 
-    # Planner proposed a plan: store it and return. Executor runs only when user clicks Apply plan (run_chat_confirm).
+    # Planner proposed a plan: validate, store, and return for user confirmation.
     if propose_plan_block is not None:
-        tu = propose_plan_block["toolUse"]
-        args = _parse_tool_args(tu.get("input", {}))
-        instructions = args.get("instructions", "") or "Apply the changes discussed."
-        steps = args.get("steps")
-        if not isinstance(steps, list):
-            steps = None
-        if isinstance(steps, list):
-            validation_error = _validate_plan_steps(steps, session_id)
-            if validation_error:
-                logger.warning("[%s] PLAN_INVALID session_id=%s error=%s", turn_id, session_id, validation_error)
-                # Auto-retry: ask planner to propose a corrected plan with validation feedback
-                retry_response, retry_api, retry_in, retry_out = _run_planner_validation_retry(
-                    client, session_id, bedrock_messages, system_block, validation_error, turn_id
-                )
-                api_calls += retry_api
-                input_tokens += retry_in
-                output_tokens += retry_out
-                if retry_response:
-                    content_blocks = retry_response.get("output", {}).get("message", {}).get("content", [])
-                    tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
-                    retry_plan_block = next(
-                        (b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "propose_plan"),
-                        None,
-                    )
-                    if retry_plan_block is not None:
-                        tu = retry_plan_block["toolUse"]
-                        args = _parse_tool_args(tu.get("input", {}))
-                        instructions = args.get("instructions", "") or "Apply the changes discussed."
-                        steps = args.get("steps")
-                        if isinstance(steps, list):
-                            retry_validation_error = _validate_plan_steps(steps, session_id)
-                            if not retry_validation_error:
-                                stored_plan = {
-                                    "instructions": instructions,
-                                    "steps": steps,
-                                    "process_id": process_id,
-                                }
-                                db.upsert_pending_plan(session_id, stored_plan)
-                                logger.info("[%s] PLAN_STORED after validation retry session_id=%s steps=%s", turn_id, session_id, len(steps))
-                                reply = _sanitize_reply(extract_response_text(retry_response)) or (instructions or "Apply the changes below.").replace("\n", "\n\n")
-                                plan_preview = _format_plan_preview(steps)
-                                final_message = reply
-                                if plan_preview:
-                                    final_message = f"{final_message}\n\n{plan_preview}\n\nClick **Apply plan** to execute these steps."
-                                return ChatResult(
-                                    message=final_message,
-                                    include_graph=True,
-                                    tools_used=False,
-                                    tools_called=[],
-                                    api_calls=api_calls,
-                                    input_tokens=input_tokens,
-                                    output_tokens=output_tokens,
-                                    pending_plan={"instructions": instructions, "steps": steps},
-                                    requires_confirmation=True,
-                                )
-                            logger.warning("[%s] PLAN_INVALID after retry session_id=%s error=%s", turn_id, session_id, retry_validation_error)
-                            validation_error = retry_validation_error
-                # Retry did not yield a valid plan: return error so user can rephrase
-                return ChatResult(
-                    message=(
-                        "The proposed plan contained an invalid step and I could not correct it automatically.\n\n"
-                        f"{validation_error}\n\n"
-                        "Start/end nodes are protected and permanent. Please rephrase your request (e.g. add or update steps, or restructure the flow)."
-                    ),
-                    include_graph=True,
-                    tools_used=False,
-                    tools_called=[],
-                    api_calls=api_calls,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    pending_plan=None,
-                    requires_confirmation=False,
-                )
-        stored_plan = {
-            "instructions": instructions,
-            "steps": steps,
-            "process_id": process_id,
-        }
-        db.upsert_pending_plan(session_id, stored_plan)
-        logger.info("[%s] PLAN_STORED session_id=%s steps=%s", turn_id, session_id, len(steps) if steps else 0)
-        reply = _sanitize_reply(planner_reply) if planner_reply else ""
-        if not reply or len(reply.strip()) < 20:
-            reply = (instructions or "Apply the changes below.").replace("\n", "\n\n")
-        plan_preview = _format_plan_preview(steps)
-        final_message = reply
-        if plan_preview:
-            final_message = f"{final_message}\n\n{plan_preview}\n\nClick **Apply plan** to execute these steps."
-        return ChatResult(
-            message=final_message,
-            include_graph=True,
-            tools_used=False,
-            tools_called=[],
-            api_calls=api_calls,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            pending_plan={"instructions": instructions, "steps": steps},
-            requires_confirmation=True,
+        return _handle_proposed_plan(
+            client, session_id, process_id, propose_plan_block, planner_reply,
+            bedrock_messages, system_block, resolved_model, turn_id,
+            api_calls, input_tokens, output_tokens,
         )
 
-    # No plan proposed: sanitize first, then guard against any remaining hallucinated plan/execution text
+    # No plan proposed: guard against hallucinated plan/execution text
     sanitized_reply = _sanitize_reply(planner_reply) if planner_reply else ""
     if _looks_like_plan_or_execution_text(sanitized_reply):
-        logger.info("[%s] PLANNER_GUARD plan_text_without_tool running repair", turn_id)
-        repair_response, repair_api, repair_in, repair_out = _run_planner_repair_pass(
-            client, session_id, bedrock_messages, system_block, turn_id
+        result = _handle_repair_pass(
+            client, session_id, process_id, bedrock_messages, system_block,
+            resolved_model, turn_id, api_calls, input_tokens, output_tokens,
         )
-        api_calls += repair_api
-        input_tokens += repair_in
-        output_tokens += repair_out
-        if repair_response:
-            content_blocks = repair_response.get("output", {}).get("message", {}).get("content", [])
-            tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
-            propose_plan_block = next(
-                (b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "propose_plan"),
-                None,
-            )
-            if propose_plan_block is not None:
-                tu = propose_plan_block["toolUse"]
-                args = _parse_tool_args(tu.get("input", {}))
-                instructions = args.get("instructions", "") or "Apply the changes discussed."
-                steps = args.get("steps")
-                if not isinstance(steps, list):
-                    steps = None
-                if isinstance(steps, list):
-                    validation_error = _validate_plan_steps(steps, session_id)
-                    if validation_error:
-                        logger.warning("[%s] PLAN_INVALID after repair session_id=%s error=%s", turn_id, session_id, validation_error)
-                        repair_messages = list(bedrock_messages)
-                        repair_messages.append({"role": "user", "content": [{"text": (
-                            "Your previous reply described plan steps in text. "
-                            "Please call the propose_plan tool with those same steps so the user can click Apply plan. "
-                            "Include only the propose_plan tool call (and optional brief text)."
-                        )}]})
-                        retry_response, retry_api, retry_in, retry_out = _run_planner_validation_retry(
-                            client, session_id, repair_messages, system_block, validation_error, turn_id
-                        )
-                        api_calls += retry_api
-                        input_tokens += retry_in
-                        output_tokens += retry_out
-                        if retry_response:
-                            content_blocks = retry_response.get("output", {}).get("message", {}).get("content", [])
-                            tool_use_blocks = [b for b in content_blocks if "toolUse" in b]
-                            retry_plan_block = next(
-                                (b for b in tool_use_blocks if b.get("toolUse", {}).get("name") == "propose_plan"),
-                                None,
-                            )
-                            if retry_plan_block is not None:
-                                tu = retry_plan_block["toolUse"]
-                                args = _parse_tool_args(tu.get("input", {}))
-                                instructions = args.get("instructions", "") or "Apply the changes discussed."
-                                steps = args.get("steps")
-                                if isinstance(steps, list):
-                                    retry_validation_error = _validate_plan_steps(steps, session_id)
-                                    if not retry_validation_error:
-                                        stored_plan = {"instructions": instructions, "steps": steps, "process_id": process_id}
-                                        db.upsert_pending_plan(session_id, stored_plan)
-                                        logger.info("[%s] PLAN_STORED after repair+validation retry session_id=%s steps=%s", turn_id, session_id, len(steps))
-                                        reply = _sanitize_reply(extract_response_text(retry_response)) or (instructions or "Apply the changes below.").replace("\n", "\n\n")
-                                        plan_preview = _format_plan_preview(steps)
-                                        final_message = f"{reply}\n\n{plan_preview}\n\nClick **Apply plan** to execute these steps." if plan_preview else f"{reply}\n\nClick **Apply plan** to execute these steps."
-                                        return ChatResult(
-                                            message=final_message,
-                                            include_graph=True,
-                                            tools_used=False,
-                                            tools_called=[],
-                                            api_calls=api_calls,
-                                            input_tokens=input_tokens,
-                                            output_tokens=output_tokens,
-                                            pending_plan={"instructions": instructions, "steps": steps},
-                                            requires_confirmation=True,
-                                        )
-                    if not validation_error:
-                        stored_plan = {"instructions": instructions, "steps": steps, "process_id": process_id}
-                        db.upsert_pending_plan(session_id, stored_plan)
-                        logger.info("[%s] PLAN_STORED after repair session_id=%s steps=%s", turn_id, session_id, len(steps) if steps else 0)
-                        reply = _sanitize_reply(extract_response_text(repair_response)) or (instructions or "Apply the changes below.").replace("\n", "\n\n")
-                        plan_preview = _format_plan_preview(steps)
-                        final_message = f"{reply}\n\n{plan_preview}\n\nClick **Apply plan** to execute these steps." if plan_preview else f"{reply}\n\nClick **Apply plan** to execute these steps."
-                        return ChatResult(
-                            message=final_message,
-                            include_graph=True,
-                            tools_used=False,
-                            tools_called=[],
-                            api_calls=api_calls,
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
-                            pending_plan={"instructions": instructions, "steps": steps},
-                            requires_confirmation=True,
-                        )
-        # Repair did not yield a valid plan: return deterministic fallback (no fake preview)
-        return ChatResult(
-            message="I was unable to create a valid plan for that change. Please try again or rephrase your request (e.g. 'Rename decision G1.1 to Verify complete?').",
-            include_graph=True,
-            tools_used=False,
-            tools_called=[],
-            api_calls=api_calls,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            pending_plan=None,
-            requires_confirmation=False,
+        if result:
+            return result
+        return _make_error_result(
+            "I was unable to create a valid plan for that change. Please try again or rephrase your request (e.g. 'Rename decision G1.1 to Verify complete?').",
+            api_calls, input_tokens, output_tokens,
         )
 
-    # No plan and no hallucination markers left after sanitize: return sanitized reply (or fallback if empty)
-    final_message = sanitized_reply if (sanitized_reply and len(sanitized_reply.strip()) >= 10) else "What would you like to do with the graph?"
-    return ChatResult(
-        message=final_message,
-        include_graph=True,
-        tools_used=False,
-        tools_called=[],
-        api_calls=api_calls,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        pending_plan=None,
-        requires_confirmation=False,
-    )
+    final_message = sanitized_reply if (sanitized_reply and len(sanitized_reply.strip()) >= MIN_SANITIZED_LEN) else "What would you like to do with the graph?"
+    return _make_error_result(final_message, api_calls, input_tokens, output_tokens)
 
 
 def run_chat_confirm(
@@ -841,6 +928,8 @@ def _run_chat_confirm_internal(
             steps,
             pid,
             turn_id,
+            client=client,
+            full_graph_text=full_graph,
         )
     else:
         logger.info("[%s] EXECUTOR_FALLBACK reason=no_structured_steps", turn_id)

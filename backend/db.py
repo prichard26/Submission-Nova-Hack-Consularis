@@ -58,22 +58,6 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE IF NOT EXISTS session_process_history (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT NOT NULL,
-            process_id TEXT NOT NULL,
-            graph_json TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS session_process_redo (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT NOT NULL,
-            process_id TEXT NOT NULL,
-            graph_json TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
         CREATE TABLE IF NOT EXISTS appointment_requests (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT NOT NULL,
@@ -98,10 +82,6 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             ON session_processes(session_id);
         CREATE INDEX IF NOT EXISTS idx_chat_messages_sid
             ON chat_messages(session_id);
-        CREATE INDEX IF NOT EXISTS idx_session_process_history_sid_pid
-            ON session_process_history(session_id, process_id);
-        CREATE INDEX IF NOT EXISTS idx_session_process_redo_sid_pid
-            ON session_process_redo(session_id, process_id);
         CREATE INDEX IF NOT EXISTS idx_appointment_requests_sid
             ON appointment_requests(session_id);
     """)
@@ -208,12 +188,10 @@ def clone_baseline_to_session(session_id: str) -> None:
 
 
 def force_clone_baseline_to_session(session_id: str) -> None:
-    """Overwrite session with baseline: all process graphs, workspace, and clear history/redo."""
+    """Overwrite session with baseline: all process graphs and workspace."""
     sid = str(session_id)
     with _conn_lock:
         conn = get_conn()
-        conn.execute("DELETE FROM session_process_history WHERE session_id = ?", (sid,))
-        conn.execute("DELETE FROM session_process_redo WHERE session_id = ?", (sid,))
         conn.execute("DELETE FROM session_processes WHERE session_id = ?", (sid,))
         conn.execute("DELETE FROM session_workspace WHERE session_id = ?", (sid,))
         conn.execute(
@@ -269,17 +247,14 @@ def _empty_workspace_json(session_id: str) -> str:
 
 
 def init_empty_session(session_id: str) -> None:
-    """Create a session with an empty graph (start + end only). Idempotent: no-op if session already has data."""
+    """Create a session with an empty graph (start + end only). Overwrites any existing session data so 'from blank' always wins."""
     sid = str(session_id).strip()
     if not sid:
         return
     with _conn_lock:
         conn = get_conn()
-        row = conn.execute(
-            "SELECT count(*) FROM session_processes WHERE session_id = ?", (sid,)
-        ).fetchone()
-        if row is not None and (row[0] or 0) > 0:
-            return
+        conn.execute("DELETE FROM session_processes WHERE session_id = ?", (sid,))
+        conn.execute("DELETE FROM session_workspace WHERE session_id = ?", (sid,))
         graph_json = _empty_graph_json(sid)
         workspace_json = _empty_workspace_json(sid)
         conn.execute(
@@ -346,94 +321,12 @@ def upsert_session_workspace(session_id: str, workspace_json: str) -> None:
         conn.commit()
 
 
-# ---------------------------------------------------------------------------
-# History (undo support)
-# ---------------------------------------------------------------------------
-
-def push_history(session_id: str, process_id: str, graph_json: str) -> None:
-    with _conn_lock:
-        conn = get_conn()
-        conn.execute(
-            "INSERT INTO session_process_history (session_id, process_id, graph_json) VALUES (?, ?, ?)",
-            (session_id, process_id, graph_json),
-        )
-        conn.commit()
-
-
-def pop_history(session_id: str, process_id: str) -> str | None:
-    with _conn_lock:
-        conn = get_conn()
-        row = conn.execute(
-            "SELECT id, graph_json FROM session_process_history "
-            "WHERE session_id = ? AND process_id = ? ORDER BY id DESC LIMIT 1",
-            (session_id, process_id),
-        ).fetchone()
-        if row is None:
-            return None
-        conn.execute("DELETE FROM session_process_history WHERE id = ?", (row["id"],))
-        conn.commit()
-        return row["graph_json"]
-
-
-def push_redo(session_id: str, process_id: str, graph_json: str) -> None:
-    with _conn_lock:
-        conn = get_conn()
-        conn.execute(
-            "INSERT INTO session_process_redo (session_id, process_id, graph_json) VALUES (?, ?, ?)",
-            (session_id, process_id, graph_json),
-        )
-        conn.commit()
-
-
-def pop_redo(session_id: str, process_id: str) -> str | None:
-    with _conn_lock:
-        conn = get_conn()
-        row = conn.execute(
-            "SELECT id, graph_json FROM session_process_redo "
-            "WHERE session_id = ? AND process_id = ? ORDER BY id DESC LIMIT 1",
-            (session_id, process_id),
-        ).fetchone()
-        if row is None:
-            return None
-        conn.execute("DELETE FROM session_process_redo WHERE id = ?", (row["id"],))
-        conn.commit()
-        return row["graph_json"]
-
-
-def clear_history(session_id: str, process_id: str) -> None:
-    with _conn_lock:
-        conn = get_conn()
-        conn.execute(
-            "DELETE FROM session_process_history WHERE session_id = ? AND process_id = ?",
-            (session_id, process_id),
-        )
-        conn.commit()
-
-
-def clear_redo(session_id: str, process_id: str) -> None:
-    with _conn_lock:
-        conn = get_conn()
-        conn.execute(
-            "DELETE FROM session_process_redo WHERE session_id = ? AND process_id = ?",
-            (session_id, process_id),
-        )
-        conn.commit()
-
-
 def delete_session_process(session_id: str, process_id: str) -> None:
     """Remove a process's graph from the session (e.g. when deleting a subprocess)."""
     with _conn_lock:
         conn = get_conn()
         conn.execute(
             "DELETE FROM session_processes WHERE session_id = ? AND process_id = ?",
-            (session_id, process_id),
-        )
-        conn.execute(
-            "DELETE FROM session_process_history WHERE session_id = ? AND process_id = ?",
-            (session_id, process_id),
-        )
-        conn.execute(
-            "DELETE FROM session_process_redo WHERE session_id = ? AND process_id = ?",
             (session_id, process_id),
         )
         conn.commit()

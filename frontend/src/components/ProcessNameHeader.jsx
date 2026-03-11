@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { renameProcess } from '../services/api'
+import { useEffect } from 'react'
+import { useInlineRename } from '../hooks/useInlineRename'
 
 export default function ProcessNameHeader({
   breadcrumb,
@@ -10,59 +10,19 @@ export default function ProcessNameHeader({
   onRequestRefresh,
   beginRenameTrigger = 0,
 }) {
-  const [editing, setEditing] = useState(false)
-  const [editValue, setEditValue] = useState(processDisplayName)
-  const [saving, setSaving] = useState(false)
-  const inputRef = useRef(null)
+  const {
+    editing, editValue, setEditValue, saving, inputRef, startEditing, handleSave, handleKeyDown,
+  } = useInlineRename({ currentName: processDisplayName, sessionId, processId, onRequestRefresh })
 
   useEffect(() => {
-    setEditValue(processDisplayName)
-  }, [processDisplayName])
-
-  // When parent triggers rename (e.g. toolbar "Rename map" button), start editing
-  useEffect(() => {
-    if (beginRenameTrigger > 0) setEditing(true)
-  }, [beginRenameTrigger])
+    if (beginRenameTrigger > 0) startEditing()
+  }, [beginRenameTrigger, startEditing])
 
   useEffect(() => {
     if (editing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
       inputRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
     }
-  }, [editing])
-
-  const handleSave = useCallback(async () => {
-    const trimmed = (editValue || '').trim()
-    if (trimmed === processDisplayName || !sessionId || !onRequestRefresh) {
-      setEditing(false)
-      return
-    }
-    setSaving(true)
-    try {
-      await renameProcess(sessionId, processId, trimmed)
-      onRequestRefresh()
-      setEditing(false)
-    } catch (err) {
-      console.warn('Rename process failed', err)
-    } finally {
-      setSaving(false)
-    }
-  }, [editValue, processDisplayName, sessionId, processId, onRequestRefresh])
-
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        handleSave()
-      }
-      if (e.key === 'Escape') {
-        setEditValue(processDisplayName)
-        setEditing(false)
-      }
-    },
-    [handleSave, processDisplayName],
-  )
+  }, [editing, inputRef])
 
   return (
     <section className="panel-info">
@@ -93,7 +53,7 @@ export default function ProcessNameHeader({
               <button
                 type="button"
                 className="panel-info__name-edit"
-                onClick={() => setEditing(true)}
+                onClick={startEditing}
                 title="Edit process name"
                 aria-label="Edit process name"
               >

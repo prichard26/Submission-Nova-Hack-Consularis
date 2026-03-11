@@ -70,24 +70,6 @@
   background: var(--accent-soft);
 }
 
-.dashboard__topbar-btn--accent {
-  border-color: var(--border-accent);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 6%, transparent),
-    color-mix(in srgb, var(--accent) 2%, transparent)
-  );
-  color: var(--accent);
-}
-
-.dashboard__topbar-btn--accent:hover:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 14%, transparent),
-    color-mix(in srgb, var(--accent) 6%, transparent)
-  );
-}
-
 .dashboard__topbar-btn--icon {
   padding: 6px;
   min-width: 28px;

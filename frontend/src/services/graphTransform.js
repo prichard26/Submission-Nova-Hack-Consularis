@@ -28,7 +28,11 @@ const STRAIGHT_ALIGN_TOLERANCE = 5
 /** Width reserved for dummy nodes (long-edge virtualization) so the edge path gets horizontal space. */
 const DUMMY_WIDTH = 300
 
-export function getNodeDimensions(node) {
+/** Uniform layout cell: all node types use this for spacing during auto-arrange so they align. */
+const LAYOUT_CELL_W = 250
+const LAYOUT_CELL_H = 120
+
+function getNodeDimensions(node) {
   const type = node.type || 'step'
   if (type === 'start' || type === 'end') return { width: EVENT_SIZE, height: EVENT_SIZE }
   if (type === 'decision') return { width: DECISION_SIZE, height: DECISION_SIZE }
@@ -39,7 +43,7 @@ export function getNodeDimensions(node) {
  * Stored/API position = center of top edge (top handle). React Flow uses top-left.
  * Convert center-of-top-edge -> top-left for rendering.
  */
-export function centerToTopLeft(position, node) {
+function centerToTopLeft(position, node) {
   if (!position) return { x: 0, y: 0 }
   const { width } = getNodeDimensions(node || { type: 'step' })
   return { x: position.x - width / 2, y: position.y }
@@ -283,12 +287,9 @@ function orderNodesInRanks(rankToNodes, dag) {
  * @returns {Map<string, { x: number, y: number }>}
  */
 function assignCoordinates(rankToOrderedNodes, stepNodes, direction = 'DOWN') {
-  const dimById = new Map(stepNodes.map((n) => [n.id, getNodeDimensions(n)]))
   function dim(id) {
-    const d = dimById.get(id)
-    if (d) return d
     if (id.startsWith('__dummy__')) return { width: DUMMY_WIDTH, height: 0 }
-    return { width: NODE_WIDTH, height: NODE_HEIGHT }
+    return { width: LAYOUT_CELL_W, height: LAYOUT_CELL_H }
   }
   const rankIndices = [...rankToOrderedNodes.keys()].sort((a, b) => a - b)
   const positions = new Map()
@@ -752,7 +753,7 @@ function getEdgeTypeFromHandles(sourceInfo, targetInfo, sourceHandle, targetHand
  * @param {Array<{ id: string, source: string, target: string, [key: string]: unknown }>} edges
  * @returns {Array<{ id: string, source: string, target: string, sourceHandle: string, targetHandle: string, type: string, [key: string]: unknown }>}
  */
-export function computeSmartHandles(nodes, edges, direction = 'DOWN', forceRecalc = false, rankMap = null) {
+function computeSmartHandles(nodes, edges, direction = 'DOWN', forceRecalc = false, rankMap = null) {
   const nodeInfo = new Map()
   for (const n of nodes) {
     if (n.id.startsWith('lane_')) continue
@@ -878,7 +879,7 @@ function computeLaneNodes(graph) {
  * Recompute lane nodes from placed step positions (e.g. after auto-layout).
  * graph.lanes and graph.nodes (or graph.steps) define lane membership; positions come from placedNodes.
  */
-export function computeLaneNodesFromPlaced(graph, placedNodes, options = {}) {
+function computeLaneNodesFromPlaced(graph, placedNodes, options = {}) {
   const { processDisplayName } = options
   const nodes = []
   const stepsOrNodes = graph?.nodes || graph?.steps

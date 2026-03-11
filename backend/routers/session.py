@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
 import db
+from graph.store import invalidate_session_cache
 from routers.validation import validate_session_id
 
 logger = logging.getLogger("consularis")
@@ -32,6 +33,7 @@ def api_session_init(req: SessionInitRequest):
     if req.from_blank:
         try:
             db.init_empty_session(req.session_id)
+            invalidate_session_cache(req.session_id)
         except Exception as e:
             logger.exception("session init session_id=%s error: %s", req.session_id, e)
             raise HTTPException(status_code=500, detail="Failed to create blank session.")

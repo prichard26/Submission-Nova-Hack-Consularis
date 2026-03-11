@@ -5,17 +5,17 @@ import SubprocessNode from './SubprocessNode'
 import EventNode from './EventNode'
 import LaneNode from './LaneNode'
 
-export const HANDLES = [
+const HANDLES = [
   { position: Position.Left, id: 'left' },
   { position: Position.Right, id: 'right' },
   { position: Position.Top, id: 'top' },
   { position: Position.Bottom, id: 'bottom' },
 ]
 
-export const HANDLE_MAP = Object.fromEntries(HANDLES.map((handle) => [handle.id, handle]))
+const HANDLE_MAP = Object.fromEntries(HANDLES.map((handle) => [handle.id, handle]))
 
-export const TARGET_ORDER = ['left', 'right', 'top', 'bottom']
-export const SOURCE_ORDER = ['right', 'left', 'top', 'bottom']
+const TARGET_ORDER = ['left', 'right', 'top', 'bottom']
+const SOURCE_ORDER = ['right', 'left', 'top', 'bottom']
 
 export function NodeHandles() {
   return (

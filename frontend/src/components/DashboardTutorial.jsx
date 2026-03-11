@@ -44,7 +44,7 @@ export function getTutorialDone() {
   }
 }
 
-export function setTutorialDone() {
+function setTutorialDone() {
   try {
     localStorage.setItem(TUTORIAL_STORAGE_KEY, '1')
   } catch {}
@@ -75,7 +75,6 @@ function getRefForStep(step, refs) {
 export default function DashboardTutorial({
   topbarRef,
   canvasRef,
-  panelRef,
   toolbarRef,
   minimapRef,
   panelHeaderRef,

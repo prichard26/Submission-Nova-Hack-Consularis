@@ -95,6 +95,9 @@ export default function Dashboard({ companyName }) {
           onApplyPlan={chat.handleApplyPlan}
           onCancelPlan={chat.handleCancelPlan}
           confirmLoading={chat.confirmLoading}
+          modelId={chat.modelId}
+          onModelIdChange={chat.setModelId}
+          availableModels={chat.availableModels}
         />
         {chat.usage != null && (
           <div className="dashboard-usage" aria-label="API usage">
@@ -130,14 +133,11 @@ export default function Dashboard({ companyName }) {
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.key !== 'Escape') return
-      if (selectedStep) {
-        setSelectedStep(null)
-      }
+      if (e.key === 'Escape') setSelectedStep(null)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedStep])
+  }, [])
 
   return (
     <div className="dashboard">
@@ -156,6 +156,7 @@ export default function Dashboard({ companyName }) {
           <LandscapeView
             sessionId={companyName}
             workspace={effectiveWorkspace}
+            currentProcessId={activeProcessId}
             onProcessSelect={handleProcessSelect}
             onSwitchView={handleSwitchToDetail}
           />
@@ -195,7 +196,6 @@ export default function Dashboard({ companyName }) {
         <DashboardTutorial
           topbarRef={topbarRef}
           canvasRef={canvasAreaRef}
-          panelRef={panelRef}
           toolbarRef={toolbarRef}
           minimapRef={minimapRef}
           panelHeaderRef={panelHeaderRef}
