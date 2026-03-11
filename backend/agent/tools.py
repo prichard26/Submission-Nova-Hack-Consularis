@@ -1,6 +1,7 @@
 """Tool schemas and dispatch. Id-only tools; process inferred from id. Agent has get_full_graph to see everything and chooses new ids (next number) when adding."""
 import json
 import logging
+import re
 from typing import Callable
 
 from graph.model import LIST_METADATA_KEYS
@@ -12,6 +13,8 @@ from graph.store import (
     get_full_graph as store_get_full_graph,
     get_process_id_for_proposed_id,
     get_process_id_for_step,
+    insert_subprocess_between as store_insert_subprocess_between,
+    insert_step_between as store_insert_step_between,
     rename_process as store_rename_process,
     update_edge as store_update_edge,
     update_node as store_update_node,
@@ -116,6 +119,40 @@ TOOL_SCHEMAS: list[dict] = [
                     "name": {"type": "string", "description": "Optional display name."},
                 },
                 "required": ["id", "type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "insert_step_between",
+            "description": "Add a new step or decision between two consecutive steps. The new step gets the ordinal between them (e.g. P1.2); existing steps shift (old P1.2 becomes P1.3, etc.). Use when the user says 'add ... between X and Y'. Also use when the user says 'add a step after [step name]' and that step has a step or decision as its successor (check the graph); resolve step names to ids using the full graph: match node name to get after_id, then use edges to get the successor as before_id. Arguments: after_id, before_id (consecutive existing ids), name, optional type (step | decision). Process inferred from after_id.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "after_id": {"type": "string", "description": "Id of the step that will precede the new step (e.g. P1.1)."},
+                    "before_id": {"type": "string", "description": "Id of the step that will follow the new step (e.g. P1.2); must be the next step after after_id in the graph."},
+                    "name": {"type": "string", "description": "Display name for the new step."},
+                    "type": {"type": "string", "description": "step or decision.", "enum": ["step", "decision"]},
+                    "process_id": {"type": "string", "description": "Optional process id (e.g. S1). Inferred from after_id if omitted."},
+                },
+                "required": ["after_id", "before_id", "name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "insert_subprocess_between",
+            "description": "Insert a subprocess on the global map between two consecutive subprocess nodes (e.g. between S6 and S7). The new subprocess takes the id of before_id (new becomes S7) and existing S7 (and following) shift to S8, S9, etc. Use this when the user explicitly asks to add a subprocess between two existing subprocesses on the global map.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "after_id": {"type": "string", "description": "Existing global subprocess id that will precede the new subprocess (e.g. S6)."},
+                    "before_id": {"type": "string", "description": "Existing global subprocess id that will follow the new subprocess (e.g. S7). Must be consecutive after after_id on the global map."},
+                    "name": {"type": "string", "description": "Display name for the new subprocess."},
+                },
+                "required": ["after_id", "before_id", "name"],
             },
         },
     },
@@ -360,12 +397,64 @@ def _handle_add_node(session_id: str, arguments: dict, process_id: str | None, t
     _debug_tool_call(session_id, turn_id, "add_node", arguments, process_id, pid)
     if not new_id:
         return _tool_error("id and type are required")
+    # Reject P2.3.1-style IDs in top-level processes: steps use one dot only (P2.4 not P2.3.1).
+    if step_type in ("step", "decision") and pid and re.match(r"^S\d+$", pid):
+        parts = new_id.split(".")
+        if len(parts) > 2:
+            return _tool_error(
+                f"Step IDs in this process use a single suffix (e.g. P2.4). Use the next ordinal, not {new_id!r}."
+            )
     name_val = (arguments.get("name") or "").strip()
     if not name_val:
         name_val = "New step" if step_type == "step" else "New decision" if step_type == "decision" else "New subprocess"
     result = store_add_node(session_id, pid, {"id": new_id, "name": name_val, "type": step_type})
     if result is None:
         return _tool_error(f"Could not add node: id may already exist or be invalid (id={new_id!r})")
+    return _tool_ok({"node": result})
+
+
+def _handle_insert_step_between(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    after_id = (arguments.get("after_id") or "").strip()
+    before_id = (arguments.get("before_id") or "").strip()
+    name_val = (arguments.get("name") or "").strip()
+    step_type = arguments.get("type", "step")
+    if step_type not in ("step", "decision"):
+        step_type = "step"
+    pid = (
+        process_id
+        or arguments.get("process_id")
+        or get_process_id_for_proposed_id(session_id, after_id, step_type)
+        or get_process_id_for_step(session_id, after_id)
+        or get_process_id_for_step(session_id, before_id)
+    )
+    _debug_tool_call(session_id, turn_id, "insert_step_between", arguments, process_id, pid)
+    if not after_id or not before_id:
+        return _tool_error("after_id and before_id are required")
+    if not name_val:
+        name_val = "New step" if step_type == "step" else "New decision"
+    if not pid:
+        return _tool_error("Could not determine process; specify process_id or use after_id/before_id that exist in the graph")
+    result = store_insert_step_between(
+        session_id, pid, after_id, before_id, name_val, step_type=step_type
+    )
+    if result is None:
+        return _tool_error(
+            "insert_step_between failed: after_id and before_id must be consecutive steps in the same process"
+        )
+    return _tool_ok({"node": result["node"], "renames": result.get("renames", {})})
+
+
+def _handle_insert_subprocess_between(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
+    _ = process_id  # always global
+    after_id = (arguments.get("after_id") or "").strip()
+    before_id = (arguments.get("before_id") or "").strip()
+    name_val = (arguments.get("name") or "").strip()
+    _debug_tool_call(session_id, turn_id, "insert_subprocess_between", arguments, process_id, "global")
+    if not after_id or not before_id or not name_val:
+        return _tool_error("after_id, before_id, and name are required")
+    result = store_insert_subprocess_between(session_id, after_id, before_id, name_val)
+    if result is None:
+        return _tool_error("insert_subprocess_between failed: after_id and before_id must be consecutive subprocesses on the global map")
     return _tool_ok({"node": result})
 
 
@@ -378,10 +467,10 @@ def _handle_delete_node(session_id: str, arguments: dict, process_id: str | None
         return _tool_error("id is required")
     if not pid:
         return _tool_error(f"Process not found for node: {node_id}")
-    ok = store_delete_node(session_id, node_id, process_id=pid)
-    if not ok:
+    result = store_delete_node(session_id, node_id, process_id=pid)
+    if result is None:
         return _tool_error(f"Node not found or cannot delete (start/end): {node_id}")
-    return _tool_ok({"removed": True})
+    return _tool_ok({"removed": True, "renames": result.get("renames", {})})
 
 
 def _handle_rename_process(session_id: str, arguments: dict, process_id: str | None, turn_id: str | None) -> str:
@@ -403,6 +492,8 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "delete_edge": _handle_delete_edge,
     "update_edge": _handle_update_edge,
     "add_node": _handle_add_node,
+    "insert_step_between": _handle_insert_step_between,
+    "insert_subprocess_between": _handle_insert_subprocess_between,
     "delete_node": _handle_delete_node,
     "rename_process": _handle_rename_process,
 }

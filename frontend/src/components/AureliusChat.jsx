@@ -1,6 +1,8 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useChat } from '../hooks/useChat'
+import { useVoiceInput } from '../hooks/useVoiceInput'
+import { useMicLevels } from '../hooks/useMicLevels'
 import BotFace from './BotFace'
 import ModelPicker from './ModelPicker'
 import './AureliusChat.css'
@@ -9,6 +11,7 @@ export const WELCOME_MSG = "Here you're looking at an example process graph. I c
 
 const MIN_INPUT_ROWS = 1
 const MAX_INPUT_ROWS = 8
+const VOICE_BAR_COUNT = 5
 
 export default function AureliusChat({
   sessionId,
@@ -33,6 +36,24 @@ export default function AureliusChat({
   const uncontrolled = useChat(sessionId, { processId, onGraphUpdate: onGraphUpdate })
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+  const {
+    isSupported: isVoiceSupported,
+    isListening,
+    transcript: voiceTranscript,
+    accumulatedLive,
+    interimTranscript,
+    error: voiceError,
+    toggleListening,
+  } = useVoiceInput()
+  const micLevels = useMicLevels(isListening)
+
+  const voicePlaceholder = useMemo(
+    () =>
+      isListening
+        ? [accumulatedLive, interimTranscript].filter(Boolean).join(' ') || 'Listening…'
+        : null,
+    [isListening, accumulatedLive, interimTranscript]
+  )
 
   const isControlled = controlledMessages != null && controlledOnSend != null
   const messages = isControlled ? controlledMessages : uncontrolled.messages
@@ -61,6 +82,24 @@ export default function AureliusChat({
   useEffect(() => {
     resizeInput()
   }, [input, resizeInput])
+
+  const wasListeningRef = useRef(false)
+  const lastCommittedTranscriptRef = useRef('')
+  useEffect(() => {
+    if (isListening) {
+      lastCommittedTranscriptRef.current = ''
+      wasListeningRef.current = true
+      return
+    }
+    wasListeningRef.current = false
+    if (voiceTranscript && voiceTranscript !== lastCommittedTranscriptRef.current) {
+      lastCommittedTranscriptRef.current = voiceTranscript
+      setInput((prev) => (prev.trim() ? prev + ' ' + voiceTranscript : voiceTranscript))
+      resizeInput()
+    }
+    // setInput stable; omit to satisfy exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isListening, voiceTranscript, resizeInput])
 
   const handleSendUncontrolled = useCallback((e) => {
     e.preventDefault()
@@ -173,20 +212,62 @@ export default function AureliusChat({
           <p className="chat-panel__hint">You can also type <strong>Apply</strong> or <strong>Confirm</strong> to apply the plan.</p>
         )}
         <div className="chat-panel__input-row">
+          {isListening && (
+            <div
+              className={`chat-panel__listening-waves ${Array.isArray(micLevels) ? 'chat-panel__listening-waves--live' : ''}`}
+              aria-hidden
+            >
+              <div className="chat-panel__listening-waves__circle">
+                {Array.from({ length: VOICE_BAR_COUNT }, (_, i) => (
+                  <span
+                    key={i}
+                    className="chat-panel__listening-waves__bar"
+                    style={
+                      Array.isArray(micLevels) && micLevels[i] != null
+                        ? { transform: `scaleY(${micLevels[i]})` }
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           <textarea
             ref={inputRef}
             className="chat-panel__input chat-panel__input--textarea"
-            placeholder={pendingMessageId ? "Type 'Apply' or 'Confirm', or ask for changes…" : "Describe a change or ask a question… (Shift+Enter: new line)"}
+            placeholder={
+              pendingMessageId
+                ? "Type 'Apply' or 'Confirm', or ask for changes…"
+                : voicePlaceholder ?? "Describe a change or ask a question… (Shift+Enter: new line)"
+            }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onInputKeyDown}
             disabled={loading}
             rows={MIN_INPUT_ROWS}
           />
-          <button className="chat-panel__send" type="submit" disabled={!input.trim() || loading} aria-label="Send message">
-            ↑
-          </button>
+          <div className="chat-panel__button-stack">
+            <button className="chat-panel__send" type="submit" disabled={!input.trim() || loading} aria-label="Send message">
+              ↑
+            </button>
+            {isVoiceSupported ? (
+              <button
+                className={`chat-panel__mic ${isListening ? 'chat-panel__mic--active' : ''}`}
+                type="button"
+                onClick={toggleListening}
+                disabled={loading}
+                aria-label={isListening ? 'Stop recording' : 'Start voice input'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="22" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
         </div>
+        {voiceError && <p className="chat-panel__hint chat-panel__hint--error">{voiceError}</p>}
         <ModelPicker models={models} value={currentModelId} onChange={setModelId} disabled={loading} />
       </form>
     </div>

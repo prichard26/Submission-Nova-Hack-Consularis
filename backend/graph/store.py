@@ -73,7 +73,10 @@ def _get_graph(session_id: str, process_id: str | None = None) -> ProcessGraph:
         _brand_session(session_id)
         json_str = db.get_session_json(session_id, pid)
     if json_str is None:
-        json_str = db.get_baseline_json(DEFAULT_PROCESS_ID)
+        if pid == DEFAULT_PROCESS_ID:
+            json_str = db.get_baseline_json(DEFAULT_PROCESS_ID)
+        else:
+            raise RuntimeError(f"Process graph not found: {pid}")
     if json_str is None:
         raise RuntimeError(f"No graph JSON found for session={session_id} process={pid}")
 
@@ -886,7 +889,7 @@ def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | N
             return None
         graph = _get_graph(session_id, pid)
         if explicit_id in graph.all_step_ids():
-            return None  # id already exists
+            return get_node(session_id, explicit_id, process_id=pid)  # idempotent: already exists
         new_id = explicit_id
         # step_data may have "id"; don't put it in the node's attributes
         step_data_clean = {k: v for k, v in step_data.items() if k != "id"}
@@ -967,6 +970,93 @@ def add_node(session_id: str, lane_id: str, step_data: dict, process_id: str | N
         )
 
     return get_node(session_id, new_id, process_id=pid)
+
+
+def _step_decision_order(graph: ProcessGraph) -> list[str]:
+    """Step and decision node ids in graph.nodes order, excluding start/end. Use for renumbering."""
+    return [
+        n["id"]
+        for n in graph.nodes
+        if n.get("id") and n.get("type") not in ("start", "end")
+    ]
+
+
+def insert_step_between(
+    session_id: str,
+    process_id: str,
+    after_id: str,
+    before_id: str,
+    name: str,
+    step_type: str = "step",
+    **step_attrs: Any,
+) -> dict | None:
+    """Insert a new step/decision between two consecutive steps; renumber later steps and fix edges.
+
+    The new step gets the ordinal between after_id and before_id (e.g. P1.2); the former before_id
+    and all following steps shift (P1.2→P1.3, P1.3→P1.4, ...). Edges are updated: the edge
+    after_id→before_id is replaced by after_id→new_id and new_id→(renamed before_id).
+    """
+    if step_type not in ("step", "decision"):
+        return None
+    pid = _normalize_process_id(process_id)
+    graph = _get_graph(session_id, pid)
+    order = _step_decision_order(graph)
+    if after_id not in order or before_id not in order:
+        return None
+    if order.index(before_id) != order.index(after_id) + 1:
+        return None
+    insert_index = order.index(after_id) + 1
+    prefix = _prefix_for_process_and_type(pid, step_type)
+    new_id = f"{prefix}.{insert_index + 1}"
+    before_node = graph.get_step(before_id)
+    prefix_before = _prefix_for_process_and_type(pid, before_node.get("type", "step") if before_node else "step")
+    old_before_new_id = f"{prefix_before}.{insert_index + 2}"
+
+    # Remove direct edge after_id → before_id (will be replaced by after_id → new → old_before)
+    for i, e in enumerate(graph.edges):
+        if e.get("from") == after_id and e.get("to") == before_id:
+            graph.edges.pop(i)
+            break
+
+    # Rename from last to first to avoid id collisions; each node keeps its own type prefix (P vs G).
+    renames: dict[str, str] = {}
+    for i in range(len(order) - 1, insert_index - 1, -1):
+        old_id = order[i]
+        n = graph.get_step(old_id)
+        node_prefix = _prefix_for_process_and_type(pid, n.get("type", "step") if n else "step")
+        renamed_id = f"{node_prefix}.{i + 2}"
+        renames[old_id] = renamed_id
+        _rename_step_in_graph(graph, old_id, renamed_id)
+
+    # Build new node
+    step_data_clean = {k: v for k, v in step_attrs.items() if k != "id"}
+    pos = auto_position(graph, new_step={"name": name, "type": step_type})
+    new_node: dict[str, Any] = {
+        "id": new_id,
+        "name": (name or "New step").strip(),
+        "type": step_type,
+        "position": pos,
+    }
+    meta = {k: step_data_clean[k] for k in STEP_METADATA_KEYS if k in step_data_clean}
+    if meta:
+        if "risks" in meta and isinstance(meta["risks"], list):
+            meta["risks"] = _dedupe_risks(meta["risks"])
+        new_node["attributes"] = meta
+
+    # Insert new node right after after_id in the nodes array
+    idx = next((i for i, n in enumerate(graph.nodes) if n.get("id") == after_id), -1)
+    if idx < 0:
+        return None
+    graph.data["nodes"].insert(idx + 1, new_node)
+
+    # Wire: after_id → new_id, new_id → old_before_new_id (the renamed former before_id)
+    graph.edges.append({"from": after_id, "to": new_id, "label": ""})
+    graph.edges.append({"from": new_id, "to": old_before_new_id, "label": ""})
+
+    _persist(session_id, pid)
+    _refresh_workspace_summary(session_id, pid)
+    new_node_dict = get_node(session_id, new_id, process_id=pid)
+    return {"node": new_node_dict, "renames": renames} if new_node_dict else None
 
 
 def create_subprocess_page(
@@ -1092,27 +1182,67 @@ def delete_subprocess(
     node_id: str,
 ) -> dict | None:
     """Remove a subprocess node and its linked process. Delegates to delete_node (API compatibility)."""
-    ok = delete_node(session_id, node_id, process_id=parent_process_id)
-    return {"removed": ok, "node_id": node_id}
+    result = delete_node(session_id, node_id, process_id=parent_process_id)
+    return {"removed": bool(result and result.get("removed")), "node_id": node_id}
 
 
-def delete_node(session_id: str, node_id: str, process_id: str | None = None) -> bool:
+def delete_node(session_id: str, node_id: str, process_id: str | None = None) -> dict | None:
     pid = _normalize_process_id(process_id)
     graph = _get_graph(session_id, pid)
     node = graph.get_step(node_id)
     if not node:
-        return False
+        return None
     if node.get("type") in ("start", "end"):
-        return False
+        return None
 
     if node.get("type") == "subprocess":
         _teardown_linked_subprocess(session_id, pid, node["id"])  # page id = node id
+        graph.data["nodes"] = [n for n in graph.nodes if n.get("id") != node_id]
+        graph.data["edges"] = [e for e in graph.edges if e.get("from") != node_id and e.get("to") != node_id]
+        _persist(session_id, pid)
+        _refresh_workspace_summary(session_id, pid)
+        return {"removed": True, "renames": {}}
+
+    # Step or decision: renumber following steps so ordinals stay contiguous (e.g. delete P6.2 -> P6.3 becomes P6.2).
+    order = _step_decision_order(graph)
+    delete_index = order.index(node_id) if node_id in order else -1
+    renames: list[tuple[str, str]] = []
+    first_renamed_id: str | None = None  # new id of the node that was order[delete_index+1], for reconnecting edges
+    if delete_index >= 0:
+        for j in range(delete_index, len(order) - 1):
+            old_id = order[j + 1]
+            n = graph.get_step(old_id)
+            if not n:
+                continue
+            t = n.get("type", "step")
+            prefix = _prefix_for_process_and_type(pid, t)
+            new_id = f"{prefix}.{j + 1}"
+            renames.append((old_id, new_id))
+            if j == delete_index:
+                first_renamed_id = new_id
+        renames.sort(key=lambda kv: int(kv[1].split(".")[-1]))  # ascending so we don't overwrite (P1.3→P1.2 then P1.4→P1.3)
+
+    predecessors = [e["from"] for e in graph.edges if e.get("to") == node_id]
+    successors = [e["to"] for e in graph.edges if e.get("from") == node_id]
 
     graph.data["nodes"] = [n for n in graph.nodes if n.get("id") != node_id]
     graph.data["edges"] = [e for e in graph.edges if e.get("from") != node_id and e.get("to") != node_id]
+    for old_id, new_id in renames:
+        _rename_step_in_graph(graph, old_id, new_id)
+    old_to_new = dict(renames)
+    last_renamed_id = renames[-1][1] if renames else None
+    if first_renamed_id:
+        for pred in predecessors:
+            if pred and graph.get_step(pred) and not graph.get_flow(pred, first_renamed_id):
+                graph.edges.append({"from": pred, "to": first_renamed_id, "label": ""})
+        for succ in successors:
+            if succ in old_to_new:
+                continue
+            if last_renamed_id and graph.get_step(last_renamed_id) and not graph.get_flow(last_renamed_id, succ):
+                graph.edges.append({"from": last_renamed_id, "to": succ, "label": ""})
     _persist(session_id, pid)
     _refresh_workspace_summary(session_id, pid)
-    return True
+    return {"removed": True, "renames": old_to_new}
 
 
 def _next_global_subprocess_id(graph: ProcessGraph) -> str:
@@ -1136,6 +1266,204 @@ def _next_nested_subprocess_id(graph: ProcessGraph, parent_pid: str) -> str:
         if rest.isdigit():
             max_suffix = max(max_suffix, int(rest))
     return prefix + str(max_suffix + 1)
+
+
+def _renumber_prefix_for_process_id(process_id: str) -> str:
+    """Suffix used by P/G ids for a process id: S7.1 -> 7_1, S7 -> 7."""
+    pid = (process_id or "").strip()
+    if pid.startswith("S"):
+        return pid[1:].replace(".", "_")
+    return pid.replace(".", "_")
+
+
+def _prefix_for_process_and_type(pid: str, node_type: str) -> str:
+    """P or G prefix for step/decision ids in this process (e.g. P6, G6 for S6)."""
+    num = pid[1:].replace(".", "_") if pid.startswith("S") else pid.replace(".", "_") or "1"
+    return f"G{num}" if node_type == "decision" else f"P{num}"
+
+
+def _rename_node_ids_in_graph(graph: ProcessGraph, mapping: dict[str, str]) -> None:
+    """Rename node ids in a graph (nodes + edges) using _rename_step_in_graph, longest-first."""
+    for old_id, new_id in sorted(mapping.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if old_id == new_id:
+            continue
+        if old_id in graph.all_step_ids():
+            _rename_step_in_graph(graph, old_id, new_id)
+
+
+def _rename_process_ids_bulk(session_id: str, mapping: dict[str, str]) -> None:
+    """Rename process ids in session DB + workspace manifest + caches.
+
+    mapping is old_pid -> new_pid. Handles descendants (e.g. S7.1 -> S8.1) as separate entries.
+    """
+    if not mapping:
+        return
+
+    # Update DB graphs + in-memory cache.
+    for old_pid, new_pid in sorted(mapping.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if old_pid == new_pid:
+            continue
+        existing = db.get_session_json(session_id, new_pid)
+        if existing is not None:
+            raise RuntimeError(f"Cannot rename process id {old_pid} -> {new_pid}: {new_pid} already exists")
+        old_json = db.get_session_json(session_id, old_pid)
+        if old_json is None:
+            continue
+        db.upsert_session_json(session_id, new_pid, old_json)
+        db.delete_session_process(session_id, old_pid)
+        if (session_id, old_pid) in _cache:
+            g = _cache.pop((session_id, old_pid))
+            g.data["id"] = new_pid
+            _cache[(session_id, new_pid)] = g
+
+    # Update workspace manifest: keys + children lists + paths + tags.
+    ws = _get_workspace(session_id)
+    tree = ws.data.setdefault("process_tree", {})
+    processes: dict = tree.setdefault("processes", {})
+
+    # Move process entries
+    for old_pid, new_pid in sorted(mapping.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if old_pid == new_pid:
+            continue
+        info = processes.pop(old_pid, None)
+        if info is None:
+            continue
+        info["path"] = str(info.get("path") or "").replace(f"/{old_pid}", f"/{new_pid}")
+        info["graph_file"] = f"{new_pid}.json"
+        processes[new_pid] = info
+
+    # Replace children references
+    for _pid, info in list(processes.items()):
+        children = info.get("children")
+        if isinstance(children, list):
+            info["children"] = [mapping.get(c, c) for c in children]
+
+    # Tags
+    tags = ws.data.get("tags")
+    if isinstance(tags, dict):
+        for _tag, lst in list(tags.items()):
+            if isinstance(lst, list):
+                tags[_tag] = [mapping.get(pid, pid) for pid in lst]
+
+    db.upsert_session_workspace(session_id, ws.to_json())
+    _ws_cache.pop(session_id, None)
+
+
+def _rename_process_graph_ids(session_id: str, old_pid: str, new_pid: str) -> None:
+    """Update ids inside a renamed process graph: start/end ids, P/G prefixes, and nested subprocess node ids.
+
+    Assumes process ids like S7 (top-level) and nested ids like S7.1, S7.1.1.
+    """
+    old_pid = (old_pid or "").strip()
+    new_pid = (new_pid or "").strip()
+    if not old_pid or not new_pid or old_pid == new_pid:
+        return
+    graph = _get_graph(session_id, new_pid)
+
+    old_step_prefix = f"P{_renumber_prefix_for_process_id(old_pid)}"
+    new_step_prefix = f"P{_renumber_prefix_for_process_id(new_pid)}"
+    old_decision_prefix = f"G{_renumber_prefix_for_process_id(old_pid)}"
+    new_decision_prefix = f"G{_renumber_prefix_for_process_id(new_pid)}"
+
+    mapping: dict[str, str] = {}
+    for nid in list(graph.all_step_ids()):
+        if nid == f"{old_pid}_start":
+            mapping[nid] = f"{new_pid}_start"
+        elif nid == f"{old_pid}_end":
+            mapping[nid] = f"{new_pid}_end"
+        elif nid.startswith(old_step_prefix + "."):
+            mapping[nid] = new_step_prefix + nid[len(old_step_prefix):]
+        elif nid.startswith(old_decision_prefix + "."):
+            mapping[nid] = new_decision_prefix + nid[len(old_decision_prefix):]
+        elif nid.startswith(old_pid + "."):
+            mapping[nid] = new_pid + nid[len(old_pid):]
+
+    _rename_node_ids_in_graph(graph, mapping)
+    _persist(session_id, new_pid)
+
+
+def insert_subprocess_between(
+    session_id: str,
+    after_id: str,
+    before_id: str,
+    name: str,
+) -> dict | None:
+    """Insert a subprocess on the global map between two consecutive subprocess nodes.
+
+    The new subprocess takes the id of before_id (e.g. insert between S6 and S7 -> new is S7),
+    and the existing before_id (and following top-level subprocesses) shift up (S7->S8, ...).
+    Renames the corresponding process pages and updates global edges accordingly.
+    """
+    after_id = (after_id or "").strip()
+    before_id = (before_id or "").strip()
+    if not re.match(r"^S\d+$", after_id) or not re.match(r"^S\d+$", before_id):
+        return None
+
+    global_graph = _get_graph(session_id, DEFAULT_PROCESS_ID)
+    # Global map subprocess nodes are assumed to be in array order S1, S2, S3, ...
+    order = [n.get("id") for n in global_graph.nodes if n.get("type") == "subprocess" and n.get("id")]
+    if after_id not in order or before_id not in order:
+        return None
+    if order.index(before_id) != order.index(after_id) + 1:
+        return None
+
+    insert_n = int(before_id[1:])
+    max_n = 0
+    for sid in order:
+        try:
+            max_n = max(max_n, int(str(sid)[1:]))
+        except Exception:
+            continue
+
+    # Build process-id mapping for all affected top-level subprocesses and their descendants.
+    all_pids = set(get_process_ids(session_id))
+    pid_mapping: dict[str, str] = {}
+    for n in range(max_n, insert_n - 1, -1):
+        old_root = f"S{n}"
+        new_root = f"S{n + 1}"
+        for pid in sorted(all_pids):
+            if pid == old_root or pid.startswith(old_root + "."):
+                pid_mapping[pid] = new_root + pid[len(old_root):]
+
+    # Apply process id renames in DB/workspace/cache first.
+    _rename_process_ids_bulk(session_id, pid_mapping)
+
+    # Update ids inside each renamed process graph (start/end, P/G prefixes, nested subprocess node ids).
+    for old_pid, new_pid in sorted(pid_mapping.items(), key=lambda kv: len(kv[0]), reverse=True):
+        _rename_process_graph_ids(session_id, old_pid, new_pid)
+
+    # Shift node ids on global map and their edges.
+    for n in range(max_n, insert_n - 1, -1):
+        _rename_step_in_graph(global_graph, f"S{n}", f"S{n + 1}")
+
+    new_id = f"S{insert_n}"
+    new_node: dict[str, Any] = {
+        "id": new_id,
+        "name": (name or "New Subprocess").strip() or "New Subprocess",
+        "type": "subprocess",
+        "position": auto_position(global_graph, new_step={"name": name, "type": "subprocess"}),
+    }
+    # Insert new node right after after_id
+    idx = next((i for i, n in enumerate(global_graph.nodes) if n.get("id") == after_id), -1)
+    if idx < 0:
+        return None
+    global_graph.data["nodes"].insert(idx + 1, new_node)
+
+    # Rewire global edges: remove after -> shifted_before, add after -> new, new -> shifted_before
+    shifted_before = f"S{insert_n + 1}"
+    global_graph.data["edges"] = [
+        e for e in global_graph.edges if not (e.get("from") == after_id and e.get("to") == shifted_before)
+    ]
+    global_graph.edges.append({"from": after_id, "to": new_id, "label": ""})
+    global_graph.edges.append({"from": new_id, "to": shifted_before, "label": ""})
+
+    _persist(session_id, DEFAULT_PROCESS_ID)
+    _refresh_workspace_summary(session_id, DEFAULT_PROCESS_ID)
+
+    # Create linked subprocess page for the new node id (page id = node id).
+    create_subprocess_page(session_id, parent_process_id=DEFAULT_PROCESS_ID, node_id=new_id, name=new_node["name"])
+
+    return get_node(session_id, new_id, process_id=DEFAULT_PROCESS_ID)
 
 
 def _rename_step_in_graph(graph: ProcessGraph, old_id: str, new_id: str) -> None:

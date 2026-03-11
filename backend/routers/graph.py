@@ -154,8 +154,8 @@ def api_delete_node(
 ):
     """Delete a node."""
     _validate_session_id(session_id)
-    ok = delete_node(session_id, node_id, process_id=process_id)
-    if not ok:
+    result = delete_node(session_id, node_id, process_id=process_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="Node not found")
     return {"deleted": True}
 

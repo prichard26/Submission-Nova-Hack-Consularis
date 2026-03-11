@@ -42,6 +42,34 @@ class AddNodeArgs(BaseModel):
         return v
 
 
+class InsertStepBetweenArgs(BaseModel):
+    after_id: str
+    before_id: str
+    name: str
+    type: Literal["step", "decision"] = "step"
+    process_id: str | None = None
+
+    @field_validator("after_id", "before_id", "name")
+    @classmethod
+    def fields_not_empty(cls, v: str) -> str:
+        if not v or not str(v).strip():
+            raise ValueError("after_id, before_id and name must not be empty")
+        return str(v).strip()
+
+
+class InsertSubprocessBetweenArgs(BaseModel):
+    after_id: str
+    before_id: str
+    name: str
+
+    @field_validator("after_id", "before_id", "name")
+    @classmethod
+    def fields_not_empty(cls, v: str) -> str:
+        if not v or not str(v).strip():
+            raise ValueError("after_id, before_id and name must not be empty")
+        return str(v).strip()
+
+
 class DeleteNodeArgs(BaseModel):
     id: str
 
@@ -139,6 +167,8 @@ class RenameProcessArgs(BaseModel):
 
 TOOL_ARG_MODELS: dict[str, type[BaseModel]] = {
     "add_node": AddNodeArgs,
+    "insert_step_between": InsertStepBetweenArgs,
+    "insert_subprocess_between": InsertSubprocessBetweenArgs,
     "delete_node": DeleteNodeArgs,
     "update_node": UpdateNodeArgs,
     "add_edge": AddEdgeArgs,

@@ -9,6 +9,7 @@ export function useProcessGraph(sessionId, processId = 'global', refreshTrigger 
       getGraphJson(sessionId, { processId, signal })
         .catch((err) => {
           if (err?.name === 'AbortError') throw err
+          if (processId && processId !== 'global') throw err
           return getBaselineJson({ processId, signal })
         })
   }, [sessionId, processId])
