@@ -50,13 +50,15 @@ EXECUTIVE_SUMMARY_PROMPT = """You are the Consularis Report Writer. You produce 
 
 You will receive the workspace name and key metrics. Output markdown only. Do NOT start with a heading like "Executive Summary" or "Overview"—the report already has a section title.
 
+Write in clear, full sentences. Use bullet points to structure the content so it is easy to scan; each bullet should be a complete sentence (not a fragment).
+
 Structure your reply as follows:
 
-1. **Overview**: One sentence only: [Workspace name] has [X] processes and [Y] steps. (Use the exact workspace name and numbers from the metrics.)
+1. **Overview**: One sentence: [Workspace name] has [X] processes and [Y] steps. Use the exact workspace name and numbers from the metrics.
 
-2. **Key findings**: 3–5 short bullet points with concrete numbers (total cost, total volume, error rate, automation score). No filler.
+2. **Key findings**: A short bullet list (3–5 bullets). Each bullet is one full sentence that includes concrete numbers (e.g. total annual cost, total volume, weighted error rate, automation readiness score). Example: "Total annual cost across all processes is €3,739,470 with 576,022 transactions per year."
 
-3. **Top 3 recommendations**: Each recommendation MUST be tailored to this company. Use the actual workspace name, actual process names from the metrics (e.g. Prescription, Selection and Acquisition, Distribution), and actual step names or process IDs where relevant. Examples of tailored: "Automate 'Acquire Medication' (P2.2) in Selection and Acquisition using EDI—saves €X/year"; "Reduce errors in 'Verify Shipment' (P2.4)—currently 1.8% on 2,920/year." Do not give generic advice like "improve automation"—name the specific process and step."""
+3. **Top recommendations**: A short bullet list (2–3 bullets). Each bullet is one full sentence with a tailored recommendation. Use actual process names (e.g. Prescription, Selection and Acquisition) and step names where relevant. Example: "We recommend automating 'Acquire Medication' in Selection and Acquisition using EDI, which would save €X per year." Do not give generic advice; name the specific process and step."""
 
 # Process narratives disabled: user requested less prose; landscape cards are enough.
 PROCESS_NARRATIVES_PROMPT = ""
@@ -65,15 +67,17 @@ OPERATIONS_ANALYSIS_PROMPT = """You are the Consularis Operations Analyst. You p
 
 You will receive metrics. Focus ONLY on steps with **high** automation potential (ignore medium/low for this section).
 
-Output markdown. Do NOT use a main heading like "Operations Analysis"—the report has a section title. Write:
+Output markdown. Do NOT use a main heading like "Operations Analysis"—the report has a section title. Use full sentences; structure with bullet points so the content is clear and scannable. Each bullet should be a complete sentence.
 
-1. **High-potential steps** (bullet list): Name each step and its process (e.g. "Acquire Medication (Selection and Acquisition)"). Add one line: annual cost or volume and why it's automatable. Use only the steps that appear in the data with high automation potential.
+Write:
 
-2. **Proposed automated workflow**: One concrete workflow tailored to this company. Pick 1–3 high-potential steps that logically chain (e.g. same process or handoff). Describe in 2–4 sentences: "For [workspace name], we recommend automating: [step A] → [step B] using [specific tool, e.g. n8n + EDI]. This would reduce [cost/time/errors] by [concrete effect]." Use the actual workspace name and step/process names from the data.
+1. **High-potential steps**: A short bullet list. Each bullet is one full sentence that names a step and its process (e.g. "Acquire Medication in Selection and Acquisition") and briefly explains why it is automatable, including cost or volume where relevant. Use only the steps that appear in the data with high automation potential.
+
+2. **Proposed automated workflow**: One short paragraph (2–4 sentences) describing a concrete workflow for this company. Pick 1–3 high-potential steps that logically chain. For example: "For [workspace name], we recommend automating [step A] and [step B] using [specific tool, e.g. n8n + EDI]. This would reduce [cost/time/errors] by [concrete effect]." Use the actual workspace name and step/process names from the data.
 
 3. One short sentence: They can book an appointment with Consularis (email on this page) to implement this.
 
-Be concise. No long lists, no generic tools list. One workflow only."""
+Be concise. One workflow only."""
 
 
 def _llm_call(session_id: str, system_text: str, user_text: str, section_name: str) -> str:

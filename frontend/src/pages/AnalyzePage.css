@@ -482,19 +482,23 @@
 }
 
 .report-charts {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   margin-top: 24px;
   margin-bottom: 48px;
 }
 
-.report-charts--compact {
+.report-charts--pies {
+  display: grid;
   grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 24px;
+  margin-bottom: 0;
 }
 
 @media (max-width: 700px) {
-  .report-charts--compact {
+  .report-charts--pies {
     grid-template-columns: 1fr;
   }
 }
@@ -505,10 +509,19 @@
   border-radius: var(--radius);
   padding: 1.25rem;
   break-inside: avoid;
-  margin-bottom: 48px;
+  margin-bottom: 0;
 }
 
-.report-chart:last-child {
+.report-chart--full {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.report-chart--full:last-of-type {
+  margin-bottom: 0;
+}
+
+.report-chart--pie {
   margin-bottom: 0;
 }
 
@@ -529,7 +542,7 @@
 }
 
 .report-chart--pie {
-  min-height: 200px;
+  min-height: 240px;
 }
 
 .report-section--overview {
@@ -813,17 +826,20 @@
     break-inside: avoid;
     margin-bottom: 32px;
   }
-  .report-charts--compact {
-    grid-template-columns: 1fr;
-    margin-bottom: 48px;
+  .report-charts--pies {
+    grid-template-columns: repeat(2, 1fr);
+    margin-bottom: 24px;
   }
   .report-chart {
     break-inside: avoid;
-    margin-bottom: 48px;
+    margin-bottom: 24px;
+    min-height: 260px;
+  }
+  .report-chart--full {
     min-height: 260px;
   }
   .report-chart--pie {
-    min-height: 200px;
+    min-height: 240px;
   }
   .report-deep-dive {
     break-inside: avoid;
@@ -842,6 +858,15 @@
   }
   .report-glance-chart {
     break-inside: avoid;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .report-glance-chart .recharts-responsive-container,
+  .report-glance-chart > div {
+    max-width: 100% !important;
+  }
+  .report-glance-chart svg {
+    max-width: 100%;
   }
   .report-chart__title {
     font-size: 16px;

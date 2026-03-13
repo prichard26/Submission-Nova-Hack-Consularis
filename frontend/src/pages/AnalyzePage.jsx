@@ -180,8 +180,8 @@ function ReportCharts({ metrics }) {
     errorRate: p.avg_error_rate,
   }))
 
-  const barH = Math.max(220, costData.length * 36)
-  const yAxisWidth = 160
+  const barH = Math.max(300, costData.length * 48)
+  const yAxisWidth = 220
 
   const pieAutomation = [
     { name: 'High', value: distAuto.high || 0, key: 'high' },
@@ -197,7 +197,7 @@ function ReportCharts({ metrics }) {
     { name: 'Unknown', value: distState.unknown || 0, key: 'unknown' },
   ].filter((d) => d.value > 0)
 
-  const pieH = 200
+  const pieH = 240
   const tickStyle = { fontSize: AXIS_FONT_SIZE, fill: REPORT_DARK_GREY }
 
   const TooltipContent = ({ payload, labelKey, format }) => {
@@ -211,40 +211,40 @@ function ReportCharts({ metrics }) {
   }
 
   return (
-    <div className="report-charts report-charts--compact">
+    <div className="report-charts">
       {costData.length > 0 && (
         <>
-          <div className="report-chart">
+          <div className="report-chart report-chart--full">
             <h4 className="report-chart__title">Annual cost by process</h4>
             <ResponsiveContainer width="100%" height={barH}>
-              <BarChart layout="vertical" data={costData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }} barSize={24}>
+              <BarChart layout="vertical" data={costData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }} barSize={28}>
                 <CartesianGrid strokeDasharray="2 2" stroke={REPORT_DARK_GREY} opacity={0.2} horizontal={false} />
                 <XAxis type="number" tick={tickStyle} />
-                <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ ...tickStyle, width: yAxisWidth - 16 }} />
+                <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ ...tickStyle, width: yAxisWidth - 20 }} />
                 <Tooltip content={(props) => <TooltipContent {...props} format={(v) => Number(v).toLocaleString()} />} />
                 <Bar dataKey="cost" fill={REPORT_ORANGE} radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="report-chart">
+          <div className="report-chart report-chart--full">
             <h4 className="report-chart__title">Annual volume by process</h4>
             <ResponsiveContainer width="100%" height={barH}>
-              <BarChart layout="vertical" data={costData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }} barSize={24}>
+              <BarChart layout="vertical" data={costData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }} barSize={28}>
                 <CartesianGrid strokeDasharray="2 2" stroke={REPORT_DARK_GREY} opacity={0.2} horizontal={false} />
                 <XAxis type="number" tick={tickStyle} />
-                <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ ...tickStyle, width: yAxisWidth - 16 }} />
+                <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ ...tickStyle, width: yAxisWidth - 20 }} />
                 <Tooltip content={(props) => <TooltipContent {...props} format={(v) => Number(v).toLocaleString()} />} />
                 <Bar dataKey="volume" fill={REPORT_DARK_GREY} radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="report-chart">
+          <div className="report-chart report-chart--full">
             <h4 className="report-chart__title">Avg error rate by process (%)</h4>
             <ResponsiveContainer width="100%" height={barH}>
-              <BarChart layout="vertical" data={costData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }} barSize={24}>
+              <BarChart layout="vertical" data={costData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }} barSize={28}>
                 <CartesianGrid strokeDasharray="2 2" stroke={REPORT_DARK_GREY} opacity={0.2} horizontal={false} />
                 <XAxis type="number" tick={tickStyle} />
-                <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ ...tickStyle, width: yAxisWidth - 16 }} />
+                <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ ...tickStyle, width: yAxisWidth - 20 }} />
                 <Tooltip content={(props) => <TooltipContent {...props} format={(v) => `${v}%`} />} />
                 <Bar dataKey="errorRate" fill={REPORT_RED} radius={[0, 3, 3, 0]} />
               </BarChart>
@@ -252,60 +252,62 @@ function ReportCharts({ metrics }) {
           </div>
         </>
       )}
-      {pieAutomation.length > 0 && (
-        <div className="report-chart report-chart--pie">
-          <h4 className="report-chart__title">Automation potential</h4>
-          <ResponsiveContainer width="100%" height={pieH}>
-            <PieChart>
-              <Pie
-                data={pieAutomation}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={58}
-                paddingAngle={2}
-                label={({ name, value }) => `${name}: ${value}`}
-                labelLine={{ strokeWidth: 1 }}
-              >
-                {pieAutomation.map((e) => (
-                  <Cell key={e.key} fill={CHART_COLORS[e.key] || CHART_COLORS.none} stroke={REPORT_DARK_GREY} strokeWidth={1} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: PIE_LABEL_FONT_SIZE }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-      {pieState.length > 0 && (
-        <div className="report-chart report-chart--pie">
-          <h4 className="report-chart__title">Current state</h4>
-          <ResponsiveContainer width="100%" height={pieH}>
-            <PieChart>
-              <Pie
-                data={pieState}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={58}
-                paddingAngle={2}
-                label={({ name, value }) => `${name}: ${value}`}
-                labelLine={{ strokeWidth: 1 }}
-              >
-                {pieState.map((e) => (
-                  <Cell key={e.key} fill={CHART_COLORS[e.key] || CHART_COLORS.unknown} stroke={REPORT_DARK_GREY} strokeWidth={1} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: PIE_LABEL_FONT_SIZE }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+      <div className="report-charts report-charts--pies">
+        {pieAutomation.length > 0 && (
+          <div className="report-chart report-chart--pie">
+            <h4 className="report-chart__title">Automation potential</h4>
+            <ResponsiveContainer width="100%" height={pieH}>
+              <PieChart>
+                <Pie
+                  data={pieAutomation}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={58}
+                  paddingAngle={2}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  labelLine={{ strokeWidth: 1 }}
+                >
+                  {pieAutomation.map((e) => (
+                    <Cell key={e.key} fill={CHART_COLORS[e.key] || CHART_COLORS.none} stroke={REPORT_DARK_GREY} strokeWidth={1} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: PIE_LABEL_FONT_SIZE }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {pieState.length > 0 && (
+          <div className="report-chart report-chart--pie">
+            <h4 className="report-chart__title">Current state</h4>
+            <ResponsiveContainer width="100%" height={pieH}>
+              <PieChart>
+                <Pie
+                  data={pieState}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={58}
+                  paddingAngle={2}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  labelLine={{ strokeWidth: 1 }}
+                >
+                  {pieState.map((e) => (
+                    <Cell key={e.key} fill={CHART_COLORS[e.key] || CHART_COLORS.unknown} stroke={REPORT_DARK_GREY} strokeWidth={1} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: PIE_LABEL_FONT_SIZE }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -319,8 +321,8 @@ function ReportGlanceSection({ metrics }) {
     fullName: p.name || '—',
     cost: p.annual_cost,
   }))
-  const glanceChartHeight = Math.max(280, costData.length * 40)
-  const yAxisWidth = 180
+  const glanceChartHeight = Math.max(300, costData.length * 48)
+  const yAxisWidth = 220
   const tickStyle = { fontSize: AXIS_FONT_SIZE, fill: REPORT_DARK_GREY }
 
   return (
@@ -352,7 +354,7 @@ function ReportGlanceSection({ metrics }) {
         <div className="report-glance-chart">
           <h3 className="report-chart__title">Total annual cost by process</h3>
           <ResponsiveContainer width="100%" height={glanceChartHeight}>
-            <BarChart layout="vertical" data={costData} margin={{ top: 8, right: 24, left: 8, bottom: 8 }} barSize={28}>
+            <BarChart layout="vertical" data={costData} margin={{ top: 8, right: 24, left: 8, bottom: 8 }} barSize={32}>
               <CartesianGrid strokeDasharray="2 2" stroke={REPORT_DARK_GREY} opacity={0.2} horizontal={false} />
               <XAxis type="number" tick={tickStyle} />
               <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ ...tickStyle, width: yAxisWidth - 20 }} />
@@ -459,70 +461,6 @@ function ProcessCard({ proc }) {
         <span>Avg error: {proc.avg_error_rate}%</span>
       </div>
     </div>
-  )
-}
-
-function ProcessDeepDive({ proc }) {
-  const steps = proc?.steps ?? []
-  const titleId = `section-${(proc?.name || '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/gi, '')}`
-  return (
-    <section className="report-deep-dive" aria-labelledby={titleId}>
-      <h3 id={titleId} className="report-deep-dive__title">
-        {proc?.name}
-      </h3>
-      {steps.length > 0 && (
-        <div className="report-deep-dive__table-wrap">
-          <table className="report-steps-table">
-            <thead>
-              <tr>
-                <th>Step</th>
-                <th>Actor</th>
-                <th>Duration</th>
-                <th>Volume</th>
-                <th>Cost</th>
-                <th>Error %</th>
-                <th>Automation</th>
-              </tr>
-            </thead>
-            <tbody>
-              {steps.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.name || '—'}</td>
-                  <td>{s.actor || '—'}</td>
-                  <td>{s.duration_min || '—'}</td>
-                  <td>{s.annual_volume != null ? Number(s.annual_volume).toLocaleString() : '—'}</td>
-                  <td>{s.annual_cost != null ? Number(s.annual_cost).toLocaleString() : '—'}</td>
-                  <td>{s.error_rate_percent != null ? s.error_rate_percent : '—'}</td>
-                  <td>{s.automation_potential || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {steps.some((s) => (s.pain_points?.length || s.risks?.length)) && (
-        <div className="report-deep-dive__lists">
-          {steps.map(
-            (s) =>
-              (s.pain_points?.length || s.risks?.length) && (
-                <div key={s.id} className="report-deep-dive__step-issues">
-                  <strong>{s.name || '—'}</strong>
-                  {s.risks?.length > 0 && (
-                    <p>
-                      <em>Risks:</em> {s.risks.join(', ')}
-                    </p>
-                  )}
-                  {s.pain_points?.length > 0 && (
-                    <p>
-                      <em>Pain points:</em> {s.pain_points.join(', ')}
-                    </p>
-                  )}
-                </div>
-              )
-          )}
-        </div>
-      )}
-    </section>
   )
 }
 
@@ -691,10 +629,7 @@ export default function AnalyzePage({ sessionId }) {
                   )}
                 </header>
 
-                {/* Key metrics at a glance — before Executive Summary */}
-                <ReportGlanceSection metrics={metrics} />
-
-                {/* Section 1: Executive Summary */}
+                {/* Executive Summary first (e.g. first content in PDF after cover) */}
                 <section className="report-section" aria-labelledby="exec-heading">
                   <h2 id="exec-heading">Executive Summary</h2>
                   <div className="report-section__markdown">
@@ -705,6 +640,9 @@ export default function AnalyzePage({ sessionId }) {
                     </ReactMarkdown>
                   </div>
                 </section>
+
+                {/* Key metrics at a glance */}
+                <ReportGlanceSection metrics={metrics} />
 
                 {/* Section 2: Graph overview (landscape) — screen only; PDF has cover */}
                 <section className="report-section report-section--overview report-section--no-print" aria-labelledby="overview-heading">
@@ -769,16 +707,8 @@ export default function AnalyzePage({ sessionId }) {
                   </div>
                 </section>
 
-                {/* Supplementary: step-level detail */}
-                <section className="report-section report-section--supplementary" aria-labelledby="supp-heading">
-                  <h2 id="supp-heading">Supplementary — Per-process step detail</h2>
-                  {processWithSteps.map((proc) => (
-                    <ProcessDeepDive key={proc.id} proc={proc} />
-                  ))}
-                </section>
-
-                {/* CTA */}
-                <section className="analyze-page__cta report-cta" aria-labelledby="cta-heading">
+                {/* CTA — hidden in PDF */}
+                <section className="analyze-page__cta report-cta report-no-print" aria-labelledby="cta-heading">
                 <h2 id="cta-heading">Get help implementing automation</h2>
                 <p className="analyze-page__cta-desc">
                   Book an appointment with Consularis to get your process automated. We&apos;ll be in touch.
