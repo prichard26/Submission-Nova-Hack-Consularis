@@ -238,6 +238,7 @@ function ReportCharts({ metrics }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="report-chart-page-break" aria-hidden="true" />
           <div className="report-chart report-chart--full">
             <h4 className="report-chart__title">Avg error rate by process (%)</h4>
             <ResponsiveContainer width="100%" height={barH}>
@@ -483,6 +484,41 @@ function stripIdsFromMarkdown(text) {
     .trim()
 }
 
+/** Split automation opportunities narrative over two pages in PDF: first block, then page break, then second block. */
+const OPS_PARAGRAPHS_BEFORE_BREAK = 6
+
+function AutomationOpportunitiesContent({ narrative }) {
+  const raw = stripSectionHeading(
+    stripSectionHeading(narrative || '', 'Operations Analysis'),
+    'Automation opportunities'
+  ) || narrative || '*No automation analysis generated.*'
+  const cleaned = stripIdsFromMarkdown(raw)
+  const paragraphs = cleaned.split(/\n\n+/).filter((p) => p.trim())
+  const splitAt = Math.min(OPS_PARAGRAPHS_BEFORE_BREAK, Math.max(1, Math.floor(paragraphs.length / 2)))
+  const firstPart = paragraphs.slice(0, splitAt).join('\n\n')
+  const secondPart = paragraphs.slice(splitAt).join('\n\n')
+
+  if (paragraphs.length <= 1 || !secondPart.trim()) {
+    return (
+      <div className="report-section__markdown">
+        <ReactMarkdown>{cleaned}</ReactMarkdown>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="report-section__markdown">
+        <ReactMarkdown>{firstPart}</ReactMarkdown>
+      </div>
+      <div className="report-ops-page-break" aria-hidden="true" />
+      <div className="report-section__markdown">
+        <ReactMarkdown>{secondPart}</ReactMarkdown>
+      </div>
+    </>
+  )
+}
+
 export default function AnalyzePage({ sessionId }) {
   const [loading, setLoading] = useState(true)
   const [report, setReport] = useState(null)
@@ -526,6 +562,7 @@ export default function AnalyzePage({ sessionId }) {
       ? `Report - ${report.metrics.workspace_name}`
       : 'Company Process Intelligence Report',
     pageStyle: `
+      @page { margin-top: 0.75in; margin-bottom: 0.75in; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .report-no-print { display: none !important; }
       .analyze-page__main { max-width: 100%; }
@@ -604,13 +641,21 @@ export default function AnalyzePage({ sessionId }) {
             </div>
 
             <div ref={reportRef} className="report-print-root">
-              {/* PDF only: header with logo + Consularis on every page */}
+              {/* PDF only: header — left: logo + Consularis; center: report title; right: date */}
               <div className="report-print-header" aria-hidden="true">
-                <img src="/logo.png" alt="" className="report-print-header__logo" />
-                <span className="report-print-header__name">Consularis</span>
+                <div className="report-print-header__left">
+                  <img src="/logo.png" alt="" className="report-print-header__logo" />
+                  <span className="report-print-header__name">Consularis</span>
+                </div>
+                <span className="report-print-header__report-title">
+                  Report — {metrics?.workspace_name || 'Company Process Intelligence Report'}
+                </span>
+                <span className="report-print-header__date">
+                  {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
               </div>
 
-              {/* PDF only: clean first page = title + name + graph (large fonts) */}
+              {/* PDF: cover first (title + graph), then report body */}
               <div className="report-cover">
                 <h1 className="report-cover__title">Company Process Intelligence Report</h1>
                 {metrics?.workspace_name && (
@@ -692,19 +737,10 @@ export default function AnalyzePage({ sessionId }) {
                   </div>
                 </section>
 
-                {/* Section 5: Automation opportunities */}
-                <section className="report-section" aria-labelledby="ops-heading">
+                {/* Section 5: Automation opportunities — split over two pages in PDF, smaller text */}
+                <section className="report-section report-section--ops" aria-labelledby="ops-heading">
                   <h2 id="ops-heading">Automation opportunities</h2>
-                  <div className="report-section__markdown">
-                    <ReactMarkdown>
-                      {stripIdsFromMarkdown(
-                        stripSectionHeading(
-                          stripSectionHeading(narratives.operations_analysis || '', 'Operations Analysis'),
-                          'Automation opportunities'
-                        ) || narratives.operations_analysis || '*No automation analysis generated.*'
-                      )}
-                    </ReactMarkdown>
-                  </div>
+                  <AutomationOpportunitiesContent narrative={narratives.operations_analysis} />
                 </section>
 
                 {/* CTA — hidden in PDF */}
