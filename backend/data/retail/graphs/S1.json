@@ -1,8 +1,8 @@
 {
-  "id": "R1",
+  "id": "S1",
   "name": "Inventory & Stock",
   "nodes": [
-    { "id": "R1_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S1_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P1.1",
       "name": "Count stock levels",
@@ -111,13 +111,13 @@
         "pain_points": ["Dock congestion", "PO mismatch"]
       }
     },
-    { "id": "R1_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+    { "id": "S1_end", "type": "end", "position": { "x": 1600, "y": 78 } }
   ],
   "edges": [
-    { "from": "R1_start", "to": "P1.1", "label": "Start" },
+    { "from": "S1_start", "to": "P1.1", "label": "Start" },
     { "from": "P1.1", "to": "P1.2", "label": "Count done" },
     { "from": "P1.2", "to": "P1.3", "label": "System updated" },
     { "from": "P1.3", "to": "P1.4", "label": "Order placed" },
-    { "from": "P1.4", "to": "R1_end", "label": "Complete" }
+    { "from": "P1.4", "to": "S1_end", "label": "Complete" }
   ]
 }

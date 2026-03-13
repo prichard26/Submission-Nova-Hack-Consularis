@@ -1,8 +1,8 @@
 {
-  "id": "E2",
+  "id": "S2",
   "name": "On-site Assessment",
   "nodes": [
-    { "id": "E2_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S2_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P2.1",
       "name": "Arrive and assess",
@@ -84,12 +84,12 @@
         "pain_points": ["Supplier lead time", "Permit turnaround"]
       }
     },
-    { "id": "E2_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+    { "id": "S2_end", "type": "end", "position": { "x": 1550, "y": 78 } }
   ],
   "edges": [
-    { "from": "E2_start", "to": "P2.1", "label": "Start" },
+    { "from": "S2_start", "to": "P2.1", "label": "Start" },
     { "from": "P2.1", "to": "P2.2", "label": "Assessed" },
     { "from": "P2.2", "to": "P2.3", "label": "Approved" },
-    { "from": "P2.3", "to": "E2_end", "label": "Complete" }
+    { "from": "P2.3", "to": "S2_end", "label": "Complete" }
   ]
 }

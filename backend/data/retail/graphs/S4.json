@@ -1,8 +1,8 @@
 {
-  "id": "R4",
+  "id": "S4",
   "name": "Customer Service",
   "nodes": [
-    { "id": "R4_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S4_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P4.1",
       "name": "Handle return or complaint",
@@ -84,12 +84,12 @@
         "pain_points": ["Duplicate entries", "CRM not used"]
       }
     },
-    { "id": "R4_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+    { "id": "S4_end", "type": "end", "position": { "x": 1550, "y": 78 } }
   ],
   "edges": [
-    { "from": "R4_start", "to": "P4.1", "label": "Start" },
+    { "from": "S4_start", "to": "P4.1", "label": "Start" },
     { "from": "P4.1", "to": "P4.2", "label": "Approved" },
     { "from": "P4.2", "to": "P4.3", "label": "Processed" },
-    { "from": "P4.3", "to": "R4_end", "label": "Complete" }
+    { "from": "P4.3", "to": "S4_end", "label": "Complete" }
   ]
 }

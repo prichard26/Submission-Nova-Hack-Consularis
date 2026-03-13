@@ -1,8 +1,8 @@
 {
-  "id": "RS3",
+  "id": "S3",
   "name": "Service",
   "nodes": [
-    { "id": "RS3_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S3_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P3.1",
       "name": "Serve food and check back",
@@ -111,13 +111,13 @@
         "pain_points": ["Cash tips", "Tip pool rules"]
       }
     },
-    { "id": "RS3_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+    { "id": "S3_end", "type": "end", "position": { "x": 1600, "y": 78 } }
   ],
   "edges": [
-    { "from": "RS3_start", "to": "P3.1", "label": "Start" },
+    { "from": "S3_start", "to": "P3.1", "label": "Start" },
     { "from": "P3.1", "to": "P3.2", "label": "Served" },
     { "from": "P3.2", "to": "P3.3", "label": "Paid" },
     { "from": "P3.3", "to": "P3.4", "label": "Reset" },
-    { "from": "P3.4", "to": "RS3_end", "label": "Complete" }
+    { "from": "P3.4", "to": "S3_end", "label": "Complete" }
   ]
 }

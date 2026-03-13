@@ -9,52 +9,52 @@
         "name": "Retail shop end-to-end",
         "depth": 0,
         "path": "/global",
-        "children": ["R1", "R2", "R3", "R4"],
+        "children": ["S1", "S2", "S3", "S4"],
         "graph_file": "global.json",
         "owner": "Store",
         "category": "operations",
         "criticality": "high",
         "summary": { "step_count": 0, "subprocess_count": 4 }
       },
-      "R1": {
+      "S1": {
         "name": "Inventory & Stock",
         "depth": 1,
-        "path": "/global/R1",
+        "path": "/global/S1",
         "children": [],
-        "graph_file": "R1.json",
+        "graph_file": "S1.json",
         "owner": "Store",
         "category": "logistics",
         "criticality": "high",
         "summary": { "step_count": 4, "subprocess_count": 0 }
       },
-      "R2": {
+      "S2": {
         "name": "Sales Floor",
         "depth": 1,
-        "path": "/global/R2",
+        "path": "/global/S2",
         "children": [],
-        "graph_file": "R2.json",
+        "graph_file": "S2.json",
         "owner": "Store",
         "category": "sales",
         "criticality": "high",
         "summary": { "step_count": 3, "subprocess_count": 0 }
       },
-      "R3": {
+      "S3": {
         "name": "Receiving & Delivery",
         "depth": 1,
-        "path": "/global/R3",
+        "path": "/global/S3",
         "children": [],
-        "graph_file": "R3.json",
+        "graph_file": "S3.json",
         "owner": "Store",
         "category": "logistics",
         "criticality": "high",
         "summary": { "step_count": 4, "subprocess_count": 0 }
       },
-      "R4": {
+      "S4": {
         "name": "Customer Service",
         "depth": 1,
-        "path": "/global/R4",
+        "path": "/global/S4",
         "children": [],
-        "graph_file": "R4.json",
+        "graph_file": "S4.json",
         "owner": "Store",
         "category": "customer_service",
         "criticality": "medium",
@@ -65,8 +65,8 @@
   "cross_links": [],
   "tags": {
     "operations": ["global"],
-    "logistics": ["R1", "R3"],
-    "sales": ["R2"],
-    "customer_service": ["R4"]
+    "logistics": ["S1", "S3"],
+    "sales": ["S2"],
+    "customer_service": ["S4"]
   }
 }

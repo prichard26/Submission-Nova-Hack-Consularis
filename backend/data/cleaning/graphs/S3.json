@@ -1,8 +1,8 @@
 {
-  "id": "C3",
+  "id": "S3",
   "name": "Quality & Supplies",
   "nodes": [
-    { "id": "C3_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S3_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P3.1",
       "name": "Inspect or customer feedback",
@@ -84,12 +84,12 @@
         "pain_points": ["Crew turnover", "Checklist consistency"]
       }
     },
-    { "id": "C3_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+    { "id": "S3_end", "type": "end", "position": { "x": 1550, "y": 78 } }
   ],
   "edges": [
-    { "from": "C3_start", "to": "P3.1", "label": "Start" },
+    { "from": "S3_start", "to": "P3.1", "label": "Start" },
     { "from": "P3.1", "to": "P3.2", "label": "Reviewed" },
     { "from": "P3.2", "to": "P3.3", "label": "Stocked" },
-    { "from": "P3.3", "to": "C3_end", "label": "Complete" }
+    { "from": "P3.3", "to": "S3_end", "label": "Complete" }
   ]
 }

@@ -1,8 +1,8 @@
 {
-  "id": "RS1",
+  "id": "S1",
   "name": "Reservations & Welcome",
   "nodes": [
-    { "id": "RS1_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S1_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P1.1",
       "name": "Take reservation",
@@ -84,12 +84,12 @@
         "pain_points": ["Modifications", "86 items"]
       }
     },
-    { "id": "RS1_end", "type": "end", "position": { "x": 1500, "y": 78 } }
+    { "id": "S1_end", "type": "end", "position": { "x": 1500, "y": 78 } }
   ],
   "edges": [
-    { "from": "RS1_start", "to": "P1.1", "label": "Start" },
+    { "from": "S1_start", "to": "P1.1", "label": "Start" },
     { "from": "P1.1", "to": "P1.2", "label": "Reserved" },
     { "from": "P1.2", "to": "P1.3", "label": "Seated" },
-    { "from": "P1.3", "to": "RS1_end", "label": "Complete" }
+    { "from": "P1.3", "to": "S1_end", "label": "Complete" }
   ]
 }

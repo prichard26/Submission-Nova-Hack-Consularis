@@ -1,8 +1,8 @@
 {
-  "id": "P1",
+  "id": "S1",
   "name": "Dispatch & Booking",
   "nodes": [
-    { "id": "P1_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S1_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P1.1",
       "name": "Take call and log",
@@ -111,13 +111,13 @@
         "pain_points": ["Traffic", "Multiple jobs same area"]
       }
     },
-    { "id": "P1_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+    { "id": "S1_end", "type": "end", "position": { "x": 1600, "y": 78 } }
   ],
   "edges": [
-    { "from": "P1_start", "to": "P1.1", "label": "Start" },
+    { "from": "S1_start", "to": "P1.1", "label": "Start" },
     { "from": "P1.1", "to": "P1.2", "label": "Logged" },
     { "from": "P1.2", "to": "P1.3", "label": "Scheduled" },
     { "from": "P1.3", "to": "P1.4", "label": "Briefed" },
-    { "from": "P1.4", "to": "P1_end", "label": "Complete" }
+    { "from": "P1.4", "to": "S1_end", "label": "Complete" }
   ]
 }

@@ -1,8 +1,8 @@
 {
-  "id": "C4",
+  "id": "S4",
   "name": "Invoicing & Follow-up",
   "nodes": [
-    { "id": "C4_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S4_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P4.1",
       "name": "Build and send invoice",
@@ -84,12 +84,12 @@
         "pain_points": ["Customer skip", "Frequency change"]
       }
     },
-    { "id": "C4_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+    { "id": "S4_end", "type": "end", "position": { "x": 1550, "y": 78 } }
   ],
   "edges": [
-    { "from": "C4_start", "to": "P4.1", "label": "Start" },
+    { "from": "S4_start", "to": "P4.1", "label": "Start" },
     { "from": "P4.1", "to": "P4.2", "label": "Invoice sent" },
     { "from": "P4.2", "to": "P4.3", "label": "Paid" },
-    { "from": "P4.3", "to": "C4_end", "label": "Complete" }
+    { "from": "P4.3", "to": "S4_end", "label": "Complete" }
   ]
 }

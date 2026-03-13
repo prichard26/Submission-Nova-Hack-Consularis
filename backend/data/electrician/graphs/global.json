@@ -3,17 +3,17 @@
   "name": "Electrician job lifecycle",
   "nodes": [
     { "id": "global_start", "type": "start", "position": { "x": 200, "y": 78 } },
-    { "id": "E1", "name": "Quote & Schedule", "type": "subprocess", "position": { "x": 400, "y": 44 } },
-    { "id": "E2", "name": "On-site Assessment", "type": "subprocess", "position": { "x": 700, "y": 44 } },
-    { "id": "E3", "name": "Install & Repair", "type": "subprocess", "position": { "x": 1000, "y": 44 } },
-    { "id": "E4", "name": "Invoicing & Close-out", "type": "subprocess", "position": { "x": 1300, "y": 44 } },
+    { "id": "S1", "name": "Quote & Schedule", "type": "subprocess", "position": { "x": 400, "y": 44 } },
+    { "id": "S2", "name": "On-site Assessment", "type": "subprocess", "position": { "x": 700, "y": 44 } },
+    { "id": "S3", "name": "Install & Repair", "type": "subprocess", "position": { "x": 1000, "y": 44 } },
+    { "id": "S4", "name": "Invoicing & Close-out", "type": "subprocess", "position": { "x": 1300, "y": 44 } },
     { "id": "global_end", "type": "end", "position": { "x": 1600, "y": 78 } }
   ],
   "edges": [
-    { "from": "global_start", "to": "E1", "label": "Start" },
-    { "from": "E1", "to": "E2", "label": "Job booked" },
-    { "from": "E2", "to": "E3", "label": "Assessment done" },
-    { "from": "E3", "to": "E4", "label": "Work complete" },
-    { "from": "E4", "to": "global_end", "label": "Complete" }
+    { "from": "global_start", "to": "S1", "label": "Start" },
+    { "from": "S1", "to": "S2", "label": "Job booked" },
+    { "from": "S2", "to": "S3", "label": "Assessment done" },
+    { "from": "S3", "to": "S4", "label": "Work complete" },
+    { "from": "S4", "to": "global_end", "label": "Complete" }
   ]
 }

@@ -287,9 +287,11 @@ function orderNodesInRanks(rankToNodes, dag) {
  * @returns {Map<string, { x: number, y: number }>}
  */
 function assignCoordinates(rankToOrderedNodes, stepNodes, direction = 'DOWN') {
+  const nodeById = new Map(stepNodes.map((n) => [n.id, n]))
   function dim(id) {
     if (id.startsWith('__dummy__')) return { width: DUMMY_WIDTH, height: 0 }
-    return { width: LAYOUT_CELL_W, height: LAYOUT_CELL_H }
+    const node = nodeById.get(id)
+    return node ? getNodeDimensions(node) : { width: LAYOUT_CELL_W, height: LAYOUT_CELL_H }
   }
   const rankIndices = [...rankToOrderedNodes.keys()].sort((a, b) => a - b)
   const positions = new Map()

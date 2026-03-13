@@ -9,52 +9,52 @@
         "name": "Electrician job lifecycle",
         "depth": 0,
         "path": "/global",
-        "children": ["E1", "E2", "E3", "E4"],
+        "children": ["S1", "S2", "S3", "S4"],
         "graph_file": "global.json",
         "owner": "Office",
         "category": "operations",
         "criticality": "high",
         "summary": { "step_count": 0, "subprocess_count": 4 }
       },
-      "E1": {
+      "S1": {
         "name": "Quote & Schedule",
         "depth": 1,
-        "path": "/global/E1",
+        "path": "/global/S1",
         "children": [],
-        "graph_file": "E1.json",
+        "graph_file": "S1.json",
         "owner": "Office",
         "category": "sales",
         "criticality": "high",
         "summary": { "step_count": 4, "subprocess_count": 0 }
       },
-      "E2": {
+      "S2": {
         "name": "On-site Assessment",
         "depth": 1,
-        "path": "/global/E2",
+        "path": "/global/S2",
         "children": [],
-        "graph_file": "E2.json",
+        "graph_file": "S2.json",
         "owner": "Field",
         "category": "operations",
         "criticality": "high",
         "summary": { "step_count": 3, "subprocess_count": 0 }
       },
-      "E3": {
+      "S3": {
         "name": "Install & Repair",
         "depth": 1,
-        "path": "/global/E3",
+        "path": "/global/S3",
         "children": [],
-        "graph_file": "E3.json",
+        "graph_file": "S3.json",
         "owner": "Field",
         "category": "production",
         "criticality": "critical",
         "summary": { "step_count": 4, "subprocess_count": 0 }
       },
-      "E4": {
+      "S4": {
         "name": "Invoicing & Close-out",
         "depth": 1,
-        "path": "/global/E4",
+        "path": "/global/S4",
         "children": [],
-        "graph_file": "E4.json",
+        "graph_file": "S4.json",
         "owner": "Office",
         "category": "finance",
         "criticality": "high",
@@ -64,9 +64,9 @@
   },
   "cross_links": [],
   "tags": {
-    "operations": ["global", "E2"],
-    "sales": ["E1"],
-    "production": ["E3"],
-    "finance": ["E4"]
+    "operations": ["global", "S2"],
+    "sales": ["S1"],
+    "production": ["S3"],
+    "finance": ["S4"]
   }
 }

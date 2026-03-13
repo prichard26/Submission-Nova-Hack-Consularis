@@ -9,52 +9,52 @@
         "name": "Restaurant end-to-end",
         "depth": 0,
         "path": "/global",
-        "children": ["RS1", "RS2", "RS3", "RS4"],
+        "children": ["S1", "S2", "S3", "S4"],
         "graph_file": "global.json",
         "owner": "Restaurant",
         "category": "operations",
         "criticality": "high",
         "summary": { "step_count": 0, "subprocess_count": 4 }
       },
-      "RS1": {
+      "S1": {
         "name": "Reservations & Welcome",
         "depth": 1,
-        "path": "/global/RS1",
+        "path": "/global/S1",
         "children": [],
-        "graph_file": "RS1.json",
+        "graph_file": "S1.json",
         "owner": "FOH",
         "category": "customer_service",
         "criticality": "high",
         "summary": { "step_count": 3, "subprocess_count": 0 }
       },
-      "RS2": {
+      "S2": {
         "name": "Prep & Kitchen",
         "depth": 1,
-        "path": "/global/RS2",
+        "path": "/global/S2",
         "children": [],
-        "graph_file": "RS2.json",
+        "graph_file": "S2.json",
         "owner": "Kitchen",
         "category": "production",
         "criticality": "high",
         "summary": { "step_count": 4, "subprocess_count": 0 }
       },
-      "RS3": {
+      "S3": {
         "name": "Service",
         "depth": 1,
-        "path": "/global/RS3",
+        "path": "/global/S3",
         "children": [],
-        "graph_file": "RS3.json",
+        "graph_file": "S3.json",
         "owner": "FOH",
         "category": "customer_service",
         "criticality": "high",
         "summary": { "step_count": 4, "subprocess_count": 0 }
       },
-      "RS4": {
+      "S4": {
         "name": "Closing & Handover",
         "depth": 1,
-        "path": "/global/RS4",
+        "path": "/global/S4",
         "children": [],
-        "graph_file": "RS4.json",
+        "graph_file": "S4.json",
         "owner": "Management",
         "category": "operations",
         "criticality": "medium",
@@ -64,8 +64,8 @@
   },
   "cross_links": [],
   "tags": {
-    "operations": ["global", "RS4"],
-    "customer_service": ["RS1", "RS3"],
-    "production": ["RS2"]
+    "operations": ["global", "S4"],
+    "customer_service": ["S1", "S3"],
+    "production": ["S2"]
   }
 }

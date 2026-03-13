@@ -1,8 +1,8 @@
 {
-  "id": "R3",
+  "id": "S3",
   "name": "Receiving & Delivery",
   "nodes": [
-    { "id": "R3_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S3_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P3.1",
       "name": "Receive delivery at dock",
@@ -111,13 +111,13 @@
         "pain_points": ["Floor space", "Planogram changes"]
       }
     },
-    { "id": "R3_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+    { "id": "S3_end", "type": "end", "position": { "x": 1600, "y": 78 } }
   ],
   "edges": [
-    { "from": "R3_start", "to": "P3.1", "label": "Start" },
+    { "from": "S3_start", "to": "P3.1", "label": "Start" },
     { "from": "P3.1", "to": "P3.2", "label": "Received" },
     { "from": "P3.2", "to": "P3.3", "label": "Checked" },
     { "from": "P3.3", "to": "P3.4", "label": "Entered" },
-    { "from": "P3.4", "to": "R3_end", "label": "Complete" }
+    { "from": "P3.4", "to": "S3_end", "label": "Complete" }
   ]
 }

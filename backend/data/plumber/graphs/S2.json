@@ -1,8 +1,8 @@
 {
-  "id": "P2",
+  "id": "S2",
   "name": "Diagnose",
   "nodes": [
-    { "id": "P2_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S2_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P2.1",
       "name": "Site visit and inspect",
@@ -84,12 +84,12 @@
         "pain_points": ["Supplier lead time", "Special order"]
       }
     },
-    { "id": "P2_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+    { "id": "S2_end", "type": "end", "position": { "x": 1550, "y": 78 } }
   ],
   "edges": [
-    { "from": "P2_start", "to": "P2.1", "label": "Start" },
+    { "from": "S2_start", "to": "P2.1", "label": "Start" },
     { "from": "P2.1", "to": "P2.2", "label": "Diagnosed" },
     { "from": "P2.2", "to": "P2.3", "label": "Approved" },
-    { "from": "P2.3", "to": "P2_end", "label": "Complete" }
+    { "from": "P2.3", "to": "S2_end", "label": "Complete" }
   ]
 }

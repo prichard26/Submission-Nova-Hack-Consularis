@@ -1,8 +1,8 @@
 {
-  "id": "R2",
+  "id": "S2",
   "name": "Sales Floor",
   "nodes": [
-    { "id": "R2_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "S2_start", "type": "start", "position": { "x": 200, "y": 78 } },
     {
       "id": "P2.1",
       "name": "Greet and assist customer",
@@ -84,12 +84,12 @@
         "pain_points": ["Bag shortage", "Loyalty sign-up time"]
       }
     },
-    { "id": "R2_end", "type": "end", "position": { "x": 1500, "y": 78 } }
+    { "id": "S2_end", "type": "end", "position": { "x": 1500, "y": 78 } }
   ],
   "edges": [
-    { "from": "R2_start", "to": "P2.1", "label": "Start" },
+    { "from": "S2_start", "to": "P2.1", "label": "Start" },
     { "from": "P2.1", "to": "P2.2", "label": "Ready to pay" },
     { "from": "P2.2", "to": "P2.3", "label": "Payment done" },
-    { "from": "P2.3", "to": "R2_end", "label": "Complete" }
+    { "from": "P2.3", "to": "S2_end", "label": "Complete" }
   ]
 }
