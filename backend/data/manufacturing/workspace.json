@@ -1,0 +1,25 @@
+{
+  "format_version": "1.0",
+  "workspace_id": "ws_manufacturing",
+  "name": "Manufacturing",
+  "process_tree": {
+    "root": "global",
+    "processes": {
+      "global": {
+        "name": "Manufacturing flow",
+        "depth": 0,
+        "path": "/global",
+        "children": [],
+        "graph_file": "global.json",
+        "owner": "Operations",
+        "category": "production",
+        "criticality": "high",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      }
+    }
+  },
+  "cross_links": [],
+  "tags": {
+    "production": ["global"]
+  }
+}

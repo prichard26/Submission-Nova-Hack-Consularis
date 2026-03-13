@@ -1,0 +1,123 @@
+{
+  "id": "P1",
+  "name": "Dispatch & Booking",
+  "nodes": [
+    { "id": "P1_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P1.1",
+      "name": "Take call and log",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Dispatcher",
+        "duration_min": "5–15 min",
+        "description": "Record customer, address, issue (leak, blockage, no hot water, etc.), urgency and contact.",
+        "inputs": ["Customer call", "Address", "Issue type"],
+        "outputs": ["Job ticket", "Priority", "Callback number"],
+        "risks": ["Missed call", "Wrong address", "Emergency misclassified"],
+        "automation_potential": "high",
+        "automation_notes": "Call logging, CRM, online booking form",
+        "current_state": "semi_automated",
+        "frequency": "15/day",
+        "annual_volume": "3900",
+        "error_rate_percent": "4.5",
+        "cost_per_execution": "14.00 EUR",
+        "current_systems": ["Phone", "CRM", "Booking form"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Emergency callback within 1 hr",
+        "pain_points": ["Peak calls", "After-hours"]
+      }
+    },
+    {
+      "id": "P1.2",
+      "name": "Assign and schedule",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Dispatcher",
+        "duration_min": "5–10 min",
+        "description": "Assign plumber by area and skill, set time window, confirm with customer.",
+        "inputs": ["Job ticket", "Technician availability", "Parts on van"],
+        "outputs": ["Scheduled job", "Customer confirmation", "Plumber notified"],
+        "risks": ["Double book", "Wrong tech", "No-show"],
+        "automation_potential": "high",
+        "automation_notes": "Scheduling software, GPS, SMS/email confirmation",
+        "current_state": "semi_automated",
+        "frequency": "12/day",
+        "annual_volume": "3120",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "9.00 EUR",
+        "current_systems": ["Scheduling app", "SMS", "Calendar"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Same-day or next-day slot for urgent",
+        "pain_points": ["Tech availability", "Customer window"]
+      }
+    },
+    {
+      "id": "P1.3",
+      "name": "Brief plumber",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Dispatcher / plumber",
+        "duration_min": "2–5 min",
+        "description": "Share job details, access instructions, history; load van if special parts needed.",
+        "inputs": ["Job ticket", "Customer notes", "Parts list"],
+        "outputs": ["Plumber briefed", "Van stocked"],
+        "risks": ["Missing info", "Wrong parts", "Access not shared"],
+        "automation_potential": "medium",
+        "automation_notes": "Mobile job sheet, parts checklist",
+        "current_state": "semi_automated",
+        "frequency": "12/day",
+        "annual_volume": "3120",
+        "error_rate_percent": "3.5",
+        "cost_per_execution": "5.00 EUR",
+        "current_systems": ["Job app", "Van stock"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Brief before departure",
+        "pain_points": ["Last-minute add-ons", "Van stock accuracy"]
+      }
+    },
+    {
+      "id": "P1.4",
+      "name": "En route and ETA",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Plumber",
+        "duration_min": "Ongoing",
+        "description": "Drive to job; update ETA in system; customer may get automated ETA message.",
+        "inputs": ["Job address", "Traffic", "ETA tool"],
+        "outputs": ["ETA updated", "Customer notified"],
+        "risks": ["Late arrival", "Wrong address", "Customer not home"],
+        "automation_potential": "high",
+        "automation_notes": "GPS ETA, automated SMS, arrival check-in",
+        "current_state": "semi_automated",
+        "frequency": "12/day",
+        "annual_volume": "3120",
+        "error_rate_percent": "5.0",
+        "cost_per_execution": "12.00 EUR",
+        "current_systems": ["GPS", "SMS", "Job app"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "ETA within 30 min window",
+        "pain_points": ["Traffic", "Multiple jobs same area"]
+      }
+    },
+    { "id": "P1_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "P1_start", "to": "P1.1", "label": "Start" },
+    { "from": "P1.1", "to": "P1.2", "label": "Logged" },
+    { "from": "P1.2", "to": "P1.3", "label": "Scheduled" },
+    { "from": "P1.3", "to": "P1.4", "label": "Briefed" },
+    { "from": "P1.4", "to": "P1_end", "label": "Complete" }
+  ]
+}

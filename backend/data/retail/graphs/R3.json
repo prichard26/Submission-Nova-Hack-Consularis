@@ -1,0 +1,123 @@
+{
+  "id": "R3",
+  "name": "Receiving & Delivery",
+  "nodes": [
+    { "id": "R3_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P3.1",
+      "name": "Receive delivery at dock",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Receiving staff",
+        "duration_min": "15–30 min",
+        "description": "Unload truck, verify shipment against ASN or PO, note damages or shortages.",
+        "inputs": ["Delivery", "Purchase order", "ASN"],
+        "outputs": ["Receiving report", "Damage/shortage note"],
+        "risks": ["Wrong count", "Damage missed", "PO mismatch"],
+        "automation_potential": "medium",
+        "automation_notes": "Mobile receive app, barcode match to PO",
+        "current_state": "semi_automated",
+        "frequency": "5/week",
+        "annual_volume": "260",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "35.00 EUR",
+        "current_systems": ["WMS or POS", "Handheld"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Supplier ASN", "Carrier"],
+        "regulatory_constraints": [],
+        "sla_target": "Unload and verify within 2 hr of arrival",
+        "pain_points": ["No ASN", "Paper PO only"]
+      }
+    },
+    {
+      "id": "P3.2",
+      "name": "Inspect and quality check",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Receiving staff",
+        "duration_min": "10–20 min",
+        "description": "Spot-check items for quality and correctness; flag defects for return or credit.",
+        "inputs": ["Received goods", "Quality criteria"],
+        "outputs": ["Inspection result", "Accept/return list"],
+        "risks": ["Defect escape", "Over-reject", "No documentation"],
+        "automation_potential": "low",
+        "automation_notes": "Checklist apps, photo documentation",
+        "current_state": "manual",
+        "frequency": "5/week",
+        "annual_volume": "260",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "18.00 EUR",
+        "current_systems": ["Checklist", "Camera"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Inspect same day as receive",
+        "pain_points": ["Vague criteria", "Supplier dispute"]
+      }
+    },
+    {
+      "id": "P3.3",
+      "name": "Enter into system",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Receiving staff",
+        "duration_min": "5–15 min",
+        "description": "Record received quantities in WMS or POS; trigger inventory update and supplier notification.",
+        "inputs": ["Receiving report", "PO"],
+        "outputs": ["Updated inventory", "Supplier confirmation"],
+        "risks": ["Keying error", "Duplicate receive", "Wrong SKU"],
+        "automation_potential": "high",
+        "automation_notes": "Scan-to-receive, EDI receive confirmation",
+        "current_state": "semi_automated",
+        "frequency": "5/week",
+        "annual_volume": "260",
+        "error_rate_percent": "1.5",
+        "cost_per_execution": "8.00 EUR",
+        "current_systems": ["WMS", "POS", "EDI"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Supplier EDI"],
+        "regulatory_constraints": [],
+        "sla_target": "System update within 4 hr",
+        "pain_points": ["Manual entry", "No EDI for some suppliers"]
+      }
+    },
+    {
+      "id": "P3.4",
+      "name": "Put away or stage",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Store staff",
+        "duration_min": "20–60 min",
+        "description": "Move goods to back room, cold storage, or sales floor; update location in system.",
+        "inputs": ["Received goods", "Planogram", "Space availability"],
+        "outputs": ["Stock in location", "Ready for sale"],
+        "risks": ["Wrong location", "Cold chain break", "Not updated in system"],
+        "automation_potential": "medium",
+        "automation_notes": "Put-to-light, directed putaway",
+        "current_state": "manual",
+        "frequency": "5/week",
+        "annual_volume": "260",
+        "error_rate_percent": "2.5",
+        "cost_per_execution": "42.00 EUR",
+        "current_systems": ["WMS", "Handheld"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Cold chain if applicable"],
+        "sla_target": "Put away same day",
+        "pain_points": ["Floor space", "Planogram changes"]
+      }
+    },
+    { "id": "R3_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "R3_start", "to": "P3.1", "label": "Start" },
+    { "from": "P3.1", "to": "P3.2", "label": "Received" },
+    { "from": "P3.2", "to": "P3.3", "label": "Checked" },
+    { "from": "P3.3", "to": "P3.4", "label": "Entered" },
+    { "from": "P3.4", "to": "R3_end", "label": "Complete" }
+  ]
+}

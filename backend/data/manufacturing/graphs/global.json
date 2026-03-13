@@ -1,0 +1,95 @@
+{
+  "id": "global",
+  "name": "Manufacturing flow",
+  "nodes": [
+    { "id": "global_start", "type": "start", "position": { "x": 200, "y": 80 } },
+    {
+      "id": "P1.1",
+      "name": "Receive materials",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Receiving / warehouse",
+        "duration_min": "20–60 min",
+        "description": "Unload delivery, verify against PO, inspect for damage; put away and update inventory.",
+        "inputs": ["Delivery", "Purchase order", "Specs"],
+        "outputs": ["Received goods", "GRN", "Updated stock"],
+        "risks": ["Short shipment", "Wrong part", "Damage"],
+        "automation_potential": "medium",
+        "automation_notes": "Scan-to-receive, ASN match, putaway rules",
+        "current_state": "semi_automated",
+        "frequency": "40/day",
+        "annual_volume": "10400",
+        "error_rate_percent": "2.2",
+        "cost_per_execution": "25.00 EUR",
+        "current_systems": ["ERP", "WMS", "Scale"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Supplier ASN", "Quality specs"],
+        "regulatory_constraints": ["Material traceability"],
+        "sla_target": "Receive within 4 hr of arrival",
+        "pain_points": ["Paper PO mismatch", "No ASN from some suppliers"]
+      }
+    },
+    {
+      "id": "P1.2",
+      "name": "Assemble",
+      "type": "step",
+      "position": { "x": 600, "y": 44 },
+      "attributes": {
+        "actor": "Assembly operator",
+        "duration_min": "15–45 min per unit",
+        "description": "Build product per work order; follow BOM and work instructions; record labour and component usage.",
+        "inputs": ["Work order", "BOM", "Components", "Work instructions"],
+        "outputs": ["Assembled unit", "Labour record", "Component consumption"],
+        "risks": ["Wrong part", "Skip step", "Rework"],
+        "automation_potential": "high",
+        "automation_notes": "Digital work instructions, barcode scan, torque verification",
+        "current_state": "manual",
+        "frequency": "120/day",
+        "annual_volume": "31200",
+        "error_rate_percent": "1.5",
+        "cost_per_execution": "18.00 EUR",
+        "current_systems": ["MES", "ERP", "Tooling"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Traceability", "Calibration"],
+        "sla_target": "Cycle time per standard",
+        "pain_points": ["Rework loop", "Missing parts mid-assembly"]
+      }
+    },
+    {
+      "id": "P1.3",
+      "name": "Quality check",
+      "type": "step",
+      "position": { "x": 800, "y": 44 },
+      "attributes": {
+        "actor": "QC inspector",
+        "duration_min": "5–15 min per unit",
+        "description": "Inspect or test unit against spec; pass/fail; record defects; quarantine or release.",
+        "inputs": ["Finished unit", "Quality spec", "Test equipment"],
+        "outputs": ["Inspection result", "First pass yield", "Defect log"],
+        "risks": ["Escape defect", "False reject", "Calibration drift"],
+        "automation_potential": "high",
+        "automation_notes": "Automated test, vision inspection, SPC",
+        "current_state": "semi_automated",
+        "frequency": "120/day",
+        "annual_volume": "31200",
+        "error_rate_percent": "0.8",
+        "cost_per_execution": "6.50 EUR",
+        "current_systems": ["QMS", "Test rig", "Calibration log"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": ["ISO 9001", "Customer audit"],
+        "sla_target": "First pass yield ≥ 98%",
+        "pain_points": ["Bottleneck in peak", "Vague acceptance criteria"]
+      }
+    },
+    { "id": "global_end", "type": "end", "position": { "x": 1000, "y": 80 } }
+  ],
+  "edges": [
+    { "from": "global_start", "to": "P1.1", "label": "Start" },
+    { "from": "P1.1", "to": "P1.2", "label": "Materials received" },
+    { "from": "P1.2", "to": "P1.3", "label": "Assembled" },
+    { "from": "P1.3", "to": "global_end", "label": "Complete" }
+  ]
+}

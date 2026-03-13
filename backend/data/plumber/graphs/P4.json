@@ -1,0 +1,95 @@
+{
+  "id": "P4",
+  "name": "Parts & Invoicing",
+  "nodes": [
+    { "id": "P4_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P4.1",
+      "name": "Record parts and labour",
+      "type": "step",
+      "position": { "x": 500, "y": 44 },
+      "attributes": {
+        "actor": "Plumber / office",
+        "duration_min": "10–15 min",
+        "description": "Transfer parts used and labour time from job sheet to billing; apply rates.",
+        "inputs": ["Job sheet", "Parts used", "Time on job", "Rate card"],
+        "outputs": ["Invoice line items", "Labour total", "Parts total"],
+        "risks": ["Wrong parts", "Time error", "Rate mistake"],
+        "automation_potential": "high",
+        "automation_notes": "Job-to-invoice sync, van stock deduction, timesheet import",
+        "current_state": "semi_automated",
+        "frequency": "10/day",
+        "annual_volume": "2600",
+        "error_rate_percent": "3.5",
+        "cost_per_execution": "18.00 EUR",
+        "current_systems": ["Job software", "Rate card", "Accounting"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": ["VAT", "Invoicing"],
+        "sla_target": "Invoice within 24 hr of completion",
+        "pain_points": ["Time entry", "Parts pricing"]
+      }
+    },
+    {
+      "id": "P4.2",
+      "name": "Send invoice and collect payment",
+      "type": "step",
+      "position": { "x": 850, "y": 44 },
+      "attributes": {
+        "actor": "Office",
+        "duration_min": "2–10 min",
+        "description": "Issue invoice (email or paper); take payment on site or follow up; record payment.",
+        "inputs": ["Invoice", "Customer", "Payment method"],
+        "outputs": ["Invoice sent", "Payment received", "Receipt"],
+        "risks": ["Wrong amount", "Late payment", "Dispute"],
+        "automation_potential": "high",
+        "automation_notes": "Email invoice, card on site, payment link, auto receipt",
+        "current_state": "semi_automated",
+        "frequency": "10/day",
+        "annual_volume": "2600",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "5.00 EUR",
+        "current_systems": ["Accounting", "Card terminal", "Payment link"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Payment processor"],
+        "regulatory_constraints": ["VAT receipt"],
+        "sla_target": "Payment on completion or within 14 days",
+        "pain_points": ["Chase payment", "Cash handling"]
+      }
+    },
+    {
+      "id": "P4.3",
+      "name": "Close job and restock",
+      "type": "step",
+      "position": { "x": 1200, "y": 44 },
+      "attributes": {
+        "actor": "Office / plumber",
+        "duration_min": "5–10 min",
+        "description": "Mark job complete; update van stock; file certificate; set warranty or service reminder.",
+        "inputs": ["Paid invoice", "Completion sheet", "Van stock"],
+        "outputs": ["Job closed", "Stock updated", "Warranty logged"],
+        "risks": ["Stock not updated", "Certificate lost", "Warranty missed"],
+        "automation_potential": "high",
+        "automation_notes": "CRM close, inventory sync, warranty reminder",
+        "current_state": "semi_automated",
+        "frequency": "10/day",
+        "annual_volume": "2600",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "7.00 EUR",
+        "current_systems": ["CRM", "Van stock", "Warranty log"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Close within 48 hr of payment",
+        "pain_points": ["Van stock accuracy", "Certificate filing"]
+      }
+    },
+    { "id": "P4_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "P4_start", "to": "P4.1", "label": "Start" },
+    { "from": "P4.1", "to": "P4.2", "label": "Invoice ready" },
+    { "from": "P4.2", "to": "P4.3", "label": "Paid" },
+    { "from": "P4.3", "to": "P4_end", "label": "Complete" }
+  ]
+}

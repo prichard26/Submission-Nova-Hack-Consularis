@@ -7,7 +7,7 @@ import BotFace from './BotFace'
 import ModelPicker from './ModelPicker'
 import './AureliusChat.css'
 
-export const WELCOME_MSG = "Here you're looking at an example process graph. I can help you understand it—which steps do what, who is responsible, how the flow runs—and modify it: add or remove steps, change actors or durations, connect or disconnect flows, and add subprocesses. Describe what you see, ask questions, or tell me what you'd like to change, and I'll update the graph accordingly."
+export const WELCOME_MSG = "This is your process graph. I can explain steps, actors, and flow—and edit it: add or remove steps, change actors or durations, rewire flows, add subprocesses. Say what you want to change and I’ll update the graph."
 
 const MIN_INPUT_ROWS = 1
 const MAX_INPUT_ROWS = 8

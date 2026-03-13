@@ -56,7 +56,7 @@ def init_baseline() -> None:
     if not BASELINE_WORKSPACE_PATH.exists():
         raise FileNotFoundError(
             f"Workspace manifest not found: {BASELINE_WORKSPACE_PATH}. "
-            "Run `python -m scripts.migrate_bpmn_to_json` first."
+            "Ensure data/<BASELINE_TEMPLATE>/workspace.json and graphs/ exist (e.g. data/pharmacy/)."
         )
     db.seed_baseline(BASELINE_WORKSPACE_PATH, BASELINE_GRAPHS_DIR)
 

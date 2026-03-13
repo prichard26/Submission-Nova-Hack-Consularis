@@ -1,0 +1,95 @@
+{
+  "id": "R2",
+  "name": "Sales Floor",
+  "nodes": [
+    { "id": "R2_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P2.1",
+      "name": "Greet and assist customer",
+      "type": "step",
+      "position": { "x": 450, "y": 44 },
+      "attributes": {
+        "actor": "Sales associate",
+        "duration_min": "2–10 min",
+        "description": "Welcome customer, identify needs, show products and answer questions.",
+        "inputs": ["Customer", "Product knowledge", "Promotions"],
+        "outputs": ["Selection intent", "Basket"],
+        "risks": ["Wrong recommendation", "Missed upsell", "Long wait"],
+        "automation_potential": "low",
+        "automation_notes": "Kiosks, product recommender screens",
+        "current_state": "manual",
+        "frequency": "150/day",
+        "annual_volume": "45000",
+        "error_rate_percent": "N/A",
+        "cost_per_execution": "2.50 EUR",
+        "current_systems": ["POS", "Promo displays"],
+        "data_format": "unstructured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Greet within 30 sec",
+        "pain_points": ["Peak staffing", "Product knowledge gaps"]
+      }
+    },
+    {
+      "id": "P2.2",
+      "name": "Ring up sale",
+      "type": "step",
+      "position": { "x": 800, "y": 44 },
+      "attributes": {
+        "actor": "Cashier",
+        "duration_min": "2–5 min",
+        "description": "Scan items, apply discounts, process payment (card, cash, mobile), print receipt.",
+        "inputs": ["Basket", "Payment", "Loyalty card"],
+        "outputs": ["Receipt", "Updated inventory", "Sales record"],
+        "risks": ["Scan error", "Payment decline", "Shrinkage"],
+        "automation_potential": "high",
+        "automation_notes": "Self-checkout, mobile POS, contactless",
+        "current_state": "semi_automated",
+        "frequency": "140/day",
+        "annual_volume": "42000",
+        "error_rate_percent": "1.2",
+        "cost_per_execution": "1.80 EUR",
+        "current_systems": ["POS", "Payment terminal"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Payment processor"],
+        "regulatory_constraints": ["PCI-DSS"],
+        "sla_target": "Queue < 5 min peak",
+        "pain_points": ["Line length", "Manual discounts"]
+      }
+    },
+    {
+      "id": "P2.3",
+      "name": "Bag and hand off",
+      "type": "step",
+      "position": { "x": 1150, "y": 44 },
+      "attributes": {
+        "actor": "Cashier",
+        "duration_min": "1–2 min",
+        "description": "Bag items, offer receipt and loyalty summary, thank customer.",
+        "inputs": ["Sold items", "Receipt"],
+        "outputs": ["Completed sale"],
+        "risks": ["Wrong bag", "Forgotten item", "Receipt not offered"],
+        "automation_potential": "low",
+        "automation_notes": "Bagging area, receipt email option",
+        "current_state": "manual",
+        "frequency": "140/day",
+        "annual_volume": "42000",
+        "error_rate_percent": "0.5",
+        "cost_per_execution": "0.40 EUR",
+        "current_systems": ["POS"],
+        "data_format": "unstructured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Complete within 2 min of payment",
+        "pain_points": ["Bag shortage", "Loyalty sign-up time"]
+      }
+    },
+    { "id": "R2_end", "type": "end", "position": { "x": 1500, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "R2_start", "to": "P2.1", "label": "Start" },
+    { "from": "P2.1", "to": "P2.2", "label": "Ready to pay" },
+    { "from": "P2.2", "to": "P2.3", "label": "Payment done" },
+    { "from": "P2.3", "to": "R2_end", "label": "Complete" }
+  ]
+}

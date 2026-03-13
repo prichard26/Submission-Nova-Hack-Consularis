@@ -1,0 +1,19 @@
+{
+  "id": "global",
+  "name": "Plumbing job lifecycle",
+  "nodes": [
+    { "id": "global_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "P1", "name": "Dispatch & Booking", "type": "subprocess", "position": { "x": 400, "y": 44 } },
+    { "id": "P2", "name": "Diagnose", "type": "subprocess", "position": { "x": 700, "y": 44 } },
+    { "id": "P3", "name": "Repair & Install", "type": "subprocess", "position": { "x": 1000, "y": 44 } },
+    { "id": "P4", "name": "Parts & Invoicing", "type": "subprocess", "position": { "x": 1300, "y": 44 } },
+    { "id": "global_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "global_start", "to": "P1", "label": "Start" },
+    { "from": "P1", "to": "P2", "label": "Job booked" },
+    { "from": "P2", "to": "P3", "label": "Diagnosis done" },
+    { "from": "P3", "to": "P4", "label": "Work complete" },
+    { "from": "P4", "to": "global_end", "label": "Complete" }
+  ]
+}

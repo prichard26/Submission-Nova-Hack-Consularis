@@ -1,0 +1,123 @@
+{
+  "id": "P3",
+  "name": "Repair & Install",
+  "nodes": [
+    { "id": "P3_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P3.1",
+      "name": "Isolate and prep",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Plumber",
+        "duration_min": "5–15 min",
+        "description": "Turn off water or drain as needed; protect work area; gather tools and parts.",
+        "inputs": ["Scope", "Stopcock location", "Parts"],
+        "outputs": ["Water off", "Area ready", "Tools laid out"],
+        "risks": ["Wrong isolation", "Damage", "Customer unprepared"],
+        "automation_potential": "low",
+        "automation_notes": "Job checklist, before photos",
+        "current_state": "manual",
+        "frequency": "10/day",
+        "annual_volume": "2600",
+        "error_rate_percent": "1.0",
+        "cost_per_execution": "12.00 EUR",
+        "current_systems": ["Checklist", "Tools"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Safe prep before work",
+        "pain_points": ["Stopcock not found", "Access"]
+      }
+    },
+    {
+      "id": "P3.2",
+      "name": "Carry out repair or install",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Plumber",
+        "duration_min": "30 min – 3 hr",
+        "description": "Replace or repair pipe, fixture, boiler component, or clear blockage; comply with regs.",
+        "inputs": ["Approved scope", "Parts", "Regulations"],
+        "outputs": ["Work done", "Photos", "Waste removed"],
+        "risks": ["Leak after repair", "Code violation", "Rework"],
+        "automation_potential": "low",
+        "automation_notes": "Time tracking, photo documentation, compliance checklist",
+        "current_state": "manual",
+        "frequency": "10/day",
+        "annual_volume": "2600",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "95.00 EUR",
+        "current_systems": ["Tools", "Timer", "Camera"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Building regs", "Gas safe if applicable"],
+        "sla_target": "Complete per quoted scope",
+        "pain_points": ["Unexpected conditions", "Parts fit"]
+      }
+    },
+    {
+      "id": "P3.3",
+      "name": "Test and commission",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Plumber",
+        "duration_min": "10–20 min",
+        "description": "Turn water back on, test for leaks and flow; commission boiler if applicable; show customer.",
+        "inputs": ["Completed work", "Test equipment", "Customer"],
+        "outputs": ["Test passed", "System working", "Customer shown"],
+        "risks": ["Leak missed", "Boiler fault", "Customer not satisfied"],
+        "automation_potential": "medium",
+        "automation_notes": "Test certificate, boiler commissioning record",
+        "current_state": "manual",
+        "frequency": "10/day",
+        "annual_volume": "2600",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "28.00 EUR",
+        "current_systems": ["Test equipment", "Certificate", "Commissioning sheet"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Gas safe record", "Building control"],
+        "sla_target": "Test before handover",
+        "pain_points": ["Certificate paperwork", "Customer demo"]
+      }
+    },
+    {
+      "id": "P3.4",
+      "name": "Sign off and clean",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Plumber",
+        "duration_min": "5–10 min",
+        "description": "Get customer signature on completion; clean up; note any warranty or follow-up.",
+        "inputs": ["Job sheet", "Customer", "Warranty info"],
+        "outputs": ["Signed completion", "Site clean", "Ready for invoice"],
+        "risks": ["Missing signature", "Complaint", "Debris left"],
+        "automation_potential": "high",
+        "automation_notes": "Digital sign-off, job close in app",
+        "current_state": "semi_automated",
+        "frequency": "10/day",
+        "annual_volume": "2600",
+        "error_rate_percent": "1.5",
+        "cost_per_execution": "10.00 EUR",
+        "current_systems": ["Job app", "E-sign"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Sign-off same day",
+        "pain_points": ["Customer not available", "Paper completion"]
+      }
+    },
+    { "id": "P3_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "P3_start", "to": "P3.1", "label": "Start" },
+    { "from": "P3.1", "to": "P3.2", "label": "Ready" },
+    { "from": "P3.2", "to": "P3.3", "label": "Done" },
+    { "from": "P3.3", "to": "P3.4", "label": "Tested" },
+    { "from": "P3.4", "to": "P3_end", "label": "Complete" }
+  ]
+}

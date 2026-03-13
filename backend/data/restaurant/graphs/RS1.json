@@ -1,0 +1,95 @@
+{
+  "id": "RS1",
+  "name": "Reservations & Welcome",
+  "nodes": [
+    { "id": "RS1_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P1.1",
+      "name": "Take reservation",
+      "type": "step",
+      "position": { "x": 450, "y": 44 },
+      "attributes": {
+        "actor": "Host / reception",
+        "duration_min": "2–5 min",
+        "description": "Record party size, date, time, and contact; confirm table availability in system.",
+        "inputs": ["Customer call or online", "Table plan", "Capacity"],
+        "outputs": ["Reservation", "Confirmation sent"],
+        "risks": ["Double book", "No-show", "Wrong time"],
+        "automation_potential": "high",
+        "automation_notes": "Online booking, table management software, SMS reminders",
+        "current_state": "semi_automated",
+        "frequency": "80/day",
+        "annual_volume": "24000",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "1.20 EUR",
+        "current_systems": ["Reservation system", "Phone", "Table map"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Booking platform"],
+        "regulatory_constraints": [],
+        "sla_target": "Seat within 5–15 min of reservation",
+        "pain_points": ["Walk-ins vs reserved", "Table mix"]
+      }
+    },
+    {
+      "id": "P1.2",
+      "name": "Greet and seat",
+      "type": "step",
+      "position": { "x": 800, "y": 44 },
+      "attributes": {
+        "actor": "Host",
+        "duration_min": "1–3 min",
+        "description": "Welcome guests, check reservation, assign table, hand menu and notify server.",
+        "inputs": ["Guests", "Reservation", "Table status"],
+        "outputs": ["Seated party", "Server assigned"],
+        "risks": ["Wrong table", "Server not notified", "Long wait"],
+        "automation_potential": "low",
+        "automation_notes": "Tablet seating map, server assignment app",
+        "current_state": "manual",
+        "frequency": "75/day",
+        "annual_volume": "22500",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "0.80 EUR",
+        "current_systems": ["Table map", "POS"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Seat within 5 min of arrival",
+        "pain_points": ["Peak congestion", "Special requests"]
+      }
+    },
+    {
+      "id": "P1.3",
+      "name": "Initial drinks and order",
+      "type": "step",
+      "position": { "x": 1150, "y": 44 },
+      "attributes": {
+        "actor": "Server",
+        "duration_min": "3–8 min",
+        "description": "Take drink order, deliver drinks, present specials, take food order and send to kitchen.",
+        "inputs": ["Menu", "Specials", "Dietary info"],
+        "outputs": ["Order ticket", "Kitchen notified"],
+        "risks": ["Wrong order", "Allergy missed", "Delay to kitchen"],
+        "automation_potential": "high",
+        "automation_notes": "POS order entry, kitchen display system, tableside ordering",
+        "current_state": "semi_automated",
+        "frequency": "75/day",
+        "annual_volume": "22500",
+        "error_rate_percent": "4.5",
+        "cost_per_execution": "2.50 EUR",
+        "current_systems": ["POS", "KDS"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Allergen disclosure"],
+        "sla_target": "Order to kitchen within 15 min of seating",
+        "pain_points": ["Modifications", "86 items"]
+      }
+    },
+    { "id": "RS1_end", "type": "end", "position": { "x": 1500, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "RS1_start", "to": "P1.1", "label": "Start" },
+    { "from": "P1.1", "to": "P1.2", "label": "Reserved" },
+    { "from": "P1.2", "to": "P1.3", "label": "Seated" },
+    { "from": "P1.3", "to": "RS1_end", "label": "Complete" }
+  ]
+}

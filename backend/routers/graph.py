@@ -65,7 +65,7 @@ def api_workspace(
         if "No workspace manifest found" in str(e):
             raise HTTPException(
                 status_code=503,
-                detail="Workspace not ready. Ensure backend/data/workspace.json exists and retry.",
+                detail="Workspace not ready. Ensure backend/data/pharmacy/workspace.json (or BASELINE_TEMPLATE dir) exists and retry.",
             ) from e
         raise
     return Response(content=ws_json, media_type="application/json")

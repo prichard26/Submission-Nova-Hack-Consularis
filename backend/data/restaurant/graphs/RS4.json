@@ -1,0 +1,95 @@
+{
+  "id": "RS4",
+  "name": "Closing & Handover",
+  "nodes": [
+    { "id": "RS4_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P4.1",
+      "name": "Close out register and tips",
+      "type": "step",
+      "position": { "x": 500, "y": 44 },
+      "attributes": {
+        "actor": "Server / manager",
+        "duration_min": "10–20 min",
+        "description": "Reconcile cash and card sales, complete tip declarations, run end-of-day report.",
+        "inputs": ["POS summary", "Cash drawer", "Tip records"],
+        "outputs": ["Daily sales report", "Tip payout", "Deposit"],
+        "risks": ["Drawer short/over", "Tip dispute", "Report error"],
+        "automation_potential": "high",
+        "automation_notes": "Auto close-out, tip allocation, bank deposit slip",
+        "current_state": "semi_automated",
+        "frequency": "1/day",
+        "annual_volume": "365",
+        "error_rate_percent": "1.0",
+        "cost_per_execution": "25.00 EUR",
+        "current_systems": ["POS", "Bank"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Payment processor"],
+        "regulatory_constraints": ["Tax reporting", "Tip declaration"],
+        "sla_target": "Close within 30 min of last guest",
+        "pain_points": ["Cash variance", "Tip reporting"]
+      }
+    },
+    {
+      "id": "P4.2",
+      "name": "Kitchen and dining cleanup",
+      "type": "step",
+      "position": { "x": 850, "y": 44 },
+      "attributes": {
+        "actor": "Kitchen and FOH staff",
+        "duration_min": "30–60 min",
+        "description": "Break down line, clean equipment, mop, take out trash, lock coolers.",
+        "inputs": ["Closing checklist", "Health standards"],
+        "outputs": ["Clean kitchen", "Equipment off", "Waste disposed"],
+        "risks": ["Incomplete clean", "Equipment left on", "Pest"],
+        "automation_potential": "low",
+        "automation_notes": "Closing checklist app, temp logs",
+        "current_state": "manual",
+        "frequency": "1/day",
+        "annual_volume": "365",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "120.00 EUR",
+        "current_systems": ["Checklist", "Temp log"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Health inspection", "Food safety"],
+        "sla_target": "Complete within 60 min of close",
+        "pain_points": ["Staff turnover", "Checklist compliance"]
+      }
+    },
+    {
+      "id": "P4.3",
+      "name": "Handover and secure",
+      "type": "step",
+      "position": { "x": 1200, "y": 44 },
+      "attributes": {
+        "actor": "Manager",
+        "duration_min": "5–15 min",
+        "description": "Lock doors, set alarm, hand keys to opener or leave secure; file incident or variance notes.",
+        "inputs": ["Alarm code", "Key log", "Incident log"],
+        "outputs": ["Building secure", "Handover note"],
+        "risks": ["Alarm not set", "Key loss", "Incident unreported"],
+        "automation_potential": "medium",
+        "automation_notes": "Alarm app, digital handover log",
+        "current_state": "manual",
+        "frequency": "1/day",
+        "annual_volume": "365",
+        "error_rate_percent": "0.5",
+        "cost_per_execution": "15.00 EUR",
+        "current_systems": ["Alarm", "Key log"],
+        "data_format": "mixed",
+        "external_dependencies": ["Security provider"],
+        "regulatory_constraints": [],
+        "sla_target": "Secure within 15 min of cleanup done",
+        "pain_points": ["Key handover", "Incident documentation"]
+      }
+    },
+    { "id": "RS4_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "RS4_start", "to": "P4.1", "label": "Start" },
+    { "from": "P4.1", "to": "P4.2", "label": "Closed out" },
+    { "from": "P4.2", "to": "P4.3", "label": "Cleaned" },
+    { "from": "P4.3", "to": "RS4_end", "label": "Complete" }
+  ]
+}

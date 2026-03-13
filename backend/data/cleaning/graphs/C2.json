@@ -1,0 +1,123 @@
+{
+  "id": "C2",
+  "name": "On-site Clean",
+  "nodes": [
+    { "id": "C2_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P2.1",
+      "name": "Arrive and access",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Cleaner",
+        "duration_min": "2–5 min",
+        "description": "Arrive within window, gain access (key, code, customer); note any changes or hazards.",
+        "inputs": ["Job sheet", "Access details", "Site"],
+        "outputs": ["On site", "Check-in logged"],
+        "risks": ["No access", "Wrong address", "Hazard not reported"],
+        "automation_potential": "high",
+        "automation_notes": "GPS check-in, photo on arrival, access app",
+        "current_state": "semi_automated",
+        "frequency": "18/day",
+        "annual_volume": "4680",
+        "error_rate_percent": "5.0",
+        "cost_per_execution": "3.00 EUR",
+        "current_systems": ["Crew app", "GPS", "Access app"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Arrive within 30 min window",
+        "pain_points": ["Customer not home", "Code change"]
+      }
+    },
+    {
+      "id": "P2.2",
+      "name": "Execute checklist",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Cleaner",
+        "duration_min": "45–120 min",
+        "description": "Work through room-by-room or task checklist: dust, vacuum, mop, sanitize, bins, beds, bathroom, kitchen.",
+        "inputs": ["Checklist", "Products", "Equipment"],
+        "outputs": ["Tasks done", "Photos if required", "Issues noted"],
+        "risks": ["Missed area", "Product damage", "Injury"],
+        "automation_potential": "medium",
+        "automation_notes": "Digital checklist, before/after photos, time per room",
+        "current_state": "manual",
+        "frequency": "18/day",
+        "annual_volume": "4680",
+        "error_rate_percent": "6.0",
+        "cost_per_execution": "65.00 EUR",
+        "current_systems": ["Checklist app", "Products", "Equipment"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Safe use of chemicals"],
+        "sla_target": "Standard clean ~2 hr; deep per quote",
+        "pain_points": ["Scope creep", "Supply run out"]
+      }
+    },
+    {
+      "id": "P2.3",
+      "name": "Quality self-check",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Cleaner",
+        "duration_min": "5–10 min",
+        "description": "Walk through and verify all areas meet standard; touch up if needed; note supplies low.",
+        "inputs": ["Checklist", "Quality standard"],
+        "outputs": ["Self-check done", "Supply request if needed"],
+        "risks": ["Missed spot", "No supply request", "Rush sign-off"],
+        "automation_potential": "low",
+        "automation_notes": "Checklist sign-off, supply request button",
+        "current_state": "manual",
+        "frequency": "18/day",
+        "annual_volume": "4680",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "8.00 EUR",
+        "current_systems": ["Checklist", "Supply app"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Self-check before checkout",
+        "pain_points": ["Time pressure", "Vague standard"]
+      }
+    },
+    {
+      "id": "P2.4",
+      "name": "Lock up and check out",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Cleaner",
+        "duration_min": "2–5 min",
+        "description": "Secure property, set alarm if applicable; log completion and time in app.",
+        "inputs": ["Job sheet", "Alarm code"],
+        "outputs": ["Job complete", "Check-out logged", "Ready for invoice"],
+        "risks": ["Alarm not set", "Door left open", "Wrong time logged"],
+        "automation_potential": "high",
+        "automation_notes": "Check-out in app, automatic job closure",
+        "current_state": "semi_automated",
+        "frequency": "18/day",
+        "annual_volume": "4680",
+        "error_rate_percent": "1.5",
+        "cost_per_execution": "3.00 EUR",
+        "current_systems": ["Crew app", "Alarm"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Check-out within 5 min of finish",
+        "pain_points": ["Alarm code", "Customer key return"]
+      }
+    },
+    { "id": "C2_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "C2_start", "to": "P2.1", "label": "Start" },
+    { "from": "P2.1", "to": "P2.2", "label": "Accessed" },
+    { "from": "P2.2", "to": "P2.3", "label": "Cleaned" },
+    { "from": "P2.3", "to": "P2.4", "label": "Checked" },
+    { "from": "P2.4", "to": "C2_end", "label": "Complete" }
+  ]
+}

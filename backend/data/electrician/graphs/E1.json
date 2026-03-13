@@ -1,0 +1,123 @@
+{
+  "id": "E1",
+  "name": "Quote & Schedule",
+  "nodes": [
+    { "id": "E1_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P1.1",
+      "name": "Receive enquiry",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Office / dispatcher",
+        "duration_min": "5–15 min",
+        "description": "Take call or online request; record address, issue type, urgency, and contact details.",
+        "inputs": ["Customer call", "Address", "Job type"],
+        "outputs": ["Enquiry record", "Priority"],
+        "risks": ["Missed call", "Wrong address", "Urgency misclassified"],
+        "automation_potential": "high",
+        "automation_notes": "Booking form, CRM, callback scheduling",
+        "current_state": "semi_automated",
+        "frequency": "12/day",
+        "annual_volume": "3120",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "18.00 EUR",
+        "current_systems": ["Phone", "CRM", "Booking form"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Callback within 2 hr",
+        "pain_points": ["Peak call volume", "After-hours"]
+      }
+    },
+    {
+      "id": "P1.2",
+      "name": "Prepare quote",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Electrician / estimator",
+        "duration_min": "15–45 min",
+        "description": "Estimate labour and materials from description or site visit; apply rates and create quote.",
+        "inputs": ["Enquiry", "Rate card", "Parts list"],
+        "outputs": ["Quote", "Scope of work"],
+        "risks": ["Underquote", "Wrong scope", "Parts price change"],
+        "automation_potential": "medium",
+        "automation_notes": "Quote templates, pricing database, photo upload",
+        "current_state": "manual",
+        "frequency": "10/day",
+        "annual_volume": "2600",
+        "error_rate_percent": "8.0",
+        "cost_per_execution": "45.00 EUR",
+        "current_systems": ["Spreadsheet", "Rate card", "Supplier catalog"],
+        "data_format": "mixed",
+        "external_dependencies": ["Supplier pricing"],
+        "regulatory_constraints": [],
+        "sla_target": "Quote within 24–48 hr",
+        "pain_points": ["Site unseen", "Scope creep"]
+      }
+    },
+    {
+      "id": "P1.3",
+      "name": "Send quote and confirm",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Office",
+        "duration_min": "5–10 min",
+        "description": "Email or present quote; answer questions; get acceptance and deposit if required.",
+        "inputs": ["Quote", "Customer contact"],
+        "outputs": ["Accepted quote", "Deposit received"],
+        "risks": ["Quote lost", "No response", "Competitor undercut"],
+        "automation_potential": "high",
+        "automation_notes": "E-sign, payment link, automated follow-up",
+        "current_state": "semi_automated",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "8.00 EUR",
+        "current_systems": ["Email", "E-sign", "Payment link"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Follow-up within 48 hr",
+        "pain_points": ["Chase acceptance", "Deposit collection"]
+      }
+    },
+    {
+      "id": "P1.4",
+      "name": "Schedule job",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Dispatcher",
+        "duration_min": "5–10 min",
+        "description": "Assign electrician, set date and time window, send confirmation to customer and tech.",
+        "inputs": ["Accepted job", "Technician availability", "Travel"],
+        "outputs": ["Scheduled job", "Calendar entry", "Customer reminder"],
+        "risks": ["Double book", "Wrong address", "No-show"],
+        "automation_potential": "high",
+        "automation_notes": "Scheduling software, GPS, SMS reminders",
+        "current_state": "semi_automated",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "10.00 EUR",
+        "current_systems": ["Scheduling app", "Calendar", "SMS"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Schedule within 24 hr of acceptance",
+        "pain_points": ["Tech availability", "Customer window"]
+      }
+    },
+    { "id": "E1_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "E1_start", "to": "P1.1", "label": "Start" },
+    { "from": "P1.1", "to": "P1.2", "label": "Logged" },
+    { "from": "P1.2", "to": "P1.3", "label": "Quote ready" },
+    { "from": "P1.3", "to": "P1.4", "label": "Accepted" },
+    { "from": "P1.4", "to": "E1_end", "label": "Complete" }
+  ]
+}

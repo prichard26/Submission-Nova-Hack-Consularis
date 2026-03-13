@@ -1,0 +1,72 @@
+{
+  "format_version": "1.0",
+  "workspace_id": "ws_plumber",
+  "name": "Plumbing Business",
+  "process_tree": {
+    "root": "global",
+    "processes": {
+      "global": {
+        "name": "Plumbing job lifecycle",
+        "depth": 0,
+        "path": "/global",
+        "children": ["P1", "P2", "P3", "P4"],
+        "graph_file": "global.json",
+        "owner": "Office",
+        "category": "operations",
+        "criticality": "high",
+        "summary": { "step_count": 0, "subprocess_count": 4 }
+      },
+      "P1": {
+        "name": "Dispatch & Booking",
+        "depth": 1,
+        "path": "/global/P1",
+        "children": [],
+        "graph_file": "P1.json",
+        "owner": "Office",
+        "category": "sales",
+        "criticality": "high",
+        "summary": { "step_count": 4, "subprocess_count": 0 }
+      },
+      "P2": {
+        "name": "Diagnose",
+        "depth": 1,
+        "path": "/global/P2",
+        "children": [],
+        "graph_file": "P2.json",
+        "owner": "Field",
+        "category": "operations",
+        "criticality": "high",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      },
+      "P3": {
+        "name": "Repair & Install",
+        "depth": 1,
+        "path": "/global/P3",
+        "children": [],
+        "graph_file": "P3.json",
+        "owner": "Field",
+        "category": "production",
+        "criticality": "critical",
+        "summary": { "step_count": 4, "subprocess_count": 0 }
+      },
+      "P4": {
+        "name": "Parts & Invoicing",
+        "depth": 1,
+        "path": "/global/P4",
+        "children": [],
+        "graph_file": "P4.json",
+        "owner": "Office",
+        "category": "finance",
+        "criticality": "high",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      }
+    }
+  },
+  "cross_links": [],
+  "tags": {
+    "operations": ["global", "P2"],
+    "sales": ["P1"],
+    "production": ["P3"],
+    "finance": ["P4"]
+  }
+}

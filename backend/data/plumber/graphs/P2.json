@@ -1,0 +1,95 @@
+{
+  "id": "P2",
+  "name": "Diagnose",
+  "nodes": [
+    { "id": "P2_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P2.1",
+      "name": "Site visit and inspect",
+      "type": "step",
+      "position": { "x": 500, "y": 44 },
+      "attributes": {
+        "actor": "Plumber",
+        "duration_min": "15–45 min",
+        "description": "Attend site, locate issue (pipe, fixture, boiler, drain), check water pressure, drainage, and visible damage.",
+        "inputs": ["Job sheet", "Customer description", "Access"],
+        "outputs": ["Diagnosis", "Photos", "Cause identified"],
+        "risks": ["Wrong diagnosis", "Missed secondary issue", "No access"],
+        "automation_potential": "medium",
+        "automation_notes": "Photo log, diagnostic checklist, camera for drains",
+        "current_state": "manual",
+        "frequency": "12/day",
+        "annual_volume": "3120",
+        "error_rate_percent": "6.0",
+        "cost_per_execution": "42.00 EUR",
+        "current_systems": ["Job app", "Camera", "Drain cam"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Gas safe if boiler"],
+        "sla_target": "Diagnosis same visit when possible",
+        "pain_points": ["Hidden leaks", "Old installations"]
+      }
+    },
+    {
+      "id": "P2.2",
+      "name": "Quote repair and get approval",
+      "type": "step",
+      "position": { "x": 850, "y": 44 },
+      "attributes": {
+        "actor": "Plumber",
+        "duration_min": "10–20 min",
+        "description": "Explain cause and options; give quote for repair or replacement; get customer approval.",
+        "inputs": ["Diagnosis", "Parts and labour estimate", "Customer"],
+        "outputs": ["Approved quote", "Scope of work", "Parts to order if needed"],
+        "risks": ["Price shock", "Scope dispute", "Delay"],
+        "automation_potential": "high",
+        "automation_notes": "Quote app, e-sign, parts lookup",
+        "current_state": "semi_automated",
+        "frequency": "12/day",
+        "annual_volume": "3120",
+        "error_rate_percent": "5.0",
+        "cost_per_execution": "22.00 EUR",
+        "current_systems": ["Quote app", "Rate card", "E-sign"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Quote same visit",
+        "pain_points": ["Customer hesitation", "Competitor quote"]
+      }
+    },
+    {
+      "id": "P2.3",
+      "name": "Order parts or schedule follow-up",
+      "type": "step",
+      "position": { "x": 1200, "y": 44 },
+      "attributes": {
+        "actor": "Plumber / office",
+        "duration_min": "5–15 min",
+        "description": "If parts needed, order and schedule return visit; otherwise proceed to repair.",
+        "inputs": ["Approved scope", "Parts availability", "Supplier"],
+        "outputs": ["Parts order", "Return date", "Or proceed to repair"],
+        "risks": ["Part delay", "Wrong part", "Return visit no-show"],
+        "automation_potential": "high",
+        "automation_notes": "Supplier portal, job reschedule, stock check",
+        "current_state": "semi_automated",
+        "frequency": "5/day",
+        "annual_volume": "1300",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "15.00 EUR",
+        "current_systems": ["Supplier portal", "Scheduling", "Van stock"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Supplier"],
+        "regulatory_constraints": [],
+        "sla_target": "Return within 3–5 days or parts ETA",
+        "pain_points": ["Supplier lead time", "Special order"]
+      }
+    },
+    { "id": "P2_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "P2_start", "to": "P2.1", "label": "Start" },
+    { "from": "P2.1", "to": "P2.2", "label": "Diagnosed" },
+    { "from": "P2.2", "to": "P2.3", "label": "Approved" },
+    { "from": "P2.3", "to": "P2_end", "label": "Complete" }
+  ]
+}

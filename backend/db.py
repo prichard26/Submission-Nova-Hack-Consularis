@@ -208,6 +208,54 @@ def force_clone_baseline_to_session(session_id: str) -> None:
         conn.commit()
 
 
+_DATA_DIR = Path(__file__).resolve().parent / "data"
+# Template IDs loaded from data/<id>/ (pharmacy uses seeded baseline; others use clone_template_to_session)
+TEMPLATE_IDS_FROM_DISK = frozenset({
+    "logistics", "manufacturing", "retail", "restaurant", "electrician", "plumber", "cleaning",
+})
+
+
+def clone_template_to_session(session_id: str, template_id: str) -> None:
+    """Overwrite session with a template from data/<template_id>/ (workspace.json + graphs/, multiple pages). Supports pharmacy, logistics, manufacturing."""
+    if template_id not in TEMPLATE_IDS_FROM_DISK:
+        raise ValueError(f"Unknown template_id: {template_id}")
+    sid = str(session_id).strip()
+    if not sid:
+        return
+    template_dir = _DATA_DIR / template_id
+    workspace_path = template_dir / "workspace.json"
+    graphs_dir = template_dir / "graphs"
+    if not workspace_path.exists() or not graphs_dir.is_dir():
+        raise FileNotFoundError(f"Template not found: {template_id} at {template_dir}")
+    workspace = json.loads(workspace_path.read_text(encoding="utf-8"))
+    processes = workspace.get("process_tree", {}).get("processes", {})
+    graph_rows: list[tuple[str, str, str]] = []
+    for pid, info in processes.items():
+        graph_file = info.get("graph_file")
+        if not graph_file:
+            continue
+        graph_path = graphs_dir / graph_file
+        if not graph_path.exists():
+            raise FileNotFoundError(f"Graph not found: {graph_path}")
+        graph_json = graph_path.read_text(encoding="utf-8")
+        graph_rows.append((sid, pid, graph_json))
+    workspace_json = json.dumps(workspace, ensure_ascii=False)
+    with _conn_lock:
+        conn = get_conn()
+        conn.execute("DELETE FROM session_processes WHERE session_id = ?", (sid,))
+        conn.execute("DELETE FROM session_workspace WHERE session_id = ?", (sid,))
+        for row in graph_rows:
+            conn.execute(
+                "INSERT INTO session_processes (session_id, process_id, graph_json) VALUES (?, ?, ?)",
+                row,
+            )
+        conn.execute(
+            "INSERT INTO session_workspace (session_id, workspace_json) VALUES (?, ?)",
+            (sid, workspace_json),
+        )
+        conn.commit()
+
+
 def _empty_graph_json(session_id: str) -> str:
     """Minimal graph: id, name, nodes, edges (new format). Start and end only, no edge — user or agent adds subprocesses and edges."""
     name = f"{session_id}_map"

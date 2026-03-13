@@ -1,0 +1,95 @@
+{
+  "id": "E4",
+  "name": "Invoicing & Close-out",
+  "nodes": [
+    { "id": "E4_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P4.1",
+      "name": "Build invoice",
+      "type": "step",
+      "position": { "x": 500, "y": 44 },
+      "attributes": {
+        "actor": "Office / electrician",
+        "duration_min": "10–20 min",
+        "description": "Transfer labour hours and materials from job sheet to invoice; add tax and totals.",
+        "inputs": ["Job sheet", "Time log", "Materials used", "Rate card"],
+        "outputs": ["Invoice draft", "Breakdown"],
+        "risks": ["Wrong hours", "Missing materials", "Tax error"],
+        "automation_potential": "high",
+        "automation_notes": "Job-to-invoice sync, auto labour from timesheet",
+        "current_state": "semi_automated",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "22.00 EUR",
+        "current_systems": ["Job software", "Rate card", "Accounting"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": ["VAT", "Invoicing rules"],
+        "sla_target": "Invoice within 24 hr of completion",
+        "pain_points": ["Time entry accuracy", "Material pricing"]
+      }
+    },
+    {
+      "id": "P4.2",
+      "name": "Send and collect payment",
+      "type": "step",
+      "position": { "x": 850, "y": 44 },
+      "attributes": {
+        "actor": "Office",
+        "duration_min": "2–10 min",
+        "description": "Email or post invoice; follow up; record payment when received.",
+        "inputs": ["Invoice", "Customer contact", "Payment terms"],
+        "outputs": ["Invoice sent", "Payment received", "Receipt"],
+        "risks": ["Wrong email", "Late payment", "Dispute"],
+        "automation_potential": "high",
+        "automation_notes": "Email invoice, payment link, automatic receipt",
+        "current_state": "semi_automated",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "5.00 EUR",
+        "current_systems": ["Accounting", "Email", "Payment link"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Payment processor"],
+        "regulatory_constraints": ["VAT receipt", "Payment terms"],
+        "sla_target": "Payment within 14–30 days",
+        "pain_points": ["Chase payment", "Dispute resolution"]
+      }
+    },
+    {
+      "id": "P4.3",
+      "name": "Close job and file",
+      "type": "step",
+      "position": { "x": 1200, "y": 44 },
+      "attributes": {
+        "actor": "Office",
+        "duration_min": "5 min",
+        "description": "Mark job complete in system, file certificate and photos, update customer record.",
+        "inputs": ["Paid invoice", "Completion sheet", "Certificates"],
+        "outputs": ["Job closed", "Records filed", "Warranty started"],
+        "risks": ["Lost certificate", "Wrong file", "Warranty not logged"],
+        "automation_potential": "high",
+        "automation_notes": "CRM status, cloud filing, warranty reminder",
+        "current_state": "semi_automated",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "1.5",
+        "cost_per_execution": "6.00 EUR",
+        "current_systems": ["CRM", "Cloud storage", "Warranty log"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Close within 48 hr of payment",
+        "pain_points": ["Paper certificates", "Filing backlog"]
+      }
+    },
+    { "id": "E4_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "E4_start", "to": "P4.1", "label": "Start" },
+    { "from": "P4.1", "to": "P4.2", "label": "Invoice ready" },
+    { "from": "P4.2", "to": "P4.3", "label": "Paid" },
+    { "from": "P4.3", "to": "E4_end", "label": "Complete" }
+  ]
+}

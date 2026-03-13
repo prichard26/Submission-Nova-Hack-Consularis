@@ -1,0 +1,123 @@
+{
+  "id": "RS3",
+  "name": "Service",
+  "nodes": [
+    { "id": "RS3_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P3.1",
+      "name": "Serve food and check back",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Server",
+        "duration_min": "2–5 min",
+        "description": "Deliver dishes to correct guest, confirm satisfaction, offer additional items.",
+        "inputs": ["Plated order", "Table layout", "Allergen notes"],
+        "outputs": ["Food delivered", "Upsell opportunity"],
+        "risks": ["Wrong guest", "Allergy error", "Complaint missed"],
+        "automation_potential": "low",
+        "automation_notes": "Table mapping, allergy flags on ticket",
+        "current_state": "manual",
+        "frequency": "75/day",
+        "annual_volume": "22500",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "1.00 EUR",
+        "current_systems": ["POS", "Ticket"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Check back within 2–3 min of serve",
+        "pain_points": ["Runner vs server", "Table numbers"]
+      }
+    },
+    {
+      "id": "P3.2",
+      "name": "Dessert and bill",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Server",
+        "duration_min": "3–8 min",
+        "description": "Offer dessert and coffee, present check, process payment.",
+        "inputs": ["Dessert menu", "Check total", "Split requests"],
+        "outputs": ["Payment", "Receipt"],
+        "risks": ["Wrong total", "Payment decline", "Tip dispute"],
+        "automation_potential": "high",
+        "automation_notes": "Tableside payment, split bill, digital receipt",
+        "current_state": "semi_automated",
+        "frequency": "70/day",
+        "annual_volume": "21000",
+        "error_rate_percent": "1.5",
+        "cost_per_execution": "1.20 EUR",
+        "current_systems": ["POS", "Payment terminal"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Payment processor"],
+        "regulatory_constraints": ["PCI-DSS"],
+        "sla_target": "Check to payment in ~30 min",
+        "pain_points": ["Split bills", "Cash handling"]
+      }
+    },
+    {
+      "id": "P3.3",
+      "name": "Clear and reset table",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Busser / server",
+        "duration_min": "3–7 min",
+        "description": "Clear plates and glassware, wipe table, reset place settings for next party.",
+        "inputs": ["Table state", "Turn time target"],
+        "outputs": ["Table ready", "Dirty to dish"],
+        "risks": ["Breakage", "Slow turn", "Incomplete reset"],
+        "automation_potential": "low",
+        "automation_notes": "Turn time tracking, table status board",
+        "current_state": "manual",
+        "frequency": "70/day",
+        "annual_volume": "21000",
+        "error_rate_percent": "1.0",
+        "cost_per_execution": "2.00 EUR",
+        "current_systems": ["Table status"],
+        "data_format": "unstructured",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Health standards"],
+        "sla_target": "Turn 45–60 min target",
+        "pain_points": ["Dish pit backup", "Busser availability"]
+      }
+    },
+    {
+      "id": "P3.4",
+      "name": "Log feedback and tips",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Server / manager",
+        "duration_min": "1–2 min",
+        "description": "Record tip allocation, note complaints or compliments, update server sales.",
+        "inputs": ["Payment", "Tip", "Customer comment"],
+        "outputs": ["Tip report", "Feedback log", "Sales summary"],
+        "risks": ["Tip error", "Missing feedback", "Reporting lag"],
+        "automation_potential": "high",
+        "automation_notes": "POS tip-out, feedback forms, labor reporting",
+        "current_state": "semi_automated",
+        "frequency": "70/day",
+        "annual_volume": "21000",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "0.40 EUR",
+        "current_systems": ["POS", "CRM"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Tip report by end of shift",
+        "pain_points": ["Cash tips", "Tip pool rules"]
+      }
+    },
+    { "id": "RS3_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "RS3_start", "to": "P3.1", "label": "Start" },
+    { "from": "P3.1", "to": "P3.2", "label": "Served" },
+    { "from": "P3.2", "to": "P3.3", "label": "Paid" },
+    { "from": "P3.3", "to": "P3.4", "label": "Reset" },
+    { "from": "P3.4", "to": "RS3_end", "label": "Complete" }
+  ]
+}

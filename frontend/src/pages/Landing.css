@@ -46,17 +46,17 @@
   object-fit: contain;
 }
 
-/* ── Chat container ── */
+/* ── Main: bot at top, chat/buttons at bottom ── */
 .landing__main {
   flex: 1;
   display: flex;
-  align-items: stretch;
-  justify-content: center;
+  flex-direction: column;
   padding: 0;
   min-height: 0;
 }
 
 .landing__chat {
+  flex: 1;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -66,38 +66,36 @@
   min-height: 0;
 }
 
-/* ── Big animated robot (Apply-plan-style hero) ── */
-.landing__robot-hero {
+/* Robot at top of screen */
+.landing__robot-slot {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  padding: 1rem 0 1.5rem;
+  align-items: flex-start;
+  height: 220px;
+  padding: 0.5rem 0;
 }
 
-.landing__robot-hero .robot-container {
-  transform: scale(1.05);
-  transform-origin: top center;
+.landing__robot-slot .robot-container {
+  margin-top: 1rem;
 }
 
-.landing__robot-prompt {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-  padding: 0.75rem 0 1rem;
+/* Robot size="small" already applies scale(0.72) in Robot.css */
+.landing__robot-slot .speech-bubble p {
+  font-size: 1.39rem;
 }
 
-/* Homogenise Aurelius speech-bubble text size (hero scale 1.05, prompt scale 0.72) */
-.landing__robot-hero .speech-bubble p {
-  font-size: 0.95rem; /* ~1rem visual after scale(1.05) */
-}
-.landing__robot-prompt .speech-bubble p {
-  font-size: 1.39rem; /* ~1rem visual after scale(0.72) */
-}
-
-/* ── Input area ── */
+/* Chat input and buttons near bottom, raised from the very bottom */
 .landing__chat-input-area {
-  padding-top: 0.75rem;
-  min-height: 52px;
+  flex-shrink: 0;
+  margin-top: auto;
+  margin-bottom: 18rem;
+  min-height: 140px;
+  padding-top: 1rem;
+  padding-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .landing__chat-form {
@@ -164,6 +162,13 @@
   gap: 0.5rem;
 }
 
+/* Template step: 3 buttons per row, full center */
+.landing__actions--templates {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
 .landing__action-btn {
   display: inline-flex;
   align-items: center;
@@ -185,6 +190,81 @@
 
 .landing__action-btn--primary:hover:not(:disabled) {
   background: var(--accent-dark);
+}
+
+/* Template buttons: gradient along diagonal (top-left → bottom-right), not row by row */
+.landing__action-btn--tint {
+  color: #fff;
+  border: none;
+}
+
+/* Diagonal d=0: top-left — typical orange */
+.landing__action-btn--tint-pharmacy {
+  background: var(--accent, #e85d04);
+}
+.landing__action-btn--tint-pharmacy:hover:not(:disabled) {
+  background: var(--accent-dark, #d54d02);
+  filter: brightness(1.05);
+}
+
+/* Diagonal d=1: lighter — Logistics, Retail */
+.landing__action-btn--tint-logistics {
+  background: #ed7828;
+}
+.landing__action-btn--tint-logistics:hover:not(:disabled) {
+  background: #f08435;
+  filter: brightness(1.06);
+}
+
+.landing__action-btn--tint-retail {
+  background: #ed7828;
+}
+.landing__action-btn--tint-retail:hover:not(:disabled) {
+  background: #f08435;
+  filter: brightness(1.06);
+}
+
+/* Diagonal d=2: even lighter — Manufacturing, Restaurant, Plumber */
+.landing__action-btn--tint-manufacturing {
+  background: #f59a45;
+}
+.landing__action-btn--tint-manufacturing:hover:not(:disabled) {
+  background: #f7a552;
+  filter: brightness(1.05);
+}
+
+.landing__action-btn--tint-restaurant {
+  background: #f59a45;
+}
+.landing__action-btn--tint-restaurant:hover:not(:disabled) {
+  background: #f7a552;
+  filter: brightness(1.05);
+}
+
+.landing__action-btn--tint-plumber {
+  background: #f59a45;
+}
+.landing__action-btn--tint-plumber:hover:not(:disabled) {
+  background: #f7a552;
+  filter: brightness(1.05);
+}
+
+/* Diagonal d=3: lightest orange — Electrician, Cleaning */
+.landing__action-btn--tint-electrician {
+  background: #f7b86a;
+}
+.landing__action-btn--tint-electrician:hover:not(:disabled) {
+  background: #f9c478;
+  filter: brightness(1.04);
+}
+
+.landing__action-btn--tint-cleaning {
+  background: #f7c880;
+  color: #fff;
+}
+.landing__action-btn--tint-cleaning:hover:not(:disabled) {
+  background: #f9d090;
+  filter: brightness(1.03);
 }
 
 .landing__action-btn--secondary {

@@ -1,0 +1,72 @@
+{
+  "format_version": "1.0",
+  "workspace_id": "ws_electrician",
+  "name": "Electrician Business",
+  "process_tree": {
+    "root": "global",
+    "processes": {
+      "global": {
+        "name": "Electrician job lifecycle",
+        "depth": 0,
+        "path": "/global",
+        "children": ["E1", "E2", "E3", "E4"],
+        "graph_file": "global.json",
+        "owner": "Office",
+        "category": "operations",
+        "criticality": "high",
+        "summary": { "step_count": 0, "subprocess_count": 4 }
+      },
+      "E1": {
+        "name": "Quote & Schedule",
+        "depth": 1,
+        "path": "/global/E1",
+        "children": [],
+        "graph_file": "E1.json",
+        "owner": "Office",
+        "category": "sales",
+        "criticality": "high",
+        "summary": { "step_count": 4, "subprocess_count": 0 }
+      },
+      "E2": {
+        "name": "On-site Assessment",
+        "depth": 1,
+        "path": "/global/E2",
+        "children": [],
+        "graph_file": "E2.json",
+        "owner": "Field",
+        "category": "operations",
+        "criticality": "high",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      },
+      "E3": {
+        "name": "Install & Repair",
+        "depth": 1,
+        "path": "/global/E3",
+        "children": [],
+        "graph_file": "E3.json",
+        "owner": "Field",
+        "category": "production",
+        "criticality": "critical",
+        "summary": { "step_count": 4, "subprocess_count": 0 }
+      },
+      "E4": {
+        "name": "Invoicing & Close-out",
+        "depth": 1,
+        "path": "/global/E4",
+        "children": [],
+        "graph_file": "E4.json",
+        "owner": "Office",
+        "category": "finance",
+        "criticality": "high",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      }
+    }
+  },
+  "cross_links": [],
+  "tags": {
+    "operations": ["global", "E2"],
+    "sales": ["E1"],
+    "production": ["E3"],
+    "finance": ["E4"]
+  }
+}

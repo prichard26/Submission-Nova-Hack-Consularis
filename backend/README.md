@@ -46,17 +46,16 @@ backend/
 │   └── bpmn_export.py   # JSON → BPMN 2.0 XML export (model only)
 │
 │
-├── data/                # Runtime data
-│   ├── workspace.json       # Workspace manifest (process tree, summaries, tags)
-│   └── graphs/              # Baseline process hierarchy
-│       ├── global.json      # Root process (7 subprocesses)
-│       ├── P1.json           # Prescription
-│       ├── P2.json           # Selection, Acquisition, and Reception
-│       ├── P3.json           # Storage and Storage Management
-│       ├── P4.json           # Distribution
-│       ├── P5.json           # Dispensing and Preparation
-│       ├── P6.json           # Administration
-│       └── P7.json           # Monitoring and Waste Management
+├── data/                # One subfolder per template type (multiple pages each)
+│   ├── pharmacy/            # Baseline template (seeded at startup)
+│   │   ├── workspace.json   # Process tree, summaries, tags
+│   │   └── graphs/          # global.json, S1.json … S7.json
+│   ├── logistics/
+│   │   ├── workspace.json
+│   │   └── graphs/          # global.json (and optional more pages)
+│   └── manufacturing/
+│       ├── workspace.json
+│       └── graphs/          # global.json (and optional more pages)
 │
 └── tests/
     ├── conftest.py          # reset_db fixture (init SQLite, seed baseline, cleanup caches)
@@ -70,7 +69,7 @@ backend/
 
 **main.py** — App entry point. The `lifespan` initializes the SQLite database (`db.get_conn()`), seeds the baseline from `workspace.json` + JSON graph files (`graph.store.init_baseline()`), and logs Bedrock/Nova status.
 
-**config.py** — All env vars and constants. Key settings: `GROQ_KEY`, `BASELINE_GRAPHS_DIR`, `BASELINE_WORKSPACE_PATH`, `DEFAULT_PROCESS_ID`, `MAX_TOOL_ROUNDS`, `GROQ_TIMEOUT`, `ALLOWED_CORS_ORIGINS`, `SESSION_ID_MAX_LEN`.
+**config.py** — All env vars and constants. Key settings: `DATA_DIR`, `BASELINE_TEMPLATE` (default pharmacy), `BASELINE_WORKSPACE_PATH`, `BASELINE_GRAPHS_DIR`, `DEFAULT_PROCESS_ID`, `MAX_TOOL_ROUNDS`, `GROQ_TIMEOUT`, `ALLOWED_CORS_ORIGINS`, `SESSION_ID_MAX_LEN`.
 
 **db.py** — Singleton in-memory SQLite connection (`:memory:`). Tables: `baseline_processes` (seeded from JSON files), `baseline_workspace`, `session_processes` (per-session graph JSON), `session_workspace`, `session_process_history` (undo support), `chat_messages`. All persistence reads/writes go through this module. Data is ephemeral — lost on restart.
 
@@ -80,7 +79,7 @@ backend/
 
 **graph/** — JSON-native process graph domain. Model wraps a raw dict (no parsing needed). Workspace manages the process tree index. Store provides session-scoped CRUD with an LRU cache backed by SQLite. Layout positions new nodes. BPMN export converts JSON graphs to BPMN 2.0 XML for download compatibility.
 
-**data/** — Baseline process hierarchy loaded at startup. The workspace manifest defines the process tree; each `.json` file is a self-contained subprocess.
+**data/** — One subfolder per template type (`pharmacy/`, `logistics/`, `manufacturing/`). Each has `workspace.json` and `graphs/` (one or more page JSONs). Pharmacy is seeded as baseline at startup; session init can load any template by id.
 
 **tests/** — Pytest tests. The `reset_db` fixture in conftest initializes a fresh SQLite database and seeds the baseline before each test, then cleans up tables and caches after.
 

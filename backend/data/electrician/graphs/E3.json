@@ -1,0 +1,123 @@
+{
+  "id": "E3",
+  "name": "Install & Repair",
+  "nodes": [
+    { "id": "E3_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P3.1",
+      "name": "Isolate and prep",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Electrician",
+        "duration_min": "5–15 min",
+        "description": "Switch off circuits, lock out if required, prep work area and tools.",
+        "inputs": ["Work plan", "Safety procedures", "PPE"],
+        "outputs": ["Safe work area", "Tools ready"],
+        "risks": ["Wrong circuit", "Incomplete LOTO", "Injury"],
+        "automation_potential": "low",
+        "automation_notes": "LOTO checklist, safety sign-off",
+        "current_state": "manual",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "0.5",
+        "cost_per_execution": "15.00 EUR",
+        "current_systems": ["LOTO checklist", "PPE"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Health and safety", "LOTO"],
+        "sla_target": "Safe prep before any live work",
+        "pain_points": ["Panel labeling", "Customer interruption"]
+      }
+    },
+    {
+      "id": "P3.2",
+      "name": "Perform work",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Electrician",
+        "duration_min": "30 min – 4 hr",
+        "description": "Install or repair wiring, fixtures, panels per code; document as-built.",
+        "inputs": ["Scope", "Materials", "Wiring diagram"],
+        "outputs": ["Completed work", "Photos", "As-built notes"],
+        "risks": ["Code violation", "Rework", "Injury"],
+        "automation_potential": "low",
+        "automation_notes": "Job timer, photo log, code reference",
+        "current_state": "manual",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "180.00 EUR",
+        "current_systems": ["Tools", "Timer", "Camera"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Electrical code", "Inspection"],
+        "sla_target": "Complete per quoted scope",
+        "pain_points": ["Unexpected conditions", "Parts shortage"]
+      }
+    },
+    {
+      "id": "P3.3",
+      "name": "Test and energize",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Electrician",
+        "duration_min": "10–25 min",
+        "description": "Test circuits, fix any faults, energize and verify operation; explain to customer.",
+        "inputs": ["Completed work", "Test equipment", "Customer"],
+        "outputs": ["Test results", "System on", "Customer handover"],
+        "risks": ["Fault missed", "Wrong connection", "Customer misunderstanding"],
+        "automation_potential": "medium",
+        "automation_notes": "Test log, certificate template",
+        "current_state": "manual",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "1.5",
+        "cost_per_execution": "35.00 EUR",
+        "current_systems": ["Multimeter", "Test log", "Certificate"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Certification required for some work"],
+        "sla_target": "Test before energize",
+        "pain_points": ["Certificate paperwork", "Customer demo"]
+      }
+    },
+    {
+      "id": "P3.4",
+      "name": "Clean up and sign off",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Electrician",
+        "duration_min": "5–15 min",
+        "description": "Remove waste, restore area, get customer signature on completion sheet.",
+        "inputs": ["Job sheet", "Customer"],
+        "outputs": ["Signed completion", "Site clean", "Ready for invoice"],
+        "risks": ["Missing signature", "Complaint", "Left debris"],
+        "automation_potential": "high",
+        "automation_notes": "Digital sign-off, job closure in app",
+        "current_state": "semi_automated",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "1.0",
+        "cost_per_execution": "18.00 EUR",
+        "current_systems": ["Job app", "E-sign"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Sign-off same day as work",
+        "pain_points": ["Customer not available", "Paper vs digital"]
+      }
+    },
+    { "id": "E3_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "E3_start", "to": "P3.1", "label": "Start" },
+    { "from": "P3.1", "to": "P3.2", "label": "Ready" },
+    { "from": "P3.2", "to": "P3.3", "label": "Done" },
+    { "from": "P3.3", "to": "P3.4", "label": "Tested" },
+    { "from": "P3.4", "to": "E3_end", "label": "Complete" }
+  ]
+}

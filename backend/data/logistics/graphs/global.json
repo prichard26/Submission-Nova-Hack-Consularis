@@ -1,0 +1,95 @@
+{
+  "id": "global",
+  "name": "Logistics flow",
+  "nodes": [
+    { "id": "global_start", "type": "start", "position": { "x": 200, "y": 80 } },
+    {
+      "id": "P1.1",
+      "name": "Receive order",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Warehouse clerk",
+        "duration_min": "5–15 min",
+        "description": "Order enters system; validate items and quantities, check inventory availability, release to pick.",
+        "inputs": ["Customer order", "Inventory levels", "Order promise"],
+        "outputs": ["Released order", "Pick list", "Ship-by time"],
+        "risks": ["Out-of-stock", "Wrong SKU promised", "Order stuck in queue"],
+        "automation_potential": "high",
+        "automation_notes": "Order management system, auto-release rules, ATP check",
+        "current_state": "semi_automated",
+        "frequency": "200/day",
+        "annual_volume": "52000",
+        "error_rate_percent": "1.8",
+        "cost_per_execution": "3.20 EUR",
+        "current_systems": ["WMS", "ERP order module"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Customer EDI/API", "Inventory feed"],
+        "regulatory_constraints": ["Export docs when applicable"],
+        "sla_target": "< 2 hr order-to-release",
+        "pain_points": ["Manual exception handling", "Peak backlog"]
+      }
+    },
+    {
+      "id": "P1.2",
+      "name": "Dispatch",
+      "type": "step",
+      "position": { "x": 600, "y": 44 },
+      "attributes": {
+        "actor": "Dispatch / warehouse",
+        "duration_min": "15–45 min",
+        "description": "Pick and pack items, stage for carrier; generate label and documentation; hand off to transport.",
+        "inputs": ["Pick list", "Packing specs", "Carrier SLA"],
+        "outputs": ["Picked order", "Packed parcel", "Shipment label", "BOL"],
+        "risks": ["Pick error", "Wrong carrier", "Missed cutoff"],
+        "automation_potential": "high",
+        "automation_notes": "Pick-to-light, packing station, carrier integration",
+        "current_state": "semi_automated",
+        "frequency": "180/day",
+        "annual_volume": "46800",
+        "error_rate_percent": "2.5",
+        "cost_per_execution": "8.50 EUR",
+        "current_systems": ["WMS", "Shipping software", "Scale"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Carrier API", "Label printer"],
+        "regulatory_constraints": [],
+        "sla_target": "Same-day ship if order by noon",
+        "pain_points": ["Peak capacity", "Returns mixed with outbound"]
+      }
+    },
+    {
+      "id": "P1.3",
+      "name": "Deliver",
+      "type": "step",
+      "position": { "x": 800, "y": 44 },
+      "attributes": {
+        "actor": "Carrier / driver",
+        "duration_min": "24–72 hr",
+        "description": "Transport to customer; obtain proof of delivery; update tracking and close order.",
+        "inputs": ["Shipment", "Address", "Delivery window"],
+        "outputs": ["POD", "Delivery confirmation", "Closed order"],
+        "risks": ["Failed delivery", "Damage in transit", "Wrong address"],
+        "automation_potential": "medium",
+        "automation_notes": "Track & trace, POD capture, exception alerts",
+        "current_state": "manual",
+        "frequency": "175/day",
+        "annual_volume": "45500",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "12.00 EUR",
+        "current_systems": ["Carrier TMS", "Customer portal"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Carrier network", "Last-mile partner"],
+        "regulatory_constraints": ["Hazmat if applicable"],
+        "sla_target": "On-time delivery ≥ 95%",
+        "pain_points": ["No access", "Customer not home", "Claim handling"]
+      }
+    },
+    { "id": "global_end", "type": "end", "position": { "x": 1000, "y": 80 } }
+  ],
+  "edges": [
+    { "from": "global_start", "to": "P1.1", "label": "Start" },
+    { "from": "P1.1", "to": "P1.2", "label": "Order received" },
+    { "from": "P1.2", "to": "P1.3", "label": "Dispatched" },
+    { "from": "P1.3", "to": "global_end", "label": "Complete" }
+  ]
+}

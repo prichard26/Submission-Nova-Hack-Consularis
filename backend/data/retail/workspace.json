@@ -1,0 +1,72 @@
+{
+  "format_version": "1.0",
+  "workspace_id": "ws_retail",
+  "name": "Retail Shop Operations",
+  "process_tree": {
+    "root": "global",
+    "processes": {
+      "global": {
+        "name": "Retail shop end-to-end",
+        "depth": 0,
+        "path": "/global",
+        "children": ["R1", "R2", "R3", "R4"],
+        "graph_file": "global.json",
+        "owner": "Store",
+        "category": "operations",
+        "criticality": "high",
+        "summary": { "step_count": 0, "subprocess_count": 4 }
+      },
+      "R1": {
+        "name": "Inventory & Stock",
+        "depth": 1,
+        "path": "/global/R1",
+        "children": [],
+        "graph_file": "R1.json",
+        "owner": "Store",
+        "category": "logistics",
+        "criticality": "high",
+        "summary": { "step_count": 4, "subprocess_count": 0 }
+      },
+      "R2": {
+        "name": "Sales Floor",
+        "depth": 1,
+        "path": "/global/R2",
+        "children": [],
+        "graph_file": "R2.json",
+        "owner": "Store",
+        "category": "sales",
+        "criticality": "high",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      },
+      "R3": {
+        "name": "Receiving & Delivery",
+        "depth": 1,
+        "path": "/global/R3",
+        "children": [],
+        "graph_file": "R3.json",
+        "owner": "Store",
+        "category": "logistics",
+        "criticality": "high",
+        "summary": { "step_count": 4, "subprocess_count": 0 }
+      },
+      "R4": {
+        "name": "Customer Service",
+        "depth": 1,
+        "path": "/global/R4",
+        "children": [],
+        "graph_file": "R4.json",
+        "owner": "Store",
+        "category": "customer_service",
+        "criticality": "medium",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      }
+    }
+  },
+  "cross_links": [],
+  "tags": {
+    "operations": ["global"],
+    "logistics": ["R1", "R3"],
+    "sales": ["R2"],
+    "customer_service": ["R4"]
+  }
+}

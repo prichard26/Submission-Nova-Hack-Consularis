@@ -1,0 +1,123 @@
+{
+  "id": "C1",
+  "name": "Scheduling & Assign",
+  "nodes": [
+    { "id": "C1_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P1.1",
+      "name": "Receive booking",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Office",
+        "duration_min": "5–10 min",
+        "description": "Take call or online request; record address, service type (regular, deep, move-out), frequency and access.",
+        "inputs": ["Customer", "Address", "Service type", "Frequency"],
+        "outputs": ["Booking request", "Quote"],
+        "risks": ["Wrong date", "Access not recorded", "Quote mismatch"],
+        "automation_potential": "high",
+        "automation_notes": "Booking form, recurring job setup, online calendar",
+        "current_state": "semi_automated",
+        "frequency": "20/day",
+        "annual_volume": "5200",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "8.00 EUR",
+        "current_systems": ["Phone", "Booking form", "CRM"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Confirm within 24 hr",
+        "pain_points": ["Recurring setup", "Access codes"]
+      }
+    },
+    {
+      "id": "P1.2",
+      "name": "Assign crew",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Dispatcher",
+        "duration_min": "5–15 min",
+        "description": "Assign cleaners by zone and availability; allocate equipment and supplies for the job.",
+        "inputs": ["Booking", "Crew availability", "Route", "Checklist"],
+        "outputs": ["Assigned crew", "Job sheet", "Supply list"],
+        "risks": ["Double assign", "Wrong zone", "Supply short"],
+        "automation_potential": "medium",
+        "automation_notes": "Scheduling app, route optimization, crew app",
+        "current_state": "semi_automated",
+        "frequency": "18/day",
+        "annual_volume": "4680",
+        "error_rate_percent": "3.5",
+        "cost_per_execution": "12.00 EUR",
+        "current_systems": ["Scheduling app", "Route tool", "Crew app"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Assign same day for next-day jobs",
+        "pain_points": ["Crew turnover", "Route efficiency"]
+      }
+    },
+    {
+      "id": "P1.3",
+      "name": "Confirm with customer",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Office",
+        "duration_min": "2–5 min",
+        "description": "Send confirmation with date, time window and crew; remind day before if needed.",
+        "inputs": ["Job sheet", "Customer contact"],
+        "outputs": ["Confirmation sent", "Reminder scheduled"],
+        "risks": ["Wrong contact", "No reminder", "Customer no-show"],
+        "automation_potential": "high",
+        "automation_notes": "SMS/email confirmation, automated reminders",
+        "current_state": "semi_automated",
+        "frequency": "18/day",
+        "annual_volume": "4680",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "2.00 EUR",
+        "current_systems": ["SMS", "Email", "Scheduling"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Confirm within 24 hr; remind day before",
+        "pain_points": ["Customer response", "Last-minute change"]
+      }
+    },
+    {
+      "id": "P1.4",
+      "name": "Brief crew",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Supervisor",
+        "duration_min": "5 min",
+        "description": "Share job details, access codes, special instructions and checklist with crew.",
+        "inputs": ["Job sheet", "Customer notes", "Checklist"],
+        "outputs": ["Crew briefed", "Job in progress"],
+        "risks": ["Wrong access", "Missing instructions", "Checklist not loaded"],
+        "automation_potential": "high",
+        "automation_notes": "Mobile job pack, access code app",
+        "current_state": "semi_automated",
+        "frequency": "18/day",
+        "annual_volume": "4680",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "4.00 EUR",
+        "current_systems": ["Crew app", "Job pack", "Checklist"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Brief before crew departure",
+        "pain_points": ["Access code security", "Special instructions"]
+      }
+    },
+    { "id": "C1_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "C1_start", "to": "P1.1", "label": "Start" },
+    { "from": "P1.1", "to": "P1.2", "label": "Booked" },
+    { "from": "P1.2", "to": "P1.3", "label": "Assigned" },
+    { "from": "P1.3", "to": "P1.4", "label": "Confirmed" },
+    { "from": "P1.4", "to": "C1_end", "label": "Complete" }
+  ]
+}

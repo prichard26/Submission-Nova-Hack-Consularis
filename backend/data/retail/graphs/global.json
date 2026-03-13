@@ -1,0 +1,19 @@
+{
+  "id": "global",
+  "name": "Retail shop end-to-end",
+  "nodes": [
+    { "id": "global_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "R1", "name": "Inventory & Stock", "type": "subprocess", "position": { "x": 400, "y": 44 } },
+    { "id": "R2", "name": "Sales Floor", "type": "subprocess", "position": { "x": 700, "y": 44 } },
+    { "id": "R3", "name": "Receiving & Delivery", "type": "subprocess", "position": { "x": 1000, "y": 44 } },
+    { "id": "R4", "name": "Customer Service", "type": "subprocess", "position": { "x": 1300, "y": 44 } },
+    { "id": "global_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "global_start", "to": "R1", "label": "Start" },
+    { "from": "R1", "to": "R2", "label": "Stock ready" },
+    { "from": "R2", "to": "R3", "label": "Sales flow" },
+    { "from": "R3", "to": "R4", "label": "Goods received" },
+    { "from": "R4", "to": "global_end", "label": "Complete" }
+  ]
+}

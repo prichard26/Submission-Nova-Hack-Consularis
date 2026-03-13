@@ -1,0 +1,72 @@
+{
+  "format_version": "1.0",
+  "workspace_id": "ws_cleaning",
+  "name": "Cleaning Services",
+  "process_tree": {
+    "root": "global",
+    "processes": {
+      "global": {
+        "name": "Cleaning job lifecycle",
+        "depth": 0,
+        "path": "/global",
+        "children": ["C1", "C2", "C3", "C4"],
+        "graph_file": "global.json",
+        "owner": "Office",
+        "category": "operations",
+        "criticality": "high",
+        "summary": { "step_count": 0, "subprocess_count": 4 }
+      },
+      "C1": {
+        "name": "Scheduling & Assign",
+        "depth": 1,
+        "path": "/global/C1",
+        "children": [],
+        "graph_file": "C1.json",
+        "owner": "Office",
+        "category": "sales",
+        "criticality": "high",
+        "summary": { "step_count": 4, "subprocess_count": 0 }
+      },
+      "C2": {
+        "name": "On-site Clean",
+        "depth": 1,
+        "path": "/global/C2",
+        "children": [],
+        "graph_file": "C2.json",
+        "owner": "Field",
+        "category": "production",
+        "criticality": "high",
+        "summary": { "step_count": 4, "subprocess_count": 0 }
+      },
+      "C3": {
+        "name": "Quality & Supplies",
+        "depth": 1,
+        "path": "/global/C3",
+        "children": [],
+        "graph_file": "C3.json",
+        "owner": "Supervisor",
+        "category": "operations",
+        "criticality": "medium",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      },
+      "C4": {
+        "name": "Invoicing & Follow-up",
+        "depth": 1,
+        "path": "/global/C4",
+        "children": [],
+        "graph_file": "C4.json",
+        "owner": "Office",
+        "category": "finance",
+        "criticality": "high",
+        "summary": { "step_count": 3, "subprocess_count": 0 }
+      }
+    }
+  },
+  "cross_links": [],
+  "tags": {
+    "operations": ["global", "C3"],
+    "sales": ["C1"],
+    "production": ["C2"],
+    "finance": ["C4"]
+  }
+}

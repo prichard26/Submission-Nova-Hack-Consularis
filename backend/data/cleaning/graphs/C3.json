@@ -1,0 +1,95 @@
+{
+  "id": "C3",
+  "name": "Quality & Supplies",
+  "nodes": [
+    { "id": "C3_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P3.1",
+      "name": "Inspect or customer feedback",
+      "type": "step",
+      "position": { "x": 500, "y": 44 },
+      "attributes": {
+        "actor": "Supervisor / office",
+        "duration_min": "5–15 min",
+        "description": "Review photos or run spot check; or collect customer feedback (call, form, rating).",
+        "inputs": ["Job report", "Photos", "Customer feedback"],
+        "outputs": ["Quality result", "Complaint or praise", "Revisit if needed"],
+        "risks": ["Complaint missed", "No follow-up", "Revisit not scheduled"],
+        "automation_potential": "high",
+        "automation_notes": "Feedback form, star rating, automated follow-up email",
+        "current_state": "semi_automated",
+        "frequency": "15/day",
+        "annual_volume": "3900",
+        "error_rate_percent": "3.0",
+        "cost_per_execution": "10.00 EUR",
+        "current_systems": ["Feedback form", "Photos", "CRM"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Feedback within 24 hr; revisit within 48 hr if needed",
+        "pain_points": ["Low response rate", "Spot check capacity"]
+      }
+    },
+    {
+      "id": "P3.2",
+      "name": "Restock van or site",
+      "type": "step",
+      "position": { "x": 850, "y": 44 },
+      "attributes": {
+        "actor": "Cleaner / warehouse",
+        "duration_min": "10–20 min",
+        "description": "Top up products and equipment in van or at client supply closet from depot or order.",
+        "inputs": ["Supply request", "Stock level", "Depot or order list"],
+        "outputs": ["Van restocked", "Order placed if needed"],
+        "risks": ["Out of stock", "Wrong product", "Order delay"],
+        "automation_potential": "medium",
+        "automation_notes": "Inventory app, low-stock alert, order form",
+        "current_state": "semi_automated",
+        "frequency": "5/day",
+        "annual_volume": "1300",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "18.00 EUR",
+        "current_systems": ["Inventory app", "Depot", "Order form"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Supplier"],
+        "regulatory_constraints": [],
+        "sla_target": "Restock before next route",
+        "pain_points": ["Depot hours", "Van space"]
+      }
+    },
+    {
+      "id": "P3.3",
+      "name": "Update checklist or training",
+      "type": "step",
+      "position": { "x": 1200, "y": 44 },
+      "attributes": {
+        "actor": "Supervisor",
+        "duration_min": "5–15 min",
+        "description": "If issues found, update checklist or schedule refresher training; document for next visit.",
+        "inputs": ["Quality result", "Checklist", "Training log"],
+        "outputs": ["Checklist updated", "Training scheduled", "Notes for next job"],
+        "risks": ["Update not communicated", "Training skipped", "Notes lost"],
+        "automation_potential": "medium",
+        "automation_notes": "Checklist versioning, training calendar",
+        "current_state": "manual",
+        "frequency": "3/day",
+        "annual_volume": "780",
+        "error_rate_percent": "5.0",
+        "cost_per_execution": "22.00 EUR",
+        "current_systems": ["Checklist editor", "Training calendar", "CRM"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Notes for next job within 24 hr",
+        "pain_points": ["Crew turnover", "Checklist consistency"]
+      }
+    },
+    { "id": "C3_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "C3_start", "to": "P3.1", "label": "Start" },
+    { "from": "P3.1", "to": "P3.2", "label": "Reviewed" },
+    { "from": "P3.2", "to": "P3.3", "label": "Stocked" },
+    { "from": "P3.3", "to": "C3_end", "label": "Complete" }
+  ]
+}

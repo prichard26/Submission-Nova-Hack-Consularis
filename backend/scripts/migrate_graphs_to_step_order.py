@@ -2,7 +2,8 @@
 import json
 from pathlib import Path
 
-GRAPHS_DIR = Path(__file__).resolve().parent.parent / "data" / "graphs"
+# Default: pharmacy template graphs; override for other template dirs
+GRAPHS_DIR = Path(__file__).resolve().parent.parent / "data" / "pharmacy" / "graphs"
 
 
 def migrate(data: dict) -> dict:

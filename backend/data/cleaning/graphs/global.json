@@ -1,0 +1,19 @@
+{
+  "id": "global",
+  "name": "Cleaning job lifecycle",
+  "nodes": [
+    { "id": "global_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    { "id": "C1", "name": "Scheduling & Assign", "type": "subprocess", "position": { "x": 400, "y": 44 } },
+    { "id": "C2", "name": "On-site Clean", "type": "subprocess", "position": { "x": 700, "y": 44 } },
+    { "id": "C3", "name": "Quality & Supplies", "type": "subprocess", "position": { "x": 1000, "y": 44 } },
+    { "id": "C4", "name": "Invoicing & Follow-up", "type": "subprocess", "position": { "x": 1300, "y": 44 } },
+    { "id": "global_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "global_start", "to": "C1", "label": "Start" },
+    { "from": "C1", "to": "C2", "label": "Job scheduled" },
+    { "from": "C2", "to": "C3", "label": "Clean done" },
+    { "from": "C3", "to": "C4", "label": "Checked" },
+    { "from": "C4", "to": "global_end", "label": "Complete" }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "id": "E2",
+  "name": "On-site Assessment",
+  "nodes": [
+    { "id": "E2_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P2.1",
+      "name": "Arrive and assess",
+      "type": "step",
+      "position": { "x": 500, "y": 44 },
+      "attributes": {
+        "actor": "Electrician",
+        "duration_min": "20–60 min",
+        "description": "Attend site, verify scope, check existing wiring and panels, identify code or safety issues.",
+        "inputs": ["Job sheet", "Quote", "Site access"],
+        "outputs": ["Assessment notes", "Photos", "Revised scope if needed"],
+        "risks": ["Missed defect", "Code violation", "No access"],
+        "automation_potential": "medium",
+        "automation_notes": "Mobile app, photo capture, checklist, code lookup",
+        "current_state": "manual",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "5.0",
+        "cost_per_execution": "65.00 EUR",
+        "current_systems": ["Job app", "Camera", "Code book"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Electrical code", "Permits"],
+        "sla_target": "Assessment same visit when possible",
+        "pain_points": ["Hidden issues", "Customer not home"]
+      }
+    },
+    {
+      "id": "P2.2",
+      "name": "Update quote if needed",
+      "type": "step",
+      "position": { "x": 850, "y": 44 },
+      "attributes": {
+        "actor": "Electrician / office",
+        "duration_min": "5–20 min",
+        "description": "If scope changed, revise quote and get customer approval before proceeding.",
+        "inputs": ["Assessment", "Original quote", "Additional work"],
+        "outputs": ["Revised quote", "Customer approval"],
+        "risks": ["Scope dispute", "Price shock", "Delay"],
+        "automation_potential": "high",
+        "automation_notes": "Field quote app, e-sign change order",
+        "current_state": "manual",
+        "frequency": "3/day",
+        "annual_volume": "780",
+        "error_rate_percent": "6.0",
+        "cost_per_execution": "25.00 EUR",
+        "current_systems": ["Quote app", "E-sign"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Revised quote same day",
+        "pain_points": ["Customer pushback", "Approval wait"]
+      }
+    },
+    {
+      "id": "P2.3",
+      "name": "Order parts and plan work",
+      "type": "step",
+      "position": { "x": 1200, "y": 44 },
+      "attributes": {
+        "actor": "Electrician",
+        "duration_min": "10–30 min",
+        "description": "List materials needed, order or collect from van, plan sequence and permits.",
+        "inputs": ["Scope", "Supplier stock", "Permit requirements"],
+        "outputs": ["Parts order", "Work plan", "Return visit if needed"],
+        "risks": ["Part out of stock", "Permit delay", "Wrong part"],
+        "automation_potential": "medium",
+        "automation_notes": "Inventory app, supplier portal, permit tracker",
+        "current_state": "manual",
+        "frequency": "6/day",
+        "annual_volume": "1560",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "20.00 EUR",
+        "current_systems": ["Van stock", "Supplier portal", "Permit system"],
+        "data_format": "mixed",
+        "external_dependencies": ["Supplier", "Authority"],
+        "regulatory_constraints": ["Permit for certain work"],
+        "sla_target": "Parts available for next visit",
+        "pain_points": ["Supplier lead time", "Permit turnaround"]
+      }
+    },
+    { "id": "E2_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "E2_start", "to": "P2.1", "label": "Start" },
+    { "from": "P2.1", "to": "P2.2", "label": "Assessed" },
+    { "from": "P2.2", "to": "P2.3", "label": "Approved" },
+    { "from": "P2.3", "to": "E2_end", "label": "Complete" }
+  ]
+}

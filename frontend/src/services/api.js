@@ -184,10 +184,15 @@ export function confirmChatPlan(sessionId, options = {}) {
 // ---------------------------------------------------------------------------
 
 export function initSession(sessionId, fromBlank = false, options = {}) {
+  const { templateId, ...rest } = options
   return request('/api/session/init', {
-    ...options,
+    ...rest,
     method: 'POST',
-    body: JSON.stringify({ session_id: sessionId, from_blank: fromBlank }),
+    body: JSON.stringify({
+      session_id: sessionId,
+      from_blank: fromBlank,
+      template_id: templateId ?? null,
+    }),
   })
 }
 

@@ -19,13 +19,13 @@ NOVA_CHEAP_MODEL_ID: str = os.getenv("NOVA_CHEAP_MODEL_ID", NOVA_MODEL_ID)
 # Set NOVA_MODEL_ID to a Claude model on Bedrock (e.g. us.anthropic.claude-sonnet-4-6-v1:0)
 # to use the optimized Claude prompt variant automatically.
 
-# Paths
-_default_graphs_dir = _BACKEND_DIR / "data" / "graphs"
-_graphs_dir_env = os.getenv("BASELINE_GRAPHS_DIR", "")
-BASELINE_GRAPHS_DIR: Path = Path(_graphs_dir_env) if _graphs_dir_env else _default_graphs_dir
-if not BASELINE_GRAPHS_DIR.is_absolute():
-    BASELINE_GRAPHS_DIR = _BACKEND_DIR / BASELINE_GRAPHS_DIR
-BASELINE_WORKSPACE_PATH: Path = BASELINE_GRAPHS_DIR.parent / "workspace.json"
+# Paths: one subfolder per template type (pharmacy, logistics, manufacturing), each with workspace.json + graphs/
+DATA_DIR: Path = _BACKEND_DIR / "data"
+# Default baseline = pharmacy template (used at startup to seed baseline_processes)
+_baseline_template = os.getenv("BASELINE_TEMPLATE", "pharmacy")
+_baseline_dir = DATA_DIR / _baseline_template
+BASELINE_WORKSPACE_PATH: Path = _baseline_dir / "workspace.json"
+BASELINE_GRAPHS_DIR: Path = _baseline_dir / "graphs"
 
 DEFAULT_PROCESS_ID: str = os.getenv("DEFAULT_PROCESS_ID", "global")
 

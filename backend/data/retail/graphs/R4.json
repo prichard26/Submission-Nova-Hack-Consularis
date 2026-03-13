@@ -1,0 +1,95 @@
+{
+  "id": "R4",
+  "name": "Customer Service",
+  "nodes": [
+    { "id": "R4_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P4.1",
+      "name": "Handle return or complaint",
+      "type": "step",
+      "position": { "x": 500, "y": 44 },
+      "attributes": {
+        "actor": "Customer service",
+        "duration_min": "5–15 min",
+        "description": "Listen to customer, verify receipt and policy; decide refund, exchange, or repair.",
+        "inputs": ["Customer", "Receipt", "Product", "Return policy"],
+        "outputs": ["Decision", "RMA if applicable"],
+        "risks": ["Policy inconsistency", "Fraud", "Escalation"],
+        "automation_potential": "medium",
+        "automation_notes": "Self-service return kiosks, online return portal",
+        "current_state": "manual",
+        "frequency": "25/day",
+        "annual_volume": "7500",
+        "error_rate_percent": "4.0",
+        "cost_per_execution": "12.00 EUR",
+        "current_systems": ["POS", "CRM", "Policy doc"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": ["Consumer rights"],
+        "sla_target": "Resolve same day in-store",
+        "pain_points": ["No receipt", "Manager override"]
+      }
+    },
+    {
+      "id": "P4.2",
+      "name": "Process refund or exchange",
+      "type": "step",
+      "position": { "x": 850, "y": 44 },
+      "attributes": {
+        "actor": "Customer service",
+        "duration_min": "3–8 min",
+        "description": "Execute refund to original payment, or complete exchange and update inventory.",
+        "inputs": ["Decision", "Payment method", "New item for exchange"],
+        "outputs": ["Refund confirmation", "Updated sale", "Inventory adjustment"],
+        "risks": ["Wrong amount", "Inventory not updated", "Duplicate refund"],
+        "automation_potential": "high",
+        "automation_notes": "POS return flow, automatic inventory reverse",
+        "current_state": "semi_automated",
+        "frequency": "25/day",
+        "annual_volume": "7500",
+        "error_rate_percent": "1.8",
+        "cost_per_execution": "5.00 EUR",
+        "current_systems": ["POS", "Payment terminal"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Payment processor"],
+        "regulatory_constraints": ["PCI-DSS", "Refund window"],
+        "sla_target": "Refund posted within 5–10 days",
+        "pain_points": ["Manual inventory adjust", "Gift receipt"]
+      }
+    },
+    {
+      "id": "P4.3",
+      "name": "Close ticket and follow-up",
+      "type": "step",
+      "position": { "x": 1200, "y": 44 },
+      "attributes": {
+        "actor": "Customer service",
+        "duration_min": "2–5 min",
+        "description": "Log interaction, send confirmation email if needed, file for loyalty or feedback.",
+        "inputs": ["Completed action", "Customer contact"],
+        "outputs": ["Closed ticket", "Customer notification"],
+        "risks": ["Incomplete log", "Wrong contact", "No follow-up"],
+        "automation_potential": "high",
+        "automation_notes": "CRM update, automated email, NPS survey",
+        "current_state": "semi_automated",
+        "frequency": "25/day",
+        "annual_volume": "7500",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "3.00 EUR",
+        "current_systems": ["CRM", "Email", "NPS tool"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": ["GDPR for contact data"],
+        "sla_target": "Ticket closed within 24 hr",
+        "pain_points": ["Duplicate entries", "CRM not used"]
+      }
+    },
+    { "id": "R4_end", "type": "end", "position": { "x": 1550, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "R4_start", "to": "P4.1", "label": "Start" },
+    { "from": "P4.1", "to": "P4.2", "label": "Approved" },
+    { "from": "P4.2", "to": "P4.3", "label": "Processed" },
+    { "from": "P4.3", "to": "R4_end", "label": "Complete" }
+  ]
+}

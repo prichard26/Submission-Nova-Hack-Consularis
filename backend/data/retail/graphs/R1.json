@@ -1,0 +1,123 @@
+{
+  "id": "R1",
+  "name": "Inventory & Stock",
+  "nodes": [
+    { "id": "R1_start", "type": "start", "position": { "x": 200, "y": 78 } },
+    {
+      "id": "P1.1",
+      "name": "Count stock levels",
+      "type": "step",
+      "position": { "x": 400, "y": 44 },
+      "attributes": {
+        "actor": "Store staff",
+        "duration_min": "30–60 min",
+        "description": "Physical or system count of items on shelves and in back room to reconcile with system levels.",
+        "inputs": ["Stock list", "Previous count"],
+        "outputs": ["Count sheet", "Discrepancy report"],
+        "risks": ["Count error", "Pilferage undetected", "Wrong SKU"],
+        "automation_potential": "high",
+        "automation_notes": "RFID, barcode scanners, cycle count apps",
+        "current_state": "manual",
+        "frequency": "3/week (cycle count)",
+        "annual_volume": "156",
+        "error_rate_percent": "5.0",
+        "cost_per_execution": "45.00 EUR",
+        "current_systems": ["POS", "Handheld scanner"],
+        "data_format": "mixed",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "IRA ≥ 97%",
+        "pain_points": ["Time on floor", "System vs physical mismatch"]
+      }
+    },
+    {
+      "id": "P1.2",
+      "name": "Update inventory system",
+      "type": "step",
+      "position": { "x": 700, "y": 44 },
+      "attributes": {
+        "actor": "Store staff",
+        "duration_min": "10–20 min",
+        "description": "Enter counts into POS or inventory module; adjust for shrinkage and corrections.",
+        "inputs": ["Count sheet", "System current levels"],
+        "outputs": ["Updated stock levels", "Reorder triggers"],
+        "risks": ["Keying error", "Wrong adjustment", "Duplicate entry"],
+        "automation_potential": "high",
+        "automation_notes": "Auto-sync from scanners, low-stock alerts",
+        "current_state": "semi_automated",
+        "frequency": "3/week",
+        "annual_volume": "156",
+        "error_rate_percent": "2.0",
+        "cost_per_execution": "12.00 EUR",
+        "current_systems": ["POS", "Inventory module"],
+        "data_format": "digital_structured",
+        "external_dependencies": [],
+        "regulatory_constraints": [],
+        "sla_target": "Update within 24 hr of count",
+        "pain_points": ["Manual entry lag", "Approval workflow"]
+      }
+    },
+    {
+      "id": "P1.3",
+      "name": "Generate reorder list",
+      "type": "step",
+      "position": { "x": 1000, "y": 44 },
+      "attributes": {
+        "actor": "Manager",
+        "duration_min": "15–30 min",
+        "description": "Review items below reorder point; confirm quantities and place or schedule orders.",
+        "inputs": ["Stock levels", "Sales forecast", "Supplier lead times"],
+        "outputs": ["Purchase order", "Expected delivery dates"],
+        "risks": ["Over/under order", "Wrong supplier", "Lead time miss"],
+        "automation_potential": "medium",
+        "automation_notes": "Automated reorder points, supplier integration",
+        "current_state": "manual",
+        "frequency": "2/week",
+        "annual_volume": "104",
+        "error_rate_percent": "3.5",
+        "cost_per_execution": "35.00 EUR",
+        "current_systems": ["POS", "Email", "Supplier portal"],
+        "data_format": "mixed",
+        "external_dependencies": ["Supplier catalog", "Lead times"],
+        "regulatory_constraints": [],
+        "sla_target": "Order within 48 hr of reorder point",
+        "pain_points": ["Manual PO creation", "No auto-forecast"]
+      }
+    },
+    {
+      "id": "P1.4",
+      "name": "Receive and shelve",
+      "type": "step",
+      "position": { "x": 1300, "y": 44 },
+      "attributes": {
+        "actor": "Store staff",
+        "duration_min": "20–45 min",
+        "description": "Accept delivery, check against PO, update system, and place items on sales floor or back stock.",
+        "inputs": ["Delivery", "Purchase order"],
+        "outputs": ["Received stock", "Updated shelf capacity"],
+        "risks": ["Short receive", "Wrong location", "Damage not noted"],
+        "automation_potential": "medium",
+        "automation_notes": "Barcode receive, put-to-light systems",
+        "current_state": "semi_automated",
+        "frequency": "5/week",
+        "annual_volume": "260",
+        "error_rate_percent": "2.8",
+        "cost_per_execution": "28.00 EUR",
+        "current_systems": ["POS", "Handheld"],
+        "data_format": "digital_structured",
+        "external_dependencies": ["Supplier delivery"],
+        "regulatory_constraints": [],
+        "sla_target": "Put away same day",
+        "pain_points": ["Dock congestion", "PO mismatch"]
+      }
+    },
+    { "id": "R1_end", "type": "end", "position": { "x": 1600, "y": 78 } }
+  ],
+  "edges": [
+    { "from": "R1_start", "to": "P1.1", "label": "Start" },
+    { "from": "P1.1", "to": "P1.2", "label": "Count done" },
+    { "from": "P1.2", "to": "P1.3", "label": "System updated" },
+    { "from": "P1.3", "to": "P1.4", "label": "Order placed" },
+    { "from": "P1.4", "to": "R1_end", "label": "Complete" }
+  ]
+}
