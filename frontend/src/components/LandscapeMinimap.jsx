@@ -1,25 +1,39 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { layoutTree } from '../services/landscapeLayout'
 import './LandscapeMinimap.css'
 
 const PAD = 8
 const WIDTH = 180
 const HEIGHT = 120
+const TOOLTIP_OFFSET = 12
 
 /**
  * Minimap showing the process landscape (tree) with the current process highlighted.
  * Replaces the default React Flow minimap so users see where they are in the workspace.
  */
 export default function LandscapeMinimap({ workspace, currentProcessId, onProcessSelect }) {
-  const { viewBox, transform, nodes, edges } = useMemo(() => {
+  const [hoveredNodeId, setHoveredNodeId] = useState(null)
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
+
+  const handleNodeEnter = useCallback((nodeId, e) => {
+    setHoveredNodeId(nodeId)
+    setTooltipPosition({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const handleNodeMove = useCallback((e) => {
+    if (hoveredNodeId) {
+      setTooltipPosition({ x: e.clientX, y: e.clientY })
+    }
+  }, [hoveredNodeId])
+
+  const handleNodeLeave = useCallback(() => {
+    setHoveredNodeId(null)
+  }, [])
+
+  const { transform, nodes, edges } = useMemo(() => {
     const { nodes: layoutNodes, edges: layoutEdges } = layoutTree(workspace || {})
     if (layoutNodes.length === 0) {
-      return {
-        viewBox: `0 0 ${WIDTH} ${HEIGHT}`,
-        transform: '',
-        nodes: [],
-        edges: [],
-      }
+      return { transform: '', nodes: [], edges: [] }
     }
 
     let minX = Infinity
@@ -58,7 +72,6 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
     }).filter(Boolean)
 
     return {
-      viewBox: `0 0 ${WIDTH} ${HEIGHT}`,
       transform: `translate(${tx},${ty}) scale(${scale})`,
       nodes: layoutNodes,
       edges: edgesWithPoints,
@@ -76,11 +89,10 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
     )
   }
 
+  const processes = workspace?.process_tree?.processes || {}
+
   return (
-    <div
-      className="landscape-minimap"
-      title="Landscape — current process highlighted"
-    >
+    <div className="landscape-minimap">
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="landscape-minimap__svg"
@@ -102,7 +114,12 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
           {nodes.map((n) => {
             const isCurrent = n.id === currentProcessId
             return (
-              <g key={n.id}>
+              <g
+                key={n.id}
+                onMouseEnter={(e) => handleNodeEnter(n.id, e)}
+                onMouseMove={handleNodeMove}
+                onMouseLeave={handleNodeLeave}
+              >
                 <rect
                   x={n.x}
                   y={n.y}
@@ -121,6 +138,17 @@ export default function LandscapeMinimap({ workspace, currentProcessId, onProces
           })}
         </g>
       </svg>
+      {hoveredNodeId && (
+        <div
+          className="landscape-minimap__tooltip"
+          style={{
+            left: tooltipPosition.x + TOOLTIP_OFFSET,
+            top: tooltipPosition.y + TOOLTIP_OFFSET,
+          }}
+        >
+          {processes[hoveredNodeId]?.name || hoveredNodeId}
+        </div>
+      )}
     </div>
   )
 }
