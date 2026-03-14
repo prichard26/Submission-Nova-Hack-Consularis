@@ -32,7 +32,6 @@ function Robot({ speaking, message, size = 'normal' }) {
   return (
     <div className={`robot-container robot-container--${size}`}>
       <div className={`robot ${speaking ? 'robot--speaking' : ''}`}>
-        {/* Laurel crown */}
         <div className="robot__crown">
           <svg viewBox="0 0 80 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M6 18C8 14 10 8 16 6C12 10 10 14 8 18" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.6"/>
@@ -46,13 +45,11 @@ function Robot({ speaking, message, size = 'normal' }) {
           </svg>
         </div>
 
-        {/* Antenna */}
         <div className="robot__antenna">
           <div className="robot__antenna-ball" />
           <div className="robot__antenna-stick" />
         </div>
 
-        {/* Head */}
         <div className="robot__head">
           <div className={`robot__eye robot__eye--left ${blinking ? 'blink' : ''}`}>
             <div className="robot__pupil" />
@@ -63,7 +60,6 @@ function Robot({ speaking, message, size = 'normal' }) {
           <div className={`robot__mouth ${speaking ? 'robot__mouth--talking' : ''}`} />
         </div>
 
-        {/* Body */}
         <div className="robot__neck" />
         <div className="robot__body">
           <div className="robot__chest-light" />
@@ -72,7 +68,6 @@ function Robot({ speaking, message, size = 'normal' }) {
           <div className="robot__emblem">SPQR</div>
         </div>
 
-        {/* Arms */}
         <div className="robot__arm robot__arm--left">
           <div className="robot__hand" />
         </div>
@@ -83,10 +78,14 @@ function Robot({ speaking, message, size = 'normal' }) {
 
       <div className="robot__name">Aurelius</div>
 
-      {/* Speech bubble */}
       {message && (
         <div className="speech-bubble">
-          <p>{displayedText}<span className="cursor-blink">|</span></p>
+          <div className="speech-bubble__content">
+            <p className="speech-bubble__sizer" aria-hidden="true">{message}</p>
+            <p className="speech-bubble__text">
+              {displayedText}<span className="cursor-blink">|</span>
+            </p>
+          </div>
         </div>
       )}
     </div>

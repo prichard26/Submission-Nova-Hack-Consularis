@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from 'react'
+import { useCallback, useRef, useState, useEffect, useLayoutEffect } from 'react'
 import Robot from '../components/Robot'
 import { initSession } from '../services/api'
 import './Landing.css'
@@ -27,12 +27,14 @@ const BOT_CREATING_BLANK = "Creating your blank canvas… One moment."
 const GENERATING_DELAY_MS = 2500
 
 export default function Landing({ onSubmit }) {
-  const [step, setStep] = useState('name') // 'name' | 'choose_template' | 'generating' | 'done'
+  const [step, setStep] = useState('name')
   const [nameInput, setNameInput] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [templateId, setTemplateId] = useState(null)
   const inputRef = useRef(null)
   const generatingTimerRef = useRef(null)
+  const robotSlotRef = useRef(null)
+  const [slotHeight, setSlotHeight] = useState(null)
 
   const handleSendName = useCallback(
     (e) => {
@@ -101,6 +103,23 @@ export default function Landing({ onSubmit }) {
         : BOT_GENERATING(companyName)
     : ''
 
+  useLayoutEffect(() => {
+    const slot = robotSlotRef.current
+    const container = slot?.querySelector('.robot-container')
+    if (!slot || !container) return
+
+    const measure = () => {
+      const slotRect = slot.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
+      setSlotHeight(containerRect.bottom - slotRect.top)
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [step, companyName, templateId])
+
   return (
     <div className="landing">
       <div className="landing__bg-glow" />
@@ -114,8 +133,11 @@ export default function Landing({ onSubmit }) {
 
       <main className="landing__main">
         <div className="landing__chat">
-          {/* Single fixed slot: same robot size and position for every step */}
-          <div className="landing__robot-slot">
+          <div
+            ref={robotSlotRef}
+            className="landing__robot-slot"
+            style={slotHeight != null ? { height: slotHeight } : undefined}
+          >
             {(step === 'name' || step === 'choose_template') && (
               <Robot speaking message={robotMessage} size="small" />
             )}

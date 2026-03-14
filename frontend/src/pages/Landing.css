@@ -20,7 +20,6 @@
   pointer-events: none;
 }
 
-/* ── Header: same size as dashboard top bar ── */
 .landing__header {
   height: 40px;
   flex-shrink: 0;
@@ -46,13 +45,13 @@
   object-fit: contain;
 }
 
-/* ── Main: bot at top, chat/buttons at bottom ── */
 .landing__main {
   flex: 1;
   display: flex;
   flex-direction: column;
   padding: 0;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .landing__chat {
@@ -66,32 +65,30 @@
   min-height: 0;
 }
 
-/* Robot at top of screen */
 .landing__robot-slot {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  height: 220px;
+  min-height: 400px;
   padding: 0.5rem 0;
+  overflow: visible;
 }
 
 .landing__robot-slot .robot-container {
   margin-top: 1rem;
 }
 
-/* Robot size="small" already applies scale(0.72) in Robot.css */
 .landing__robot-slot .speech-bubble p {
   font-size: 1.39rem;
 }
 
-/* Chat input and buttons near bottom, raised from the very bottom */
 .landing__chat-input-area {
   flex-shrink: 0;
-  margin-top: auto;
-  margin-bottom: 15rem;
+  margin-top: 0;
+  margin-bottom: 2rem;
   min-height: 140px;
-  padding-top: 1rem;
+  padding-top: 0.5rem;
   padding-bottom: 0.5rem;
   display: flex;
   flex-direction: column;
@@ -155,21 +152,18 @@
   outline-offset: 1px;
 }
 
-/* ── Action buttons (same look as Apply plan / Cancel in chat) ── */
 .landing__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-/* Template step: 3 buttons per row, full center */
 .landing__actions--templates {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
 }
 
-/* Bigger buttons in template grid */
 .landing__actions--templates .landing__action-btn {
   padding: 0.75rem 1.25rem;
   font-size: 1rem;
@@ -191,22 +185,11 @@
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.landing__action-btn--primary {
-  background: var(--accent);
-  color: var(--accent-contrast, #fff);
-}
-
-.landing__action-btn--primary:hover:not(:disabled) {
-  background: var(--accent-dark);
-}
-
-/* Template buttons: gradient along diagonal (top-left → bottom-right), not row by row */
 .landing__action-btn--tint {
   color: #fff;
   border: none;
 }
 
-/* Diagonal d=0: top-left — typical orange */
 .landing__action-btn--tint-pharmacy {
   background: var(--accent, #e85d04);
 }
@@ -215,7 +198,6 @@
   filter: brightness(1.05);
 }
 
-/* Diagonal d=1: lighter — Logistics, Retail */
 .landing__action-btn--tint-logistics {
   background: #ed7828;
 }
@@ -232,7 +214,6 @@
   filter: brightness(1.06);
 }
 
-/* Diagonal d=2: even lighter — Manufacturing, Restaurant, Plumber */
 .landing__action-btn--tint-manufacturing {
   background: #f59a45;
 }
@@ -257,7 +238,6 @@
   filter: brightness(1.05);
 }
 
-/* Diagonal d=3: lightest orange — Electrician, Cleaning */
 .landing__action-btn--tint-electrician {
   background: #f7b86a;
 }
@@ -297,17 +277,6 @@
   outline-offset: 1px;
 }
 
-.landing__action-badge {
-  margin-left: 0.2rem;
-  font-size: 0.65rem;
-  padding: 0.1rem 0.35rem;
-  border-radius: 20px;
-  background: var(--bg-secondary);
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
-}
-
-/* ── Generating state ── */
 .landing__generating {
   display: flex;
   align-items: center;
@@ -351,7 +320,6 @@
   }
 }
 
-/* ── Responsive ── */
 @media (max-width: 640px) {
   .landing__chat {
     padding: 1rem 1rem 1rem;

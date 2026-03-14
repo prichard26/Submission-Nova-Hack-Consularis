@@ -10,7 +10,6 @@
   transform-origin: top center;
 }
 
-/* ── Robot body ── */
 .robot {
   position: relative;
   width: 180px;
@@ -23,7 +22,6 @@
   50% { transform: translateY(-12px); }
 }
 
-/* Laurel crown (Roman touch) */
 .robot__crown {
   position: absolute;
   top: 14px;
@@ -39,7 +37,6 @@
   opacity: 0.9;
 }
 
-/* Antenna */
 .robot__antenna {
   position: absolute;
   top: 0;
@@ -71,7 +68,6 @@
   border-radius: 2px;
 }
 
-/* Head */
 .robot__head {
   position: absolute;
   top: 34px;
@@ -90,7 +86,6 @@
   box-shadow: 0 4px 20px var(--shadow-soft, rgba(0, 0, 0, 0.08));
 }
 
-/* Eyes */
 .robot__eye {
   width: 28px;
   height: 28px;
@@ -125,7 +120,6 @@
   75% { transform: translate(2px, 2px); }
 }
 
-/* Mouth */
 .robot__mouth {
   position: absolute;
   bottom: 16px;
@@ -147,7 +141,6 @@
   50% { height: 14px; width: 24px; border-radius: 50%; }
 }
 
-/* Neck */
 .robot__neck {
   position: absolute;
   top: 124px;
@@ -159,7 +152,6 @@
   border-radius: 2px;
 }
 
-/* Body */
 .robot__body {
   position: absolute;
   top: 136px;
@@ -177,7 +169,6 @@
   box-shadow: 0 4px 20px var(--shadow-soft, rgba(0, 0, 0, 0.08));
 }
 
-/* SPQR-style chest emblem */
 .robot__emblem {
   font-family: var(--font-sans);
   font-size: 0.75rem;
@@ -214,7 +205,6 @@
   50% { opacity: 1; }
 }
 
-/* Arms */
 .robot__arm {
   position: absolute;
   top: 142px;
@@ -269,7 +259,6 @@
   border-radius: 8px;
 }
 
-/* ── Name tag ── */
 .robot__name {
   font-family: var(--font-sans);
   font-size: 0.8rem;
@@ -281,7 +270,6 @@
   opacity: 0.7;
 }
 
-/* ── Speech bubble ── */
 .speech-bubble {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -311,6 +299,21 @@
   font-size: 1rem;
   line-height: 1.6;
   color: var(--text-secondary);
+}
+
+.speech-bubble__content {
+  position: relative;
+}
+
+.speech-bubble__sizer {
+  visibility: hidden;
+}
+
+.speech-bubble__text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
 }
 
 .cursor-blink {
