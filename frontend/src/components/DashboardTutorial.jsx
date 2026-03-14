@@ -22,10 +22,6 @@ const STEPS = [
     message: "The minimap shows where you are in the global architecture. Click a process to jump to it.",
   },
   {
-    id: 'panelHeader',
-    message: "Here you see the current process path and name. Click a path segment to go up, or click the pencil to edit the process name.",
-  },
-  {
     id: 'panelElementInfo',
     message: "Element info: click on an element in the graph to see its details here. When none is selected, use this area as a reminder.",
   },
@@ -56,7 +52,6 @@ function getRefForStep(step, refs) {
     canvasRef,
     toolbarRef,
     minimapRef,
-    panelHeaderRef,
     panelElementInfoRef,
     panelChatRef,
   } = refs
@@ -65,9 +60,8 @@ function getRefForStep(step, refs) {
     case 1: return canvasRef
     case 2: return toolbarRef
     case 3: return minimapRef
-    case 4: return panelHeaderRef
-    case 5: return panelElementInfoRef
-    case 6: return panelChatRef
+    case 4: return panelElementInfoRef
+    case 5: return panelChatRef
     default: return null
   }
 }
@@ -77,7 +71,6 @@ export default function DashboardTutorial({
   canvasRef,
   toolbarRef,
   minimapRef,
-  panelHeaderRef,
   panelElementInfoRef,
   panelChatRef,
   onClose,
@@ -91,7 +84,6 @@ export default function DashboardTutorial({
       canvasRef,
       toolbarRef,
       minimapRef,
-      panelHeaderRef,
       panelElementInfoRef,
       panelChatRef,
     })
@@ -107,7 +99,7 @@ export default function DashboardTutorial({
       width: rect.width,
       height: rect.height,
     })
-  }, [step, topbarRef, canvasRef, toolbarRef, minimapRef, panelHeaderRef, panelElementInfoRef, panelChatRef])
+  }, [step, topbarRef, canvasRef, toolbarRef, minimapRef, panelElementInfoRef, panelChatRef])
 
   useEffect(() => {
     updateHighlight()

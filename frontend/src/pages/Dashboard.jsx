@@ -24,7 +24,6 @@ export default function Dashboard({ companyName }) {
   const panelRef = useRef(null)
   const toolbarRef = useRef(null)
   const minimapRef = useRef(null)
-  const panelHeaderRef = useRef(null)
   const panelElementInfoRef = useRef(null)
   const panelChatRef = useRef(null)
   const [structuralChangeFromChat, setStructuralChangeFromChat] = useState(false)
@@ -185,7 +184,6 @@ export default function Dashboard({ companyName }) {
             panelRef={panelRef}
             toolbarRef={toolbarRef}
             minimapRef={minimapRef}
-            panelHeaderRef={panelHeaderRef}
             panelElementInfoRef={panelElementInfoRef}
             panelChatRef={panelChatRef}
           />
@@ -198,7 +196,6 @@ export default function Dashboard({ companyName }) {
           canvasRef={canvasAreaRef}
           toolbarRef={toolbarRef}
           minimapRef={minimapRef}
-          panelHeaderRef={panelHeaderRef}
           panelElementInfoRef={panelElementInfoRef}
           panelChatRef={panelChatRef}
           onClose={() => setShowTutorial(false)}

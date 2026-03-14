@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { renameProcess } from '../services/api'
 
 /**
- * Shared inline-rename logic used by LaneNode and ProcessNameHeader.
+ * Inline-rename logic for LaneNode lane titles.
  */
 export function useInlineRename({ currentName, sessionId, processId, onRequestRefresh }) {
   const [editing, setEditing] = useState(false)

@@ -61,7 +61,6 @@ frontend/
       ProcessCanvas.css
       DetailPanel.jsx          # Step metadata editor (slides in from right)
       DetailPanel.css
-      ProcessBreadcrumb.jsx    # Subprocess navigation breadcrumb
       LandscapeView.jsx        # Workspace tree overview (Dagre layout)
       LandscapeView.css
       DataViewState.jsx        # Shared loading/error state UI

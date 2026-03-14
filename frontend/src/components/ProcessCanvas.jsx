@@ -31,7 +31,6 @@ import DetailPanel from './DetailPanel'
 import DataViewState from './DataViewState'
 import FloatingToolbar from './FloatingToolbar'
 import EdgeEditorModal from './EdgeEditorModal'
-import ProcessNameHeader from './ProcessNameHeader'
 import LandscapeMinimap from './LandscapeMinimap'
 import { ProcessCanvasContext } from '../contexts/ProcessCanvasContext'
 import './ProcessCanvas.css'
@@ -53,7 +52,6 @@ function Canvas({
   onRequestRefresh,
   panelFooter,
   workspaceProcesses = {},
-  viewMode,
   onViewModeChange,
   selectedStep,
   onCloseDetail,
@@ -65,7 +63,6 @@ function Canvas({
   panelRef: panelRefProp,
   toolbarRef: toolbarRefProp,
   minimapRef: minimapRefProp,
-  panelHeaderRef,
   panelElementInfoRef,
   panelChatRef,
 }) {
@@ -75,7 +72,6 @@ function Canvas({
   const graphHistory = useGraphHistory()
   const lastPushedGraphRef = useRef(null)
   const [resetPending, setResetPending] = useState(false)
-  const [renameTrigger, setRenameTrigger] = useState(0)
   const [panelWidth, setPanelWidth] = useState(340)
   const [resizing, setResizing] = useState(false)
   const [flowFocused, setFlowFocused] = useState(false)
@@ -255,21 +251,6 @@ function Canvas({
     setTimeout(() => fitView({ padding: 0.15 }), 100)
     onConsumedStructuralChange()
   }, [structuralChangeFromChat, structuralChangeGraph, workspaceProcesses, processDisplayName, setNodes, setEdges, fitView, onConsumedStructuralChange, graph, pushGraphToHistory])
-
-  const breadcrumb = useMemo(() => {
-    const parts = []
-    let current = processId
-    while (current) {
-      const info = workspaceProcesses[current]
-      if (!info) break
-      parts.unshift({ id: current, name: info.name })
-      const segments = (info.path || '').split('/').filter(Boolean)
-      const parent = segments.length >= 2 ? segments[segments.length - 2] : null
-      if (!parent || parent === current) break
-      current = parent
-    }
-    return parts
-  }, [processId, workspaceProcesses])
 
   const handleNodesChange = useCallback(
     (changes) => {
@@ -635,7 +616,6 @@ function Canvas({
         redoTip={redoTip}
         onReset={handleReset}
         resetDisabled={disabled || resetPending || !onRequestRefresh}
-        onRenameMap={sessionId && onRequestRefresh ? () => setRenameTrigger((t) => t + 1) : undefined}
         onExportPng={handleExportPng}
         onExportBpmn={handleExportBpmn}
         onToggleLayout={handleToggleToolbarLayout}
@@ -650,18 +630,6 @@ function Canvas({
           {!pendingAddType && subprocessStatus && (
             <div className="process-canvas__subprocess-status">{subprocessStatus}</div>
           )}
-
-          <div ref={panelHeaderRef} className="process-canvas__panel-section process-canvas__panel-section--header">
-            <ProcessNameHeader
-              breadcrumb={breadcrumb}
-              processDisplayName={processDisplayName}
-              processId={processId}
-              sessionId={sessionId}
-              onDrillDown={onDrillDown}
-              onRequestRefresh={onRequestRefresh}
-              beginRenameTrigger={renameTrigger}
-            />
-          </div>
 
           <div
             ref={panelElementInfoRef}

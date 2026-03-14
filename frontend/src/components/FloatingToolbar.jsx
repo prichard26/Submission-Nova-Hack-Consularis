@@ -21,7 +21,6 @@ export default function FloatingToolbar({
   redoTip,
   onReset,
   resetDisabled,
-  onRenameMap,
   onExportPng,
   onExportBpmn,
   onToggleLayout,
@@ -70,11 +69,6 @@ export default function FloatingToolbar({
           <button type="button" className="ftb__btn" onClick={onReset} disabled={resetDisabled} data-tip="Reset to baseline">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 0 1 9.3-4" /><path d="M13.5 8a5.5 5.5 0 0 1-9.3 4" /><path d="M11.5 2l.3 2.2-2.2.3" /><path d="M4.5 14l-.3-2.2 2.2-.3" /></svg>
           </button>
-          {onRenameMap && (
-            <button type="button" className="ftb__btn" onClick={onRenameMap} data-tip="Rename this map / process">
-              <svg width="16" height="16" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 2L10 5L4 11H1V8L7 2Z" /></svg>
-            </button>
-          )}
           <span className="ftb__sep" />
           <button type="button" className="ftb__btn" onClick={onExportPng} disabled={disabled} data-tip="Export PNG">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2" /><circle cx="6" cy="6" r="1.5" fill="currentColor" stroke="none" /><path d="M2 11l3.5-4 2.5 3 2-2 4 3" strokeLinecap="round" strokeLinejoin="round" /></svg>
