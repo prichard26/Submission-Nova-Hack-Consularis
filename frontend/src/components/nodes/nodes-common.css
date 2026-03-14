@@ -20,3 +20,10 @@
   border-color: var(--accent, #e85d04);
   box-shadow: 0 0 16px color-mix(in srgb, var(--accent, #e85d04) 50%, transparent);
 }
+
+.node-shared-interactive.node-shared-viz-highlight {
+  border-color: var(--accent, #e85d04);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent, #e85d04) 60%, transparent),
+              0 0 48px color-mix(in srgb, var(--accent, #e85d04) 25%, transparent);
+  z-index: 5;
+}

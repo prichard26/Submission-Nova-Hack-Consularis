@@ -7,7 +7,7 @@ function EventNode({ data, selected }) {
   const isEnd = data.type === 'end'
   return (
     <div
-      className={`event-node node-shared-interactive node-shared-handles ${isEnd ? 'event-node--end' : 'event-node--start'} ${selected ? 'node-shared-selected' : ''}`}
+      className={`event-node node-shared-interactive node-shared-handles ${isEnd ? 'event-node--end' : 'event-node--start'} ${selected ? 'node-shared-selected' : ''} ${data.vizHighlighted ? 'node-shared-viz-highlight' : ''}`}
     >
       <NodeHandles />
       <span className="event-node__label">{data.name || (isEnd ? 'End' : 'Start')}</span>

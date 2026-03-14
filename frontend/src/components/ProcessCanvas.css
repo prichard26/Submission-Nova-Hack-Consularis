@@ -581,3 +581,86 @@
   background: var(--bg-card-hover, #2a2218);
   border-color: var(--accent, #e85d04);
 }
+
+/* ==========================================================================
+   VISUALIZATION MODE — navigation bar
+   ========================================================================== */
+
+.viz-nav-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--bg-card, #1e1914);
+  border: 1px solid var(--border, #2e2820);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.viz-nav-bar__btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border, #2e2820);
+  background: var(--bg-card, #1e1914);
+  color: var(--text-secondary, #c9bfb0);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.viz-nav-bar__btn:hover:not(:disabled) {
+  background: var(--bg-card-hover, #2a2218);
+  border-color: var(--accent, #e85d04);
+  color: var(--accent, #e85d04);
+}
+
+.viz-nav-bar__btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.viz-nav-bar__counter {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #fbf9f1);
+  min-width: 48px;
+  text-align: center;
+}
+
+.viz-nav-bar__sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border, #2e2820);
+}
+
+.viz-nav-bar__exit {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border, #2e2820);
+  background: var(--bg-card, #1e1914);
+  color: var(--text-secondary, #c9bfb0);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.viz-nav-bar__exit:hover {
+  background: var(--bg-card-hover, #2a2218);
+  border-color: var(--accent, #e85d04);
+  color: var(--accent, #e85d04);
+}
+
+/* Dim non-focused nodes in viz mode */
+.process-canvas--viz-active .react-flow__node:not(.viz-focused) {
+  opacity: 0.3;
+  transition: opacity 0.3s;
+}

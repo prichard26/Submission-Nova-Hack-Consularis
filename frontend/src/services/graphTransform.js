@@ -32,7 +32,7 @@ const DUMMY_WIDTH = 300
 const LAYOUT_CELL_W = 250
 const LAYOUT_CELL_H = 120
 
-function getNodeDimensions(node) {
+export function getNodeDimensions(node) {
   const type = node.type || 'step'
   if (type === 'start' || type === 'end') return { width: EVENT_SIZE, height: EVENT_SIZE }
   if (type === 'decision') return { width: DECISION_SIZE, height: DECISION_SIZE }

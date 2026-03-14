@@ -10,7 +10,7 @@ function StepNode({ data, selected }) {
 
   return (
     <div
-      className={`step-node node-shared-interactive node-shared-handles ${hasHighError ? 'step-node--high-error' : ''} ${selected ? 'node-shared-selected' : ''}`}
+      className={`step-node node-shared-interactive node-shared-handles ${hasHighError ? 'step-node--high-error' : ''} ${selected ? 'node-shared-selected' : ''} ${data.vizHighlighted ? 'node-shared-viz-highlight' : ''}`}
     >
       <NodeHandles />
       <div className="step-node__header">

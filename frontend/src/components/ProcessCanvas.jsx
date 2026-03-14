@@ -13,7 +13,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { toPng } from 'html-to-image'
 import { useProcessGraph } from '../hooks/useProcessGraph'
-import { toReactFlowData, autoArrangeNodes, topLeftToCenter } from '../services/graphTransform'
+import { toReactFlowData, autoArrangeNodes, topLeftToCenter, getNodeDimensions } from '../services/graphTransform'
 import { nodeTypes } from './nodes/nodeTypes.jsx'
 import {
   resetToBaseline,
@@ -36,6 +36,55 @@ import { ProcessCanvasContext } from '../contexts/ProcessCanvasContext'
 import './ProcessCanvas.css'
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
+const FIT_VIEW_PADDING = 0.15
+
+const VIZ_FRAME_W = 320
+const VIZ_FRAME_H = 160
+const VIZ_ZOOM_PADDING = 1.0
+const VIZ_ZOOM_DURATION = 220
+
+/** DFS from start, branch-by-branch. Defer merge points until all predecessors visited. Returns ordered node IDs (excluding lanes). */
+function computeTraversalOrder(nodes, edges) {
+  const stepNodes = nodes.filter((n) => !n.id.startsWith('lane_'))
+  if (stepNodes.length === 0) return []
+  const byId = Object.fromEntries(stepNodes.map((n) => [n.id, n]))
+  const startNode = stepNodes.find((n) => n.type === 'start')
+  const startId = startNode?.id ?? stepNodes[0].id
+
+  const outEdges = new Map()
+  const inDegree = new Map()
+  for (const n of stepNodes) inDegree.set(n.id, 0)
+  for (const e of edges) {
+    if (!outEdges.has(e.source)) outEdges.set(e.source, [])
+    outEdges.get(e.source).push(e.target)
+    if (inDegree.has(e.target)) {
+      inDegree.set(e.target, inDegree.get(e.target) + 1)
+    }
+  }
+
+  const order = []
+  const visited = new Set()
+  const visitedCount = new Map()
+
+  function dfs(id) {
+    if (visited.has(id) || !byId[id]) return
+    const inDeg = inDegree.get(id) || 0
+    const count = visitedCount.get(id) || 0
+    if (inDeg > 1 && count < inDeg) return
+    visited.add(id)
+    order.push(id)
+    for (const targetId of outEdges.get(id) || []) {
+      visitedCount.set(targetId, (visitedCount.get(targetId) || 0) + 1)
+      dfs(targetId)
+    }
+  }
+
+  dfs(startId)
+  for (const n of stepNodes) {
+    if (!visited.has(n.id)) order.push(n.id)
+  }
+  return order
+}
 
 const FIT_VIEW_ICON = (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -66,7 +115,7 @@ function Canvas({
   panelElementInfoRef,
   panelChatRef,
 }) {
-  const { screenToFlowPosition, flowToScreenPosition, zoomIn, zoomOut, fitView } = useReactFlow()
+  const { screenToFlowPosition, flowToScreenPosition, zoomIn, zoomOut, fitView, fitBounds, getNode } = useReactFlow()
   const { zoom } = useViewport()
   const { graph, loading, error } = useProcessGraph(sessionId, processId, refreshTrigger)
   const graphHistory = useGraphHistory()
@@ -84,6 +133,9 @@ function Canvas({
   const [tbCollapsed, setTbCollapsed] = useState(false)
   const [tbDragging, setTbDragging] = useState(false)
   const [ghostPos, setGhostPos] = useState(null)
+  const [vizActive, setVizActive] = useState(false)
+  const [vizIndex, setVizIndex] = useState(0)
+  const [vizOrder, setVizOrder] = useState([])
   const canvasRef = useRef(null)
   const tbRef = useRef(null)
   const flowWrapper = useRef(null)
@@ -217,7 +269,7 @@ function Canvas({
       if (cancelled) return
       setNodes(nextNodes)
       setEdges(nextEdges)
-      setTimeout(() => fitView({ padding: 0.15 }), 100)
+      setTimeout(() => fitView({ padding: FIT_VIEW_PADDING }), 100)
       if (Object.keys(positions).length > 0 && sessionId && processId) {
         try {
           await updatePositions(sessionId, processId, positions)
@@ -285,7 +337,7 @@ function Canvas({
       setNodes(n)
       setEdges(e)
       lastPushedGraphRef.current = previous
-      setTimeout(() => fitView({ padding: 0.15 }), 100)
+      setTimeout(() => fitView({ padding: FIT_VIEW_PADDING }), 100)
     }
   }, [graph, graphHistory, workspaceProcesses, processDisplayName, setNodes, setEdges, fitView])
 
@@ -297,7 +349,7 @@ function Canvas({
       setNodes(n)
       setEdges(e)
       lastPushedGraphRef.current = next
-      setTimeout(() => fitView({ padding: 0.15 }), 100)
+      setTimeout(() => fitView({ padding: FIT_VIEW_PADDING }), 100)
     }
   }, [graph, graphHistory, workspaceProcesses, processDisplayName, setNodes, setEdges, fitView])
 
@@ -557,12 +609,101 @@ function Canvas({
     }
   }, [sessionId, processId])
 
+  const focusVizNode = useCallback(
+    (index) => {
+      if (vizOrder.length === 0 || index < 0 || index >= vizOrder.length) return
+      const nodeId = vizOrder[index]
+      const node = getNode(nodeId) ?? nodes.find((n) => n.id === nodeId)
+      if (!node) return
+      const dims = getNodeDimensions(node)
+      const centerX = node.position.x + dims.width / 2
+      const centerY = node.position.y + dims.height / 2
+      const bounds = {
+        x: centerX - VIZ_FRAME_W / 2,
+        y: centerY - VIZ_FRAME_H / 2,
+        width: VIZ_FRAME_W,
+        height: VIZ_FRAME_H,
+      }
+      fitBounds(bounds, { padding: VIZ_ZOOM_PADDING, duration: VIZ_ZOOM_DURATION, interpolate: 'linear', ease: (t) => t })
+      setNodes((prev) =>
+        prev.map((n) => ({
+          ...n,
+          data: { ...n.data, vizHighlighted: n.id === nodeId },
+          className: n.id === nodeId ? 'viz-focused' : undefined,
+        })),
+      )
+    },
+    [vizOrder, getNode, nodes, fitBounds, setNodes],
+  )
+
+  const handleEnterViz = useCallback(() => {
+    const order = computeTraversalOrder(nodes, edges)
+    if (order.length === 0) return
+    setPendingAddType(null)
+    setGhostPos(null)
+    setVizOrder(order)
+    setVizIndex(0)
+    setVizActive(true)
+  }, [nodes, edges])
+
+  const handleExitViz = useCallback(() => {
+    setVizActive(false)
+    setNodes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        data: { ...n.data, vizHighlighted: false },
+        className: undefined,
+      })),
+    )
+    setTimeout(() => fitView({ padding: FIT_VIEW_PADDING }), 50)
+  }, [setNodes, fitView])
+
+  const handleVizNext = useCallback(() => {
+    setVizIndex((i) => Math.min(i + 1, vizOrder.length - 1))
+  }, [vizOrder.length])
+
+  const handleVizPrev = useCallback(() => {
+    setVizIndex((i) => Math.max(i - 1, 0))
+  }, [])
+
+  useEffect(() => {
+    if (!vizActive || vizOrder.length === 0) return
+    let cancelled = false
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) focusVizNode(vizIndex)
+      })
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(id)
+    }
+  }, [vizActive, vizOrder, vizIndex, focusVizNode])
+
   useEffect(() => {
     function onKeyDown(e) {
       const active = document.activeElement
       const tag = active?.tagName?.toLowerCase()
       const isTypingTarget = tag === 'textarea' || tag === 'input' || active?.isContentEditable
       if (isTypingTarget || !flowFocused || loading || error) return
+      if (vizActive) {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          handleExitViz()
+          return
+        }
+        if (e.key === 'ArrowRight' || e.key === 'Enter') {
+          e.preventDefault()
+          if (vizIndex < vizOrder.length - 1) handleVizNext()
+          return
+        }
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault()
+          if (vizIndex > 0) handleVizPrev()
+          return
+        }
+        return
+      }
       const key = e.key.toLowerCase()
       const metaOrCtrl = e.metaKey || e.ctrlKey
       if (metaOrCtrl && key === 'z') {
@@ -578,7 +719,7 @@ function Canvas({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [flowFocused, loading, error, handleAddNode, handleAutoArrange, handleUndoBot, handleRedo])
+  }, [flowFocused, loading, error, vizActive, vizIndex, vizOrder.length, handleExitViz, handleVizNext, handleVizPrev, handleAddNode, handleAutoArrange, handleUndoBot, handleRedo])
 
   const disabled = loading || !!error
   const undoTip = 'Undo \u00b7 ' + (IS_MAC ? '\u2318Z' : 'Ctrl+Z')
@@ -592,7 +733,7 @@ function Canvas({
   }, [])
 
   return (
-    <div className="process-canvas" ref={canvasRef}>
+    <div className={'process-canvas' + (vizActive ? ' process-canvas--viz-active' : '')} ref={canvasRef}>
       <FloatingToolbar
         toolbarRef={setToolbarRef}
         className={tbCls}
@@ -603,10 +744,11 @@ function Canvas({
         onGrab={onTbGrab}
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
-        onFitView={() => fitView({ padding: 0.15 })}
+        onFitView={() => fitView({ padding: FIT_VIEW_PADDING })}
         pendingAddType={pendingAddType}
         onAddNode={handleAddNode}
         disabled={disabled}
+        editDisabled={vizActive}
         onAutoArrange={handleAutoArrange}
         onUndo={handleUndoBot}
         undoDisabled={disabled || !graphHistory.canUndo}
@@ -618,6 +760,8 @@ function Canvas({
         resetDisabled={disabled || resetPending || !onRequestRefresh}
         onExportPng={handleExportPng}
         onExportBpmn={handleExportBpmn}
+        onVisualize={vizActive ? handleExitViz : handleEnterViz}
+        vizActive={vizActive}
         onToggleLayout={handleToggleToolbarLayout}
       />
 
@@ -687,41 +831,44 @@ function Canvas({
           onBlur={() => setFlowFocused(false)}
         >
           {pendingAddType && ghostPos && (
-          <div
-            className={`ghost-preview ghost-preview--${pendingAddType}`}
-            style={{
-              left: ghostPos.x,
-              top: ghostPos.y,
-              transform: `scale(${zoom ?? 1})`,
-              transformOrigin: 'top left',
-            }}
-          >
-            {pendingAddType === 'step' && (
-              <div className="ghost-preview__step">
-                <span className="ghost-preview__label">New Step</span>
-              </div>
-            )}
-            {pendingAddType === 'decision' && (
-              <div className="ghost-preview__decision">
-                <div className="ghost-preview__decision-inner">
-                  <span className="ghost-preview__label">New Decision</span>
+            <div
+              className={`ghost-preview ghost-preview--${pendingAddType}`}
+              style={{
+                left: ghostPos.x,
+                top: ghostPos.y,
+                transform: `scale(${zoom ?? 1})`,
+                transformOrigin: 'top left',
+              }}
+            >
+              {pendingAddType === 'step' && (
+                <div className="ghost-preview__step">
+                  <span className="ghost-preview__label">New Step</span>
                 </div>
-              </div>
-            )}
-            {pendingAddType === 'subprocess' && (
-              <div className="ghost-preview__subprocess">
-                <span className="ghost-preview__icon">▶▶</span>
-                <span className="ghost-preview__label">New Subprocess</span>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+              {pendingAddType === 'decision' && (
+                <div className="ghost-preview__decision">
+                  <div className="ghost-preview__decision-inner">
+                    <span className="ghost-preview__label">New Decision</span>
+                  </div>
+                </div>
+              )}
+              {pendingAddType === 'subprocess' && (
+                <div className="ghost-preview__subprocess">
+                  <span className="ghost-preview__icon">▶▶</span>
+                  <span className="ghost-preview__label">New Subprocess</span>
+                </div>
+              )}
+            </div>
+          )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={handleConnect}
+          nodesDraggable={!vizActive}
+          nodesConnectable={!vizActive}
+          elementsSelectable={!vizActive}
           onEdgesDelete={handleEdgesDelete}
           onNodesDelete={handleNodesDelete}
           onReconnect={handleReconnect}
@@ -730,7 +877,7 @@ function Canvas({
           onPaneClick={handlePlaceNode}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.15 }}
+          fitViewOptions={{ padding: FIT_VIEW_PADDING }}
           minZoom={0.1}
           maxZoom={4}
           edgesReconnectable
@@ -764,6 +911,33 @@ function Canvas({
           </div>
           <Background variant="dots" color="var(--border, #ccc4b8)" gap={20} size={1.5} />
         </ReactFlow>
+        {vizActive && vizOrder.length > 0 && (
+          <div className="viz-nav-bar">
+            <button
+              type="button"
+              className="viz-nav-bar__btn"
+              onClick={handleVizPrev}
+              disabled={vizIndex === 0}
+              aria-label="Previous"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 12L6 8l4-4" /></svg>
+            </button>
+            <span className="viz-nav-bar__counter">{vizIndex + 1} / {vizOrder.length}</span>
+            <button
+              type="button"
+              className="viz-nav-bar__btn"
+              onClick={handleVizNext}
+              disabled={vizIndex === vizOrder.length - 1}
+              aria-label="Next"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4l4 4-4 4" /></svg>
+            </button>
+            <span className="viz-nav-bar__sep" />
+            <button type="button" className="viz-nav-bar__exit" onClick={handleExitViz} aria-label="Exit visualization mode">
+              Exit
+            </button>
+          </div>
+        )}
         </div>
       </div>
       </ProcessCanvasContext.Provider>

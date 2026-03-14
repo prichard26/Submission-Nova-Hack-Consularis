@@ -5,7 +5,7 @@ import './SubprocessNode.css'
 
 function SubprocessNode({ data, selected }) {
   return (
-    <div className={`subprocess-node node-shared-interactive node-shared-handles ${selected ? 'node-shared-selected' : ''}`}>
+    <div className={`subprocess-node node-shared-interactive node-shared-handles ${selected ? 'node-shared-selected' : ''} ${data.vizHighlighted ? 'node-shared-viz-highlight' : ''}`}>
       <NodeHandles />
       <div className="subprocess-node__icon">▶▶</div>
       <div className="subprocess-node__content">
