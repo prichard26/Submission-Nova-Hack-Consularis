@@ -116,4 +116,3 @@ cd backend && pytest -v
 ## Documentation
 
 - [SUBMISSION.md](SUBMISSION.md) — Hackathon submission and inspiration
-- [docs/README.md](docs/README.md) — Links to root and backend READMEs
