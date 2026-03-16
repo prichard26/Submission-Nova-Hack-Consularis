@@ -1,3 +1,6 @@
+/**
+ * Draggable toolbar overlay on the process canvas: zoom, fit view, add node, auto-arrange, undo/redo, reset, export PNG/BPMN, layout toggle.
+ */
 export default function FloatingToolbar({
   toolbarRef,
   className,

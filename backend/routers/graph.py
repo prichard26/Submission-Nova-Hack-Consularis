@@ -1,4 +1,9 @@
-"""Graph endpoints: JSON graph, workspace, BPMN export, name resolution."""
+"""
+Graph router: session graph and workspace CRUD, BPMN export, step resolution.
+
+All graph endpoints under /api/graph: JSON get/update, node/edge CRUD, positions,
+process rename, reset to baseline, resolve step by name, and BPMN XML export.
+"""
 import json
 import logging
 

@@ -1,3 +1,6 @@
+/**
+ * Dropdown to select the Bedrock model for chat (Nova Pro, Nova Lite, Claude, etc.). Used in AureliusChat.
+ */
 import './ModelPicker.css'
 
 export default function ModelPicker({ models, value, onChange, disabled }) {

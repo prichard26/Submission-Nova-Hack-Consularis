@@ -1,3 +1,7 @@
+/**
+ * Landscape view: process tree as a React Flow diagram (layoutTree). Each node is a card with process name and summary.
+ * Clicking a node calls onProcessSelect so the dashboard can switch to that process's detail view.
+ */
 import { useCallback, useMemo } from 'react'
 import {
   ReactFlow,

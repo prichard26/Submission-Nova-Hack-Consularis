@@ -1,3 +1,7 @@
+/**
+ * Analyze page: Company Process Intelligence Report (metrics, charts, LLM narratives) and appointment CTA.
+ * Fetches report via getReport; supports PDF export via react-to-print and requestAppointment for email capture.
+ */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'

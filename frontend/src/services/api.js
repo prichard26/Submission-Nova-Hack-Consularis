@@ -1,10 +1,15 @@
 /**
  * Shared API client for Consularis backend.
- * Base URL from env (VITE_API_BASE) or default for local dev.
+ *
+ * - Base URL: VITE_API_BASE or http://localhost:8000.
+ * - request(): GET/POST/etc with optional body; throws on !res.ok with err.status and err.response.
+ * - buildUrl(): appends session_id (and optional process_id) query params for graph/chat endpoints.
+ * Exports: graph CRUD, workspace, chat (sendChat, confirmChatPlan), session init, report, appointment, BPMN export.
  */
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
 
+/** Build an Error from a failed response; attach status and response for callers. Prefer detail from JSON body. */
 async function buildError(res) {
   const text = await res.text()
   let detail = text
@@ -20,6 +25,7 @@ async function buildError(res) {
   return err
 }
 
+/** Fetch url; on success return JSON or text (parseAs). On 4xx/5xx throw via buildError. */
 async function request(path, options = {}) {
   const { parseAs = 'json', headers = {}, ...rest } = options
   const url = `${API_BASE}${path}`

@@ -1,3 +1,7 @@
+/**
+ * First-time tutorial overlay: step-through with refs (topbar, canvas, toolbar, minimap, panel, chat).
+ * getTutorialDone() / setTutorialDone() use localStorage so we don't show again after dismiss.
+ */
 import { useState, useEffect, useCallback } from 'react'
 import Robot from './Robot'
 import './DashboardTutorial.css'

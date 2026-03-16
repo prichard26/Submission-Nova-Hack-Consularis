@@ -1,4 +1,10 @@
-"""Shared AWS Bedrock client helpers: client creation, retry logic, credentials check, response extraction."""
+"""Shared AWS Bedrock client helpers for Consularis agent and report flows.
+
+- get_bedrock_client: boto3 bedrock-runtime client with optional explicit credentials and timeout/retry config.
+- check_bedrock_credentials: returns user-facing error string if credentials missing.
+- converse_with_retry: single Converse API call with exponential backoff on ThrottlingException.
+- extract_response_text: first text block from output.message.content (for assistant replies).
+"""
 import logging
 import time
 
@@ -31,7 +37,7 @@ def check_bedrock_credentials() -> str | None:
     if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
         return (
             "AWS credentials are not set. "
-            "Put AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in backend/.env (see env.example) and restart."
+            "Put AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in backend/.env (copy from root .env.example) and restart."
         )
     return None
 

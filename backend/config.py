@@ -1,5 +1,13 @@
 """
-Centralized config: env and constants. AWS Bedrock (Nova), paths, and limits.
+Centralized config: env and constants for the Consularis backend.
+
+Sections:
+- AWS Bedrock: region, credentials, default Nova model IDs (chat vs cheap/summary).
+- Paths: DATA_DIR, baseline template (pharmacy by default), workspace + graphs dirs.
+- Agent: tool rounds, timeouts, retries, conversation summary window.
+- CORS: allowed origins (comma-separated from env).
+- Session: max session_id length for validation.
+- BEDROCK_MODELS: registry for the frontend model picker; overridable via BEDROCK_MODELS_JSON.
 """
 import json
 import os

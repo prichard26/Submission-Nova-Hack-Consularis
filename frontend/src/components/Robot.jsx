@@ -1,3 +1,7 @@
+/**
+ * Robot avatar for landing and chat: crown + face, optional typing animation (message) and speaking state.
+ * size: 'normal' | 'small'. Used on landing and in chat header.
+ */
 import { memo, useState, useEffect } from 'react'
 import './Robot.css'
 

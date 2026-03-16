@@ -1,4 +1,10 @@
-"""Tool schemas and dispatch. Id-only tools; process inferred from id. Agent has get_full_graph to see everything and chooses new ids (next number) when adding."""
+"""Tool schemas and dispatch for the Aurelius planner/executor.
+
+All tools take session_id and optional process_id; process is often inferred from node id.
+Return convention: JSON string with {"ok": true, ...} on success or {"ok": false, "error": "..."} on failure.
+Handlers call into graph.store; renames from insert_step_between/delete_node are returned so the executor
+can apply them to subsequent step arguments (e.g. after renumbering P1.2 -> P1.3).
+"""
 import json
 import logging
 import re

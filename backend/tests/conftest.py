@@ -1,11 +1,15 @@
-"""Pytest fixtures: isolate graph store state per test."""
+"""Pytest fixtures for Consularis backend tests.
+
+- reset_db (autouse): before each test, (re)init DB, seed baseline, clear session tables and store caches;
+  after the test, clear again. Ensures no cross-test leakage.
+- client: FastAPI TestClient wrapping the main app for HTTP tests.
+"""
 import pytest
 
 
 @pytest.fixture(autouse=True)
 def reset_db():
-    """Reset in-memory SQLite state so tests don't leak between runs.
-    Also ensures baseline is seeded."""
+    """Reset in-memory SQLite and graph store caches so each test sees a clean baseline. Runs before and after each test."""
     import db as _db
     from graph.store import init_baseline
     from graph import store as graph_store

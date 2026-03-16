@@ -1,3 +1,7 @@
+/**
+ * useChat: state and handlers for Aurelius chat (messages, input, loading, send, confirm plan).
+ * Fetches models on mount; on send/confirm calls API and invokes onGraphUpdate/onWorkspaceUpdate when the graph or workspace changes.
+ */
 import { useState, useCallback, useEffect } from 'react'
 import { sendChat, confirmChatPlan, getModels } from '../services/api'
 import { WELCOME_MSG } from '../components/AureliusChat'

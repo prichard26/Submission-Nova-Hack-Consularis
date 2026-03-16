@@ -1,4 +1,11 @@
-"""Chat endpoint: POST /api/chat, POST /api/chat/confirm, GET /api/models."""
+"""
+Chat router: Aurelius conversation and plan confirmation.
+
+- POST /api/chat: append user message, run planner (Nova/Bedrock), return reply + optional graph_json and meta.
+- POST /api/chat/confirm: execute stored pending plan (user clicked "Apply plan").
+- GET /api/models: list available Bedrock models for the model picker.
+- GET /api/stats: cumulative API/token usage.
+"""
 import asyncio
 import json
 import logging
@@ -75,7 +82,7 @@ def _build_chat_response(message: str, session_id: str, process_id: str | None, 
 
 
 def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None, model_id: str | None = None):
-    """Append user message, run agent, append assistant message."""
+    """Append user message, run agent (planner; may store plan for confirm), append assistant reply. Called with session lock held."""
     db.append_chat_message(session_id, "user", user_message)
     result = run_chat(session_id, db.get_chat_history(session_id), process_id=process_id, model_id=model_id)
     db.append_chat_message(session_id, "assistant", result.message)
@@ -93,6 +100,7 @@ def _handle_chat_turn(session_id: str, user_message: str, process_id: str | None
     return result.message, result.include_graph, meta
 
 
+# Per-session locks so concurrent requests for the same session are serialized (plan storage + tool execution must be ordered).
 MAX_SESSION_LOCKS = 500
 _session_locks: OrderedDict[str, threading.Lock] = OrderedDict()
 _locks_guard = threading.Lock()
@@ -111,6 +119,7 @@ def _lock_for_session(session_id: str) -> threading.Lock:
 
 
 def _try_get_graph_dict(session_id: str, process_id: str | None, include_graph: bool, meta: dict) -> dict | None:
+    """Return client-ready graph dict only when the frontend needs an update (reply requested it, or tools/structural change)."""
     if not (include_graph or meta.get("tools_used") or meta.get("structural_change")):
         return None
     try:

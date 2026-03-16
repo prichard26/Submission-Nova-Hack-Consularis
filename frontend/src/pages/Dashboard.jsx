@@ -1,3 +1,7 @@
+/**
+ * Dashboard page: process graph canvas, Aurelius chat, landscape/minimap, and top bar.
+ * Session is identified by companyName. Loads workspace and graph; supports detail/landscape view and analyze sub-route.
+ */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import AureliusChat from '../components/AureliusChat'

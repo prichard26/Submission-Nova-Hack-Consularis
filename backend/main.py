@@ -1,3 +1,10 @@
+"""
+Consularis API entry point.
+
+FastAPI app with lifespan: on startup we initialize the in-memory SQLite DB
+and seed the baseline process graph from backend/data/<BASELINE_TEMPLATE>/.
+Routers: health, chat (Aurelius/Nova), graph (JSON + BPMN), analyze, session.
+"""
 import logging
 from contextlib import asynccontextmanager
 
@@ -15,6 +22,7 @@ logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO), format="%(a
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Initialize DB and baseline on startup; log Bedrock reminder."""
     get_conn()
     init_baseline()
     logger.info("Consularis: Aurelius chat uses Amazon Nova (Bedrock). Set AWS credentials for chat.")
@@ -23,6 +31,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Consularis API", lifespan=lifespan)
 
+# CORS: allow frontend (e.g. localhost:5173) to call the API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_CORS_ORIGINS,
@@ -32,6 +41,7 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+# Mount routers (health has no prefix; others use /api or /api/graph)
 app.include_router(health_router)
 app.include_router(chat_router)
 app.include_router(graph_router)

@@ -1,4 +1,9 @@
-"""Auto-layout for new nodes that have no position yet."""
+"""Auto-layout for new nodes that have no position yet.
+
+Used when the store adds a node (e.g. add_node, insert_step_between): places the new
+node to the right of the rightmost existing node in step_order. Returns center-of-top-edge
+for the UI to convert to top-left if needed.
+"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

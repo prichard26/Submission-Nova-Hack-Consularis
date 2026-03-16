@@ -4,8 +4,8 @@
 #
 # What this does:
 #   1. Installs Node dependencies (frontend)
-#   2. Creates a Python venv and installs backend deps
-#   3. Starts the backend on http://localhost:8000
+#   2. Creates root .venv and installs from requirements.txt (root)
+#   3. Starts the backend from backend/ on http://localhost:8000
 #   4. Starts the frontend on http://localhost:5173
 #
 # To stop: press Ctrl+C in this terminal. That stops the frontend and the script
@@ -37,12 +37,11 @@ cd "$REPO_ROOT"
 
 echo ""
 echo "2/4 Setting up backend (Python venv + deps)..."
-cd "$REPO_ROOT/backend"
+cd "$REPO_ROOT"
 if [[ ! -d .venv ]]; then
   python3 -m venv .venv
 fi
 source .venv/bin/activate
-# Use PyPI explicitly to avoid broken index URLs (e.g. from pip config with bad extra-index-url)
 pip install -q -r requirements.txt --index-url https://pypi.org/simple
 cd "$REPO_ROOT"
 
@@ -50,7 +49,7 @@ cd "$REPO_ROOT"
 echo ""
 echo "3/4 Starting backend on http://localhost:8000 ..."
 cd "$REPO_ROOT/backend"
-source .venv/bin/activate
+source "$REPO_ROOT/.venv/bin/activate"
 uvicorn main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 cd "$REPO_ROOT"

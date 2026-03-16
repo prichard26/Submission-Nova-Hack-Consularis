@@ -1,6 +1,8 @@
 /**
- * Shared layout for process tree (landscape).
- * Used by LandscapeView and LandscapeMinimap.
+ * Shared layout for process tree (landscape view and minimap).
+ *
+ * layoutTree(workspace): builds dagre graph from process_tree.processes (parent → children edges),
+ * runs dagre.layout, returns { nodes, edges } with positions and dimensions for each process box.
  */
 
 import dagre from 'dagre'

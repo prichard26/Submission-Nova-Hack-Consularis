@@ -1,4 +1,10 @@
-"""Analyze and appointment endpoints: automation analysis LLM and book-appointment email capture."""
+"""
+Analyze and report router: automation analysis and Company Process Intelligence Report.
+
+- POST /api/analyze: run automation analyzer (Nova) on session graph; returns markdown + metrics.
+- POST /api/report: compute report metrics and generate LLM narratives (executive summary, operations).
+- POST /api/appointment: store user email/name for "book appointment" CTA.
+"""
 import asyncio
 import logging
 import re
@@ -74,7 +80,7 @@ class ReportResponse(BaseModel):
 
 @router.post("/report", response_model=ReportResponse)
 async def api_report(req: ReportRequest):
-    """Generate the full Company Process Intelligence Report: computed metrics + LLM narratives."""
+    """Generate the full Company Process Intelligence Report: computed metrics first, then LLM narratives (executive summary + operations) using Nova."""
     try:
         metrics = await asyncio.to_thread(get_report_metrics, req.session_id)
     except Exception as e:

@@ -1,3 +1,6 @@
+/**
+ * Small SVG face for the chat header (Aurelius). talking toggles a CSS class for animation.
+ */
 import { memo } from 'react'
 import './BotFace.css'
 

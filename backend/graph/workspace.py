@@ -1,4 +1,8 @@
-"""Workspace manifest: lightweight index of all processes in a workspace."""
+"""Workspace manifest: lightweight index of all processes in a workspace.
+
+Wraps the workspace JSON (process_tree with root, processes dict, path/children/summary per process).
+Used by the store to refresh step/subprocess counts and by the UI to build the process tree / breadcrumbs.
+"""
 from __future__ import annotations
 
 import copy

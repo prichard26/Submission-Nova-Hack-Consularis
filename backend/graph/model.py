@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import json
 
+# All optional metadata keys for step/decision nodes (stored as strings or list-of-strings).
 STEP_METADATA_KEYS = frozenset({
     "actor", "duration_min", "description", "inputs", "outputs", "risks",
     "automation_potential", "automation_notes", "current_state", "frequency",
@@ -16,6 +17,7 @@ STEP_METADATA_KEYS = frozenset({
     "regulatory_constraints", "sla_target", "pain_points",
 })
 
+# Keys whose value is a list of strings (e.g. risks, inputs); tool layer coerces to list[str].
 LIST_METADATA_KEYS = frozenset({
     "inputs", "outputs", "risks", "current_systems",
     "external_dependencies", "regulatory_constraints", "pain_points",

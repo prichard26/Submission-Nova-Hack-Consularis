@@ -1,3 +1,4 @@
+/** React Flow custom node for lanes: process name with optional inline rename (useInlineRename + ProcessCanvasContext). */
 import { memo, useContext } from 'react'
 import { ProcessCanvasContext } from '../../contexts/ProcessCanvasContext'
 import { useInlineRename } from '../../hooks/useInlineRename'

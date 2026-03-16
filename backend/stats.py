@@ -1,4 +1,9 @@
-"""In-memory usage stats: API calls and token counts (cumulative)."""
+"""
+In-memory usage stats: API calls and token counts (cumulative).
+
+Used by the chat router to report per-turn and total usage in the response meta.
+Thread-safe via a single lock.
+"""
 import threading
 
 _lock = threading.Lock()

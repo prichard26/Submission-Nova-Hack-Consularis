@@ -1,6 +1,16 @@
 """In-memory SQLite storage for baseline processes, session state, and chat history.
 
-JSON-native: stores graph_json instead of bpmn_xml.
+JSON-native: all graph data is stored as graph_json (not BPMN XML). Data is ephemeral:
+lost on process restart. All access should go through this module; use _conn_lock for
+writes and any multi-step read-modify-write.
+
+Schema overview:
+- baseline_processes / baseline_workspace: seeded once at startup from data/<template>/.
+- session_processes / session_workspace: one row per session (or per session+process for graphs).
+- chat_messages: full history per session for the Aurelius conversation.
+- conversation_summaries: rolling summary of older messages to keep context window small.
+- pending_plans: stored plan from propose_plan until user clicks Apply or sends a new message.
+- appointment_requests: email/name when user requests a Consularis callback.
 """
 from __future__ import annotations
 
@@ -9,6 +19,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
+# Singleton connection; RLock allows same-thread re-entry (e.g. get_conn inside _conn_lock).
 _conn: sqlite3.Connection | None = None
 _conn_lock = threading.RLock()
 
@@ -25,6 +36,7 @@ def get_conn() -> sqlite3.Connection:
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:
+    """Create all tables and indexes if they do not exist. Idempotent."""
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS baseline_processes (
             process_id TEXT PRIMARY KEY,
@@ -163,7 +175,7 @@ def get_baseline_workspace() -> str | None:
 # ---------------------------------------------------------------------------
 
 def clone_baseline_to_session(session_id: str) -> None:
-    """Copy all baseline rows into session tables for the given session."""
+    """Copy all baseline rows into session tables for the given session. No-op if session already has any process data."""
     sid = str(session_id)
     with _conn_lock:
         conn = get_conn()
@@ -172,7 +184,7 @@ def clone_baseline_to_session(session_id: str) -> None:
         ).fetchone()
         existing = (row[0] if row is not None else 0)
         if existing > 0:
-            return
+            return  # Session already initialized (e.g. from a previous request)
         conn.execute(
             "INSERT OR IGNORE INTO session_processes (session_id, process_id, graph_json) "
             "SELECT ?, process_id, graph_json FROM baseline_processes",

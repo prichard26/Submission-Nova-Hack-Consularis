@@ -1,3 +1,7 @@
+/**
+ * Consularis frontend entry point.
+ * Renders the app inside StrictMode, BrowserRouter, and a top-level error boundary.
+ */
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'

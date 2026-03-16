@@ -1,3 +1,4 @@
+/** React Flow custom node for type "step": name, actor, duration/cost/error badges, automation bar. */
 import { memo } from 'react'
 import { NodeHandles } from './nodeTypes.jsx'
 import './nodes-common.css'

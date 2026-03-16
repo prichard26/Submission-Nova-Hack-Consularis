@@ -1,3 +1,7 @@
+/**
+ * useProcessGraph: fetch session graph JSON for a given sessionId and processId.
+ * Uses useFetchResource; on error for a non-global process falls back to baseline. refreshTrigger forces refetch.
+ */
 import { useMemo } from 'react'
 import { getGraphJson, getBaselineJson } from '../services/api'
 import { useFetchResource } from './useFetchResource'

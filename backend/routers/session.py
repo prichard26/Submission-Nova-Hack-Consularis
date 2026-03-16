@@ -1,4 +1,9 @@
-"""Session lifecycle: init from template vs blank."""
+"""
+Session lifecycle router: initialize a session from a template or blank.
+
+POST /api/session/init: create or reset session. from_blank/template_id=blank → empty graph;
+template_id=pharmacy → clone baseline; template_id=logistics|manufacturing|... → clone that template.
+"""
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -12,6 +17,7 @@ logger = logging.getLogger("consularis")
 
 router = APIRouter(prefix="/api", tags=["session"])
 
+# Allowed template_id values; "blank" / from_blank yield an empty graph; others load from data/<id>/.
 VALID_TEMPLATE_IDS = frozenset({
     "pharmacy", "logistics", "manufacturing",
     "retail", "restaurant", "electrician", "plumber", "cleaning",

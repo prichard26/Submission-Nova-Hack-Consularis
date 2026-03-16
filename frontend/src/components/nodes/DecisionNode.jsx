@@ -1,3 +1,4 @@
+/** React Flow custom node for type "decision": diamond shape with label. */
 import { memo } from 'react'
 import { NodeHandles } from './nodeTypes.jsx'
 import './nodes-common.css'

@@ -1,3 +1,8 @@
+/**
+ * Detail panel: editable metadata for the selected node (step/decision).
+ * Sections: text fields, textareas, automation dropdown, list fields (inputs, outputs, risks, etc.).
+ * Persists via updateStepFields; process rename uses renameProcess and onRequestRefresh.
+ */
 import { memo, useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { updateStepFields, renameProcess } from '../services/api'
 import './DetailPanel.css'

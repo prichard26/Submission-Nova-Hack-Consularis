@@ -1,3 +1,7 @@
+/**
+ * Aurelius chat UI: message list, input (text + voice), model picker, Apply plan / Cancel plan.
+ * Can be controlled (messages/onSend from parent) or uncontrolled (useChat). Supports overlay and compact modes.
+ */
 import { useRef, useEffect, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useChat } from '../hooks/useChat'

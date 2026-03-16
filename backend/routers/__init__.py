@@ -1,4 +1,4 @@
-"""API route modules."""
+"""API route modules: health, chat, graph, analyze, session (all mounted from main.py)."""
 from routers.health import router as health_router
 from routers.chat import router as chat_router
 from routers.graph import router as graph_router

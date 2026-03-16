@@ -1,7 +1,10 @@
 """Session-scoped JSON-native process store.
 
-Backed by in-memory SQLite (db module).  A cache of parsed ProcessGraph
-objects avoids re-parsing JSON on every request within a session.
+Backed by in-memory SQLite (db module). A cache of parsed ProcessGraph objects
+avoids re-parsing JSON on every request. On first access for a session we
+clone baseline into session tables (if empty) and 'brand' the workspace with
+the session name; subsequent reads/writes use the cached graph and persist
+back to db on mutation.
 """
 from __future__ import annotations
 
@@ -62,6 +65,7 @@ def init_baseline() -> None:
 
 
 def _get_graph(session_id: str, process_id: str | None = None) -> ProcessGraph:
+    """Load graph from cache or DB. If session has no data yet, clone baseline and brand workspace, then retry."""
     pid = _normalize_process_id(process_id)
     key = (session_id, pid)
     if key in _cache:
@@ -69,6 +73,7 @@ def _get_graph(session_id: str, process_id: str | None = None) -> ProcessGraph:
 
     json_str = db.get_session_json(session_id, pid)
     if json_str is None:
+        # First access for this session: seed from baseline and set workspace name from session_id
         db.clone_baseline_to_session(session_id)
         _brand_session(session_id)
         json_str = db.get_session_json(session_id, pid)

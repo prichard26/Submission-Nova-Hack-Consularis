@@ -1,3 +1,6 @@
+/**
+ * Presentational: shows a loading message and/or error message. Used when graph or workspace is loading or failed.
+ */
 import { memo } from 'react'
 
 function DataViewState({

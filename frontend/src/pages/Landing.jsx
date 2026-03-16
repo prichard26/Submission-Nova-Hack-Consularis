@@ -1,3 +1,7 @@
+/**
+ * Landing page: company name + template selection, then session init and redirect to dashboard.
+ * Calls initSession (from_blank or template_id), then invokes onSubmit with session payload.
+ */
 import { useCallback, useRef, useState, useEffect, useLayoutEffect } from 'react'
 import Robot from '../components/Robot'
 import { initSession } from '../services/api'

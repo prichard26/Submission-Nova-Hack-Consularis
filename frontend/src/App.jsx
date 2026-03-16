@@ -1,3 +1,8 @@
+/**
+ * Root app component: routing and session state.
+ * Session (companyName, sector, fromBlank) is persisted in sessionStorage.
+ * Routes: / → Landing (or redirect to dashboard if session exists), /dashboard → Dashboard, /dashboard/analyze → AnalyzePage.
+ */
 import { useMemo, useCallback, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Landing from './pages/Landing'

@@ -1,3 +1,7 @@
+/**
+ * Top-level error boundary: catches React errors and shows a fallback with a Reload button.
+ * Wraps the app in main.jsx so unhandled errors don't white-screen.
+ */
 import { Component } from 'react'
 
 export default class AppErrorBoundary extends Component {

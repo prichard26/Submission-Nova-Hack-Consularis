@@ -1,3 +1,7 @@
+/**
+ * Process graph canvas: ReactFlow with custom nodes (step, decision, subprocess, lane, events).
+ * Loads graph via useProcessGraph, supports CRUD (create/update/delete nodes and edges), layout, minimap, detail panel, and BPMN export.
+ */
 import { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import {
   ReactFlow,

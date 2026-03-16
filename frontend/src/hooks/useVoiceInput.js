@@ -1,3 +1,8 @@
+/**
+ * useVoiceInput: Web Speech API (SpeechRecognition) for Aurelius chat.
+ * Exposes isListening, transcript (final), interimTranscript, accumulatedLive, error, toggleListening.
+ * Stops automatically after SILENCE_TIMEOUT_MS of no speech; accumulated live transcript is used as placeholder in the input.
+ */
 import { useState, useCallback, useRef, useEffect } from 'react'
 
 const SpeechRecognitionAPI =

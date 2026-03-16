@@ -1,118 +1,119 @@
-# Consularis – Nova Hack MVP
+# Consularis
 
-Process intelligence: domain selection, interview flow, and operational mapping (Amazon Nova AI Hackathon).
+Process intelligence with Aurelius (Amazon Nova) and Company Process Intelligence Report for mid-sized businesses.
+
+---
+
+## Prerequisites
+
+- **Node.js** (LTS) — frontend
+- **Python 3.10+** — backend
+- **AWS credentials** — for Aurelius chat and reports (Amazon Nova via Bedrock)
+
+---
 
 ## Quick start
 
-**Requirements:** Node.js (LTS), Python 3.10+
+1. Copy the env template and set AWS credentials:
 
-**AWS credentials (for Aurelius chat):** Aurelius uses Amazon Nova via Bedrock. Put your AWS credentials in **`backend/.env`** (see `backend/env.example`):
+   ```bash
+   cp .env.example backend/.env
+   # Edit backend/.env: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+   ```
 
-```bash
-cp backend/env.example backend/.env
-# Edit backend/.env: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION (and optionally NOVA_MODEL_ID)
-```
+2. From the repository root, run:
 
-Then:
+   ```bash
+   ./run.sh
+   ```
 
-```bash
-./run.sh
-```
+3. Open **http://localhost:5173** in your browser. Backend runs at **http://localhost:8000**.
 
-This will:
+**Stop:** Press **Ctrl+C** in the terminal where `./run.sh` is running, or run `./stop.sh` to stop processes on ports 5173–5175 and 8000.
 
-1. Install frontend dependencies (`frontend/node_modules`)
-2. Create a Python venv and install backend deps (`backend/.venv`)
-3. Start the **backend** at **http://localhost:8000**
-4. Start the **frontend** at **http://localhost:5173**
-
-Open **http://localhost:5173** in your browser.
-
-### Stop the app
-
-- **If you started with `./run.sh`:** press **Ctrl+C** in that terminal. The script will stop the frontend and kill the backend.
-- **If you started servers manually** (e.g. `npm run dev` in one terminal, `uvicorn` in another), either press Ctrl+C in each terminal, or run:
-
-```bash
-./stop.sh
-```
-
-That kills any process listening on port **5173** (frontend) and **8000** (backend).
-
-## Where things run
-
-| Service  | URL                  | Started by                          |
-|----------|----------------------|-------------------------------------|
-| Frontend | http://localhost:5173 | `npm run dev` (Vite) in `frontend/` |
-| Backend  | http://localhost:8000 | `uvicorn main:app` in `backend/`    |
-
-The frontend uses these backend APIs:
-
-- **GET /api/graph/baseline?process_id=…** — baseline BPMN XML (no session needed, default `Process_Global`)
-- **GET /api/graph/export?session_id=…&process_id=…** — session graph as BPMN XML
-- **GET /api/graph/resolve?session_id=…&name=…** — fuzzy name-to-ID resolution
-- **POST /api/chat** — send message; returns assistant reply, updated `bpmn_xml`, and meta
+---
 
 ## Manual setup (optional)
 
-```bash
-# Frontend
-cd frontend && npm install && npm run dev
-
-# Backend (another terminal)
-cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && uvicorn main:app --reload --port 8000
-```
-
-## Run tests
+**Backend only** (other terminal):
 
 ```bash
-cd backend && source .venv/bin/activate && pytest -v
+cp .env.example backend/.env
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## How the agent works
+**Frontend only:** `cd frontend && npm install && npm run dev` (backend must be running).
 
-1. **Session:** Each company name is a `session_id`. The backend keeps a set of BPMN 2.0 process graphs per session (hierarchical: global map + subprocesses), backed by in-memory SQLite.
-2. **Chat:** When you send a message, the backend calls Amazon Nova (Bedrock) with a system prompt (Aurelius helper + answer all questions) and **tools**: `get_graph`, `get_node`, `update_node`, `add_node`, `delete_node`, `get_edges`, `update_edge`, `add_edge`, `validate_graph`, plus hierarchy tools (`resolve_step`, `list_processes`, `navigate_process`).
-3. **Tool loop:** If the model returns tool calls (e.g. "update P1.2 duration to 10 min"), the backend runs the tool on the session graph, appends the result to the conversation, and calls the model again. This repeats until the model replies with plain text and no tool calls.
-4. **Validation:** Every tool call is validated (node/edge exists, IDs from the graph only). Invalid calls return an error to the model so it can self-correct.
-5. **Live graph:** The API returns `{ message, bpmn_xml, meta }`. The frontend updates the BPMN diagram from `bpmn_xml` so edits appear immediately.
-
-## Architecture
-
-The system uses a **hierarchical process tree** stored in **BPMN 2.0 XML** and backed by **in-memory SQLite**:
-
-- A **process registry** (`registry.json`) defines the tree structure.
-- Each process is a separate BPMN file (`global.bpmn`, `P1.bpmn`–`P7.bpmn`).
-- Parent processes link to children via **call activities**.
-- Tasks carry 19 metadata fields (actor, duration, risks, operational data like frequency, costs, SLA targets).
-- Sessions get a deep copy of the baseline; each session evolves independently.
+---
 
 ## Project structure
 
 ```
-├── backend/                  FastAPI app
-│   ├── main.py               App entry, lifespan, CORS, routers
-│   ├── config.py             Env and constants
-│   ├── db.py                 In-memory SQLite (baseline, sessions, chat)
-│   ├── routers/              HTTP endpoints (health, chat, graph)
-│   ├── agent/                Aurelius: runtime, tools, prompt
-│   ├── bpmn/                 BPMN domain: model, parser, serializer, layout, store
-│   ├── services/             Chat orchestration
-│   ├── data/
-│   │   └── graphs/           Baseline BPMN hierarchy
-│   │       ├── registry.json
-│   │       ├── global.bpmn
-│   │       └── P1-P7.bpmn
-│   └── tests/
-├── frontend/                 React + Vite app
+├── .env.example
+├── .gitignore
+├── README.md
+├── SUBMISSION.md
+├── requirements.txt
+├── requirements-dev.txt
+├── run.sh
+├── stop.sh
+│
+├── backend/
+│   ├── main.py, config.py, db.py, stats.py
+│   ├── routers/       # health, chat, graph, analyze, session, validation (helpers)
+│   ├── agent/         # Nova runtime, tools, prompt, context, bedrock_client, analyzer, report_generator
+│   ├── graph/         # model, workspace, store, layout, bpmn_export, summary, validation
+│   ├── data/          # pharmacy/, logistics/, manufacturing/, retail/, restaurant/, etc.
+│   └── tests/         # conftest + test_*.py
+│
+├── frontend/
+│   ├── index.html
+│   ├── package.json, vite.config.js, eslint.config.js
+│   ├── public/        # logo.png
 │   └── src/
-│       ├── components/       BpmnViewer, AureliusChat, Robot, etc.
-│       ├── hooks/            useBpmnXml
-│       ├── pages/            Landing, Dashboard
-│       └── services/         API client
-├── docs/                     Architecture and reference docs
-├── run.sh                    One-shot setup and run
-└── stop.sh                   Stop dev servers
+│       ├── main.jsx, App.jsx, index.css
+│       ├── components/  # + nodes/, CSS next to components
+│       ├── pages/       # Landing, Dashboard, AnalyzePage
+│       ├── hooks/
+│       ├── services/
+│       └── contexts/
+│
+└── docs/
+    └── README.md      # Points to this README and backend README
 ```
 
-Documentation: [docs/README.md](docs/README.md) (index). Data flow and state: [docs/DATA_FLOW.md](docs/DATA_FLOW.md). Graph structure: [docs/GRAPH_STRUCTURE.md](docs/GRAPH_STRUCTURE.md).
+---
+
+## Run tests
+
+From repo root:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cd backend && pytest -v
+```
+
+---
+
+## Main API (frontend → backend)
+
+- **GET /health** — Health check
+- **POST /api/session/init** — Initialize session (template or blank)
+- **GET /api/graph/json** — Session graph as JSON
+- **GET /api/graph/workspace** — Workspace manifest
+- **POST /api/chat** — Send message to Aurelius; returns reply and optional graph update
+- **POST /api/chat/confirm** — Apply pending plan
+- **POST /api/analyze** — Automation analyzer (markdown + metrics)
+- **POST /api/report** — Company Process Intelligence Report (metrics + narratives)
+- **GET /api/graph/export** — Session graph as BPMN 2.0 XML (download)
+
+---
+
+## Documentation
+
+- [SUBMISSION.md](SUBMISSION.md) — Hackathon submission and inspiration
+- [docs/README.md](docs/README.md) — Links to root and backend READMEs

@@ -1,3 +1,6 @@
+/**
+ * React Flow node type registry and shared handle config: StepNode, DecisionNode, SubprocessNode, EventNode, LaneNode.
+ */
 import { Handle, Position } from '@xyflow/react'
 import StepNode from './StepNode'
 import DecisionNode from './DecisionNode'

@@ -1,3 +1,6 @@
+/**
+ * useWorkspace: fetch workspace manifest for a session (process tree, summaries). refreshTrigger forces refetch.
+ */
 import { useMemo } from 'react'
 import { getWorkspace } from '../services/api'
 import { useFetchResource } from './useFetchResource'

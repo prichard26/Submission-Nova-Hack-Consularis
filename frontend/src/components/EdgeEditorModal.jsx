@@ -1,3 +1,6 @@
+/**
+ * Modal to edit an edge label (create or update). Backdrop click or Escape closes; Enter saves.
+ */
 import { useCallback } from 'react'
 
 export default function EdgeEditorModal({

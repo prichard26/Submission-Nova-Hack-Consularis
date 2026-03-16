@@ -1,3 +1,4 @@
+/** React Flow custom node for type "subprocess": name and step count from workspaceInfo. */
 import { memo } from 'react'
 import { NodeHandles } from './nodeTypes.jsx'
 import './nodes-common.css'

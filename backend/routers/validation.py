@@ -1,4 +1,9 @@
-"""Shared validators for router request models."""
+"""
+Shared validators for router request models.
+
+Used by Pydantic field_validator (validate_session_id) and by query-param
+endpoints (validate_session_id_or_400) to enforce session_id length and non-empty.
+"""
 from fastapi import HTTPException
 from config import SESSION_ID_MAX_LEN
 

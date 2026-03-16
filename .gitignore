@@ -7,7 +7,8 @@ backend/.env
 .env.local
 *.env.local
 
-# Backend (Python)
+# Backend (Python) — venv at repo root
+.venv/
 backend/.venv/
 backend/__pycache__/
 *.py[cod]
